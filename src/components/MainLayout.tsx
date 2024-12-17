@@ -16,45 +16,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({ refreshNotes, notes }) => {
     const [activeTab, setActiveTab] = useState<'chat' | 'memo'>('memo');
     const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const uploadButtonInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const fileList = event.target.files;
         if (fileList && fileList.length > 0) {
             const newFiles = Array.from(fileList);
-            console.log('Adding files:', newFiles);
-            setFiles(prevFiles => {
-                const updatedFiles = [...prevFiles, ...newFiles];
-                console.log('Updated files state:', updatedFiles);
-                return updatedFiles;
-            });
-        }
-        // Reset the input value so the same file can be selected again if needed
-        if (event.target) {
-            event.target.value = '';
-        }
-    };
-
-    const handleUploadClick = () => {
-        if (fileInputRef.current) {
-            fileInputRef.current.click();
+            setFiles(prevFiles => [...prevFiles, ...newFiles]);
+            event.target.value = ''; // Reset input
         }
     };
 
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
-        e.stopPropagation();
         setIsDragging(true);
     };
 
     const handleDragLeave = (e: React.DragEvent) => {
         e.preventDefault();
-        e.stopPropagation();
         setIsDragging(false);
     };
 
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
-        e.stopPropagation();
         setIsDragging(false);
         
         if (e.dataTransfer.files) {
@@ -65,16 +49,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ refreshNotes, notes }) => {
 
     const handleDeleteFile = (fileOrNote: File | Note) => {
         if ('lastModified' in fileOrNote) {
-            console.log('Deleting file:', fileOrNote);
             setFiles(prevFiles => prevFiles.filter(file => file !== fileOrNote));
-        } else {
-            console.log('Deleting note:', fileOrNote);
         }
     };
 
-    useEffect(() => {
-        console.log('Current files in MainLayout:', files);
-    }, [files]);
+    const handleUploadClick = () => {
+        uploadButtonInputRef.current?.click();
+    };
 
     const handleExportPDF = () => {
         if ((window as any).exportInvestmentMemo) {
@@ -85,12 +66,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ refreshNotes, notes }) => {
     };
 
     return (
-        <div 
-            className="flex h-screen"
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-        >
+        <div className="flex h-screen">
             <div className="flex-1 flex flex-col">
                 <div className="border-b p-4 flex justify-between items-center">
                     <div className="flex gap-4">
@@ -116,6 +92,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ refreshNotes, notes }) => {
                         </button>
                     </div>
                     <div className="flex items-center gap-2">
+                        {/* Main file input for drag & drop area */}
                         <input
                             type="file"
                             id="file-upload"
@@ -131,6 +108,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ refreshNotes, notes }) => {
                             className={`flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md cursor-pointer transition-colors ${
                                 isDragging ? 'bg-[#E20074] text-white' : ''
                             }`}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
                         >
                             <Upload size={18} />
                             <span>
@@ -139,6 +119,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ refreshNotes, notes }) => {
                                     : 'Select Multiple Files'}
                             </span>
                         </label>
+                        {/* Separate file input for Upload File button */}
+                        <input
+                            type="file"
+                            className="hidden"
+                            onChange={handleFileChange}
+                            multiple
+                            accept=".pdf,.doc,.docx,.txt,.json,.md"
+                            ref={uploadButtonInputRef}
+                        />
                         {files.length > 0 && (
                             <span className="text-sm text-gray-600">
                                 {files.length} file{files.length !== 1 ? 's' : ''} uploaded
@@ -153,12 +142,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ refreshNotes, notes }) => {
                         </button>
                     </div>
                 </div>
-                <div 
-                    className="flex-1 flex"
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                >
+                <div className="flex-1 flex">
                     <div className="flex-1 overflow-y-auto p-6">
                         {activeTab === 'chat' ? (
                             <AIChatHistory files={files} />

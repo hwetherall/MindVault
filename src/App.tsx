@@ -4,6 +4,7 @@ import { AIProvider } from './context/AIContext';
 import MainLayout from './components/MainLayout';
 import { notesService } from './services/notesService';
 import WelcomePopup from './components/WelcomePopup';
+import { SpeedInsights } from "@vercel/speed-insights/react"
 
 export interface Note {
     id: string;
@@ -33,10 +34,13 @@ const App: React.FC = () => {
         <NotesProvider>
             <AIProvider>
                 <MainLayout 
-                    refreshNotes={refreshNotes} 
                     notes={notes} 
                 />
-                <WelcomePopup />
+                <WelcomePopup 
+                    isVisible={true} 
+                    onClose={() => {}} 
+                />
+                <SpeedInsights />
             </AIProvider>
         </NotesProvider>
     );
