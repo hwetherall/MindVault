@@ -3,6 +3,7 @@ import { NotesProvider } from './context/NotesContext';
 import { AIProvider } from './context/AIContext';
 import MainLayout from './components/MainLayout';
 import { notesService } from './services/notesService';
+import WelcomePopup from './components/WelcomePopup';
 
 export interface Note {
     id: string;
@@ -35,6 +36,7 @@ const App: React.FC = () => {
                     refreshNotes={refreshNotes} 
                     notes={notes} 
                 />
+                <WelcomePopup />
             </AIProvider>
         </NotesProvider>
     );

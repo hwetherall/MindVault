@@ -5,6 +5,7 @@ import { notesService } from '../services/notesService';
 import { filesService } from '../services/filesService';
 import { chatService } from '../services/chatService';
 import { InvestmentMemo } from './InvestmentMemo';
+import WelcomePopup from './WelcomePopup';
 
 export default function MainLayout() {
   const [files, setFiles] = useState([]);
@@ -18,6 +19,7 @@ export default function MainLayout() {
   const [fileTitle, setFileTitle] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [view, setView] = useState('chat');
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     loadAllContent();
@@ -352,6 +354,21 @@ export default function MainLayout() {
           Processing your request...
         </div>
       )}
+
+      <button
+        onClick={() => setShowHelp(true)}
+        className="fixed bottom-4 right-4 bg-[#1A1F2E] text-white py-2 px-4 rounded-full hover:bg-[#2A2F3E] transition-colors flex items-center gap-2 shadow-lg"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+        </svg>
+        Need Help?
+      </button>
+
+      <WelcomePopup 
+        isVisible={showHelp} 
+        onClose={() => setShowHelp(false)} 
+      />
     </div>
   );
 }
