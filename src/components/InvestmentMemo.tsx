@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { chatService } from '../services/chatService';
 import { ChevronDown, ChevronUp, Edit2, Save, FileDown, RefreshCw, HelpCircle } from 'lucide-react';
 import { NextStepsModal } from './NextStepsModal';
 import { ConfirmationModal } from './ConfirmationModal';
 import { notesService } from '../services/notesService';
 import { ChecklistModal } from './ChecklistModal';
+import { jsPDF } from 'jspdf';
 
 const ROUND_1_QUESTIONS = [
     "What is the total addressable market (TAM) and growth potential for this product?",
@@ -85,9 +86,10 @@ interface Answer {
 interface InvestmentMemoProps {
     files: any[];
     onNotesUpdate?: () => void;
+    onExportError?: () => void;
 }
 
-export const InvestmentMemo: React.FC<InvestmentMemoProps> = ({ files, onNotesUpdate }) => {
+export const InvestmentMemo: React.FC<InvestmentMemoProps> = ({ files, onNotesUpdate, onExportError }) => {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [answers, setAnswers] = useState<Answer[]>(new Array(5).fill({ content: '', isEdited: false }));
     const [error, setError] = useState<string | null>(null);
@@ -471,6 +473,67 @@ export const InvestmentMemo: React.FC<InvestmentMemoProps> = ({ files, onNotesUp
         }));
     };
 
+    const exportToPDF = () => {
+        // Check if we have any answers
+        const hasAnswers = answers.some(answer => answer.content !== '');
+        if (!hasAnswers) {
+            alert('Please generate the Investment Memo first before exporting to PDF.');
+            return;
+        }
+
+        const pdf = new jsPDF();
+        let yPosition = 20;
+        const pageWidth = pdf.internal.pageSize.width;
+        const margin = 20;
+        const contentWidth = pageWidth - 2 * margin;
+
+        // Helper function to add text with word wrap
+        const addWrappedText = (text: string, y: number) => {
+            const lines = pdf.splitTextToSize(text, contentWidth);
+            pdf.text(lines, margin, y);
+            return y + (lines.length * 7);
+        };
+
+        // Add title
+        pdf.setFontSize(20);
+        pdf.text('Investment Memo Report', margin, yPosition);
+        yPosition += 15;
+
+        // Add Round title
+        pdf.setFontSize(16);
+        pdf.text(`${questionSet === 'round1' ? 'Round 1' : 'Round 2'} Due Diligence`, margin, yPosition);
+        yPosition += 10;
+
+        // Add Q&A
+        pdf.setFontSize(12);
+        currentQuestions.forEach((question, index) => {
+            if (yPosition > pdf.internal.pageSize.height - 20) {
+                pdf.addPage();
+                yPosition = 20;
+            }
+
+            // Add question
+            pdf.setFont("helvetica", 'bold');
+            yPosition = addWrappedText(`Q${index + 1}: ${question}`, yPosition);
+            yPosition += 5;
+
+            // Add answer
+            pdf.setFont("helvetica", 'normal');
+            yPosition = addWrappedText(answers[index].content || 'No answer provided', yPosition);
+            yPosition += 10;
+        });
+
+        // Save the PDF
+        const timestamp = new Date().toLocaleString().replace(/[/\\?%*:|"<>]/g, '-');
+        pdf.save(`Investment-Memo-${timestamp}.pdf`);
+    };
+
+    useEffect(() => {
+        if (window) {
+            (window as any).exportInvestmentMemo = exportToPDF;
+        }
+    }, [answers, questionSet]);
+
     return (
         <div className="flex flex-col h-full">
             <div className="flex justify-between items-center mb-4">
@@ -486,7 +549,7 @@ export const InvestmentMemo: React.FC<InvestmentMemoProps> = ({ files, onNotesUp
                         Ask Pedram
                     </button>
                     <button
-                        onClick={() => {}}
+                        onClick={exportToPDF}
                         className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-gray-700 transition-colors"
                     >
                         <FileDown size={18} />

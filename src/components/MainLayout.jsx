@@ -160,24 +160,7 @@ export default function MainLayout() {
               Notes Repository
             </h2>
             
-            <div className="flex-1 overflow-auto mb-4">
-              <ul className="space-y-2">
-                {files.map((file) => (
-                  <li key={file.id} className="flex items-center justify-between text-[#1A1F2E] p-2 hover:bg-gray-50 rounded">
-                    <span>• {file.name}</span>
-                    <button
-                      onClick={() => handleDeleteFile(file.id, file.type)}
-                      className="text-[#1A1F2E] hover:text-[#E20074] p-1 transition-colors"
-                      title="Delete file"
-                    >
-                      <X size={18} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            
-            <div className="flex gap-4 mt-auto pt-4 border-t">
+            <div className="flex gap-4 mb-4">
               <button
                 onClick={() => setNoteDialog(true)}
                 className="flex-1 bg-[#E20074] text-white py-2 rounded hover:bg-[#B4005C] transition-colors"
@@ -197,6 +180,23 @@ export default function MainLayout() {
               >
                 <Trash2 className="text-white" />
               </button>
+            </div>
+            
+            <div className="flex-1 overflow-auto">
+              <ul className="space-y-2">
+                {files.map((file) => (
+                  <li key={file.id} className="flex items-center justify-between text-[#1A1F2E] p-2 hover:bg-gray-50 rounded">
+                    <span>• {file.name}</span>
+                    <button
+                      onClick={() => handleDeleteFile(file.id, file.type)}
+                      className="text-[#1A1F2E] hover:text-[#E20074] p-1 transition-colors"
+                      title="Delete file"
+                    >
+                      <X size={18} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
 
