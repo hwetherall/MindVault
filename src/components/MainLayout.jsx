@@ -4,6 +4,7 @@ import { Trash2, X } from 'lucide-react';
 import { notesService } from '../services/notesService';
 import { filesService } from '../services/filesService';
 import { chatService } from '../services/chatService';
+import { InvestmentMemo } from './InvestmentMemo';
 
 export default function MainLayout() {
   const [files, setFiles] = useState([]);
@@ -16,6 +17,7 @@ export default function MainLayout() {
   const [noteContent, setNoteContent] = useState('');
   const [fileTitle, setFileTitle] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [view, setView] = useState('chat');
 
   useEffect(() => {
     loadAllContent();
@@ -198,35 +200,64 @@ export default function MainLayout() {
 
           {/* Right Panel */}
           <div className="bg-white rounded-lg p-6 shadow-lg flex flex-col">
-            <h2 className="text-xl font-bold mb-4 text-[#1A1F2E] border-b-2 border-[#E20074] pb-2 text-center">
-              Chat Output
-            </h2>
-            
-            <div className="flex-1 overflow-auto mb-4">
-              <p className="text-[#1A1F2E] italic">{chatOutput}</p>
+            <div className="flex justify-end mb-4">
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setView('chat')}
+                  className={`px-6 py-2.5 rounded-md transition-colors ${
+                    view === 'chat'
+                      ? 'bg-[#E20074] text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Chat Mode
+                </button>
+                <button
+                  onClick={() => setView('investment')}
+                  className={`px-6 py-2.5 rounded-md transition-colors ${
+                    view === 'investment'
+                      ? 'bg-[#E20074] text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Investment Memo
+                </button>
+              </div>
             </div>
-            
-            <div className="flex gap-2 bg-[#E20074] rounded p-2 mt-auto">
-              <input
-                type="text"
-                className="flex-1 px-4 py-2 rounded text-[#1A1F2E]"
-                placeholder="Ask me Anything!"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleChat();
-                  }
-                }}
-              />
-              <button 
-                className="bg-transparent"
-                onClick={handleChat}
-                disabled={isLoading}
-              >
-                <Search className={`text-white ${isLoading ? 'opacity-50' : ''}`} />
-              </button>
-            </div>
+
+            {view === 'chat' ? (
+              <>
+                <h2 className="text-xl font-bold mb-4 text-[#1A1F2E] border-b-2 border-[#E20074] pb-2 text-center">
+                  Chat Output
+                </h2>
+                <div className="flex-1 overflow-auto mb-4">
+                  <p className="text-[#1A1F2E] italic">{chatOutput}</p>
+                </div>
+                <div className="flex gap-2 bg-[#E20074] rounded p-2 mt-auto">
+                  <input
+                    type="text"
+                    className="flex-1 px-4 py-2 rounded text-[#1A1F2E]"
+                    placeholder="Ask me Anything!"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleChat();
+                      }
+                    }}
+                  />
+                  <button 
+                    className="bg-transparent"
+                    onClick={handleChat}
+                    disabled={isLoading}
+                  >
+                    <Search className={`text-white ${isLoading ? 'opacity-50' : ''}`} />
+                  </button>
+                </div>
+              </>
+            ) : (
+              <InvestmentMemo files={files} />
+            )}
           </div>
         </div>
       </div>

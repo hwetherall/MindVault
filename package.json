@@ -9,7 +9,6 @@
     "preview": "vite preview",
     "postinstall": "cp node_modules/pdfjs-dist/build/pdf.worker.min.js public/",
     "lint": "eslint ."
-    
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -18,8 +17,10 @@
     "@mui/material": "^5.16.9",
     "@supabase/supabase-js": "^2.47.3",
     "@tanstack/react-query": "^5.14.2",
+    "jspdf": "^2.5.2",
     "lucide-react": "^0.468.0",
-    "openai": "^4.76.1",
+    "next": "^15.1.0",
+    "openai": "^4.76.3",
     "pdf-parse": "^1.1.1",
     "pdfjs-dist": "^3.11.174",
     "react": "^18.3.1",
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
+    "@tailwindcss/typography": "^0.5.15",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
