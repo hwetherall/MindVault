@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@tailwindcss/typography": "^0.5.16",
+    "gpt-tokenizer": "^2.8.1",
+    "react-markdown": "^10.0.0"
+  }
+}
