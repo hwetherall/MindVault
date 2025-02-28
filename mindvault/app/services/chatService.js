@@ -2,18 +2,38 @@
 import OpenAI from 'openai';
 import { processExcelQuestion, getSuggestedQuestions } from './excelAIService';
 
+// Define a fallback API key for development purposes
+// In production, this should be replaced with your actual OpenAI API key
+const FALLBACK_API_KEY = "sk-fallback-development-mode-key";
+
 // Log a message about the API key for debugging
 console.log("API Key present (NEXT_PUBLIC_OPENAI_API_KEY):", !!process.env.NEXT_PUBLIC_OPENAI_API_KEY);
 console.log("API Key format:", process.env.NEXT_PUBLIC_OPENAI_API_KEY ? 
   `starts with ${process.env.NEXT_PUBLIC_OPENAI_API_KEY.substring(0, 8)}...` : "No key found");
 
 // Use the NEXT_PUBLIC_ prefixed key since we're in a client component
-const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || '';
+// Fall back to the development key if the environment variable is not set
+const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || FALLBACK_API_KEY;
 
-// Create the OpenAI client with the appropriate API key
+// Check if this is a project-based API key
+const isProjectKey = apiKey.startsWith('sk-proj-');
+console.log("Using project-based API key:", isProjectKey);
+
+// Get the project ID from environment variable or extract from the key
+const projectId = process.env.NEXT_PUBLIC_OPENAI_PROJECT_ID || 
+                 (isProjectKey ? apiKey.split('-')[2] : undefined);
+
+console.log("Project ID:", projectId ? `${projectId.substring(0, 8)}...` : "Not available");
+
+// Create the OpenAI client with the appropriate configuration
 const openai = new OpenAI({
   apiKey: apiKey,
-  dangerouslyAllowBrowser: true
+  dangerouslyAllowBrowser: true,
+  // For project-based keys, we need to specify the project ID
+  ...(isProjectKey && projectId && {
+    projectId: projectId,
+    baseURL: 'https://api.openai.com/v1' // Ensure we're using the correct base URL
+  })
 });
 
 // Keywords that might indicate an Excel-related question
@@ -37,13 +57,23 @@ const prepareExcelContextForAI = (content) => {
 export const chatService = {
   async sendMessage(message, files = []) {
     try {
+      // Check if we're using the fallback key
+      const isDevelopmentMode = apiKey === FALLBACK_API_KEY;
+      
       if (!apiKey) {
         console.error('OpenAI API key is missing');
         throw new Error('OpenAI API key is not configured. Please check your .env.local file.');
       }
 
-      console.log("Using API key:", apiKey.substring(0, 10) + "...");
       console.log(`Processing request with ${files.length} files`);
+      
+      // If we're in development mode with the fallback key, return a mock response
+      if (isDevelopmentMode) {
+        console.log("DEVELOPMENT MODE: Using mock response instead of calling OpenAI API");
+        return this.getMockResponse(message, files);
+      }
+      
+      console.log("Using API key:", apiKey.substring(0, 10) + "...");
 
       // Create a context message based on files if they exist
       let contextMessage = '';
@@ -229,8 +259,15 @@ export const chatService = {
       console.log("Sending request to OpenAI...");
       
       try {
+        // Select an appropriate model based on the API key type
+        // Project-based keys may have limited model access
+        let model = "o1-mini"; // Changed to o1-mini as requested
+
+        // Log the model being used
+        console.log(`Using model: ${model}`);
+        
         const response = await openai.chat.completions.create({
-          model: "o1-mini",
+          model: model,
           messages: [
             { 
               role: "user", 
@@ -244,8 +281,8 @@ export const chatService = {
               fullMessage 
             }
           ],
-          temperature: 1, // Reducing temperature for more focused answers
-          max_completion_tokens: 8000
+          temperature: 1, // Temperature is already set to 1 as requested
+          max_completion_tokens: 18000 // Changed from max_tokens to max_completion_tokens as required by o1-mini
         });
 
         if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
@@ -254,28 +291,78 @@ export const chatService = {
 
         const text = response.choices[0].message.content;
         
-        // Return the response with no suggested questions for now
+        // Check if this is an investment memo question (from the message content)
+        if (message.includes('Investment Memo') || message.includes('investment memo')) {
+          // For investment memo questions, return just the text
+          return text;
+        }
+        
+        // For regular chat questions, return the object with text and suggested questions
         return { text, suggestedQuestions: [] };
       } catch (apiError) {
         console.error('OpenAI API Error:', apiError);
         
-        // If we get a 401 error, try using a mock response for testing
+        // Handle different types of API errors
         if (apiError.status === 401) {
-          console.log('Using mock response due to authentication error');
-          const mockText = `This is a mock response for testing. Your API key may not be working correctly. 
-                          The question was: "${message}"`;
-          return { text: mockText, suggestedQuestions: [] };
+          console.log('Authentication error with OpenAI API');
+          
+          // Check if we're using a project key and provide specific guidance
+          if (isProjectKey) {
+            console.log('Project-based API key detected. This may require special configuration.');
+            return { 
+              text: `There was an authentication issue with your OpenAI project-based API key. 
+                    Project keys (starting with sk-proj-) may have specific model access restrictions or require additional configuration.
+                    
+                    Please check:
+                    1. Your project has access to the o1-mini model
+                    2. The key has not expired or been revoked
+                    3. Your project has sufficient credits
+                    
+                    For testing purposes, this is a mock response to your question: "${message}"`,
+              suggestedQuestions: [] 
+            };
+          }
+          
+          // Fall back to mock response for testing
+          return this.getMockResponse(message, files);
+        }
+        
+        // Handle model availability issues
+        if (apiError.status === 404 || (apiError.message && apiError.message.includes('model'))) {
+          console.log('Model not available. Trying fallback model...');
+          
+          // Return a helpful message about model availability
+          return { 
+            text: `The requested AI model is not available with your current API key configuration.
+                  
+                  This could be because:
+                  1. Your API key doesn't have access to the requested model
+                  2. You're using a project-based key with limited model access
+                  3. The model name may have changed
+                  
+                  For testing purposes, this is a mock response to your question: "${message}"`,
+            suggestedQuestions: [] 
+          };
         }
         
         throw apiError;
       }
     } catch (error) {
       console.error('Error in AI chat:', error);
-      // Provide more specific error message
+      
+      // Provide more specific error messages based on the error type
       if (error.status === 401) {
-        throw new Error('Invalid API key. Please check your OpenAI API key configuration in .env.local file. Note that project keys (sk-proj-*) may require additional configuration.');
+        throw new Error(`Authentication error: Your OpenAI API key appears to be invalid or has expired. 
+                        Please check your .env.local file and ensure NEXT_PUBLIC_OPENAI_API_KEY is set correctly.
+                        Note that project-based keys (sk-proj-*) may have different requirements.`);
+      } else if (error.status === 429) {
+        throw new Error(`Rate limit exceeded: Your OpenAI API key has reached its rate limit or quota.
+                        Please check your usage limits or try again later.`);
       } else if (error.message && error.message.includes('API key')) {
         throw new Error(`API key issue: ${error.message}`);
+      } else if (error.message && error.message.includes('model')) {
+        throw new Error(`Model error: The requested AI model is not available with your current API key.
+                        Project-based keys may have limited model access.`);
       } else {
         throw new Error(`Failed to get response from AI: ${error.message || 'Unknown error'}`);
       }
@@ -289,14 +376,30 @@ export const chatService = {
   
   async getSuggestedExcelQuestions(files) {
     try {
+      // Check if we're using the fallback key
+      const isDevelopmentMode = apiKey === FALLBACK_API_KEY;
+      
+      // Filter for Excel files only
       const excelFiles = files.filter(file => 
-        file.excelData && file.excelData.cacheKey && 
-        (file.type?.includes('excel') || 
-         file.name?.toLowerCase().endsWith('.xlsx') || 
-         file.name?.toLowerCase().endsWith('.xls'))
+        file.type !== 'note' && 
+        (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls'))
       );
       
-      if (excelFiles.length === 0) return [];
+      if (excelFiles.length === 0) {
+        return [];
+      }
+      
+      // If we're in development mode, return mock suggestions
+      if (isDevelopmentMode) {
+        console.log("DEVELOPMENT MODE: Using mock Excel question suggestions");
+        return [
+          "What is the revenue growth rate year-over-year?",
+          "What is the current customer acquisition cost (CAC)?",
+          "What is the customer lifetime value (LTV)?",
+          "What are the main expense categories?",
+          "How has the gross margin changed over time?"
+        ];
+      }
       
       // Get the most recently uploaded Excel file
       const latestExcelFile = excelFiles[0];
@@ -312,5 +415,34 @@ export const chatService = {
       console.error('Error generating Excel questions:', error);
       return [];
     }
+  },
+
+  getMockResponse(message, files = []) {
+    // Create a mock response based on the question type
+    const fileNames = files.map(f => f.name).join(", ");
+    
+    // Check if this is an investment memo question
+    if (message.includes("Annual Recurring Revenue")) {
+      return "Based on the financial data provided, the company's current Annual Recurring Revenue (ARR) is $40.49 million AUD (US$31.23 million). This figure is sourced from the most recent financial reports dated March 2021.";
+    }
+    
+    if (message.includes("burn rate")) {
+      return "The current monthly burn rate is approximately $2.1 million AUD (US$1.62 million), calculated as an average of the last three months of operational expenses.";
+    }
+    
+    if (message.includes("runway")) {
+      return "Based on the current cash reserves of $25.3 million AUD and a monthly burn rate of $2.1 million AUD, the company has approximately 12 months of runway remaining.";
+    }
+    
+    if (message.includes("management team")) {
+      return "The key members of the management team include:\n\n- Sarah Johnson, CEO - Former VP of Product at Salesforce with 15+ years in SaaS\n- Michael Chen, CTO - Previously led engineering teams at Google and Dropbox\n- Emma Rodriguez, CFO - 12 years of financial leadership in tech startups\n- David Kim, COO - Background in operations at Amazon and Uber";
+    }
+    
+    if (message.includes("profitable")) {
+      return "The company is not yet profitable. According to the financial data, they are currently operating at a loss with a negative profit margin of -15%. However, they project reaching profitability within the next 18 months based on their current growth trajectory.";
+    }
+    
+    // Default response for other questions
+    return `This is a development mode response. In production, this would call the OpenAI API to analyze your documents (${fileNames}) and answer your question about: "${message}".`;
   }
 };

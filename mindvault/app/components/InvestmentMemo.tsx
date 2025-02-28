@@ -5,8 +5,13 @@ import ReactMarkdown from 'react-markdown';
 import jsPDF from 'jspdf';
 
 // Utility function to format numbers to 2 decimal places maximum
-const formatNumbersInText = (text: string): string => {
+const formatNumbersInText = (text: string | any): string => {
   if (!text) return '';
+  
+  // Ensure text is a string
+  if (typeof text !== 'string') {
+    text = String(text);
+  }
 
   // Regular expression to find numbers with decimal points
   // This regex looks for numbers that have a decimal point followed by at least one digit
@@ -214,7 +219,7 @@ const InvestmentMemo = forwardRef<{
             // Notify parent component of the update
             if (onAnswerUpdate) {
                 console.log('Response type:', typeof editedAnswer, 'Response value:', editedAnswer);
-                onAnswerUpdate(id, typeof editedAnswer === 'string' ? editedAnswer : JSON.stringify(editedAnswer));
+                onAnswerUpdate(id, typeof editedAnswer === 'string' ? editedAnswer : String(editedAnswer));
             }
         }
         setEditingId(null);
@@ -360,8 +365,34 @@ const InvestmentMemo = forwardRef<{
                         throw new Error('No response received from chat service');
                     }
 
+                    // Ensure response is a string
+                    let stringResponse = '';
+                    
+                    // Handle different response types
+                    if (typeof response === 'string') {
+                        stringResponse = response;
+                    } else {
+                        // Try to convert to string safely
+                        try {
+                            if (response && typeof response === 'object') {
+                                // Check if it has a text property
+                                const responseObj = response as any;
+                                if (responseObj.text) {
+                                    stringResponse = responseObj.text;
+                                } else {
+                                    stringResponse = JSON.stringify(response);
+                                }
+                            } else {
+                                stringResponse = String(response);
+                            }
+                        } catch (e) {
+                            console.error('Error converting response to string:', e);
+                            stringResponse = 'Error processing response';
+                        }
+                    }
+
                     newAnswers[id] = {
-                        content: response,
+                        content: stringResponse,
                         isEdited: false
                     };
                     
@@ -373,8 +404,8 @@ const InvestmentMemo = forwardRef<{
                     
                     // Notify parent component of the update
                     if (onAnswerUpdate) {
-                        console.log('Response type:', typeof response, 'Response value:', response);
-                        onAnswerUpdate(id, response);
+                        console.log('Response type:', typeof stringResponse, 'Response value:', stringResponse);
+                        onAnswerUpdate(id, stringResponse);
                     }
                     
                 } catch (questionError) {
@@ -465,17 +496,43 @@ const InvestmentMemo = forwardRef<{
                 throw new Error('No response received from chat service');
             }
 
+            // Ensure response is a string
+            let stringResponse = '';
+            
+            // Handle different response types
+            if (typeof response === 'string') {
+                stringResponse = response;
+            } else {
+                // Try to convert to string safely
+                try {
+                    if (response && typeof response === 'object') {
+                        // Check if it has a text property
+                        const responseObj = response as any;
+                        if (responseObj.text) {
+                            stringResponse = responseObj.text;
+                        } else {
+                            stringResponse = JSON.stringify(response);
+                        }
+                    } else {
+                        stringResponse = String(response);
+                    }
+                } catch (e) {
+                    console.error('Error converting response to string:', e);
+                    stringResponse = 'Error processing response';
+                }
+            }
+
             setAnswers(prev => ({
                 ...prev,
                 [id]: {
-                    content: response,
+                    content: stringResponse,
                     isEdited: false
                 }
             }));
 
             // Notify parent component of the update
             if (onAnswerUpdate) {
-                onAnswerUpdate(id, response);
+                onAnswerUpdate(id, stringResponse);
             }
 
         } catch (error) {
@@ -598,7 +655,11 @@ const InvestmentMemo = forwardRef<{
                                             ) : (
                                                 <div>
                                                     <div className="prose max-w-none mt-2">
-                                                        <ReactMarkdown>{formattedAnswer}</ReactMarkdown>
+                                                        {typeof formattedAnswer === 'string' ? (
+                                                            <ReactMarkdown>{formattedAnswer}</ReactMarkdown>
+                                                        ) : (
+                                                            <ReactMarkdown>{String(formattedAnswer)}</ReactMarkdown>
+                                                        )}
                                                     </div>
                                                     
                                                     {formattedDetails && (
@@ -622,7 +683,11 @@ const InvestmentMemo = forwardRef<{
                                                             
                                                             {isExpanded && (
                                                                 <div className="prose max-w-none mt-3 text-sm">
-                                                                    <ReactMarkdown>{formattedDetails}</ReactMarkdown>
+                                                                    {typeof formattedDetails === 'string' ? (
+                                                                        <ReactMarkdown>{formattedDetails}</ReactMarkdown>
+                                                                    ) : (
+                                                                        <ReactMarkdown>{String(formattedDetails)}</ReactMarkdown>
+                                                                    )}
                                                                 </div>
                                                             )}
                                                         </div>

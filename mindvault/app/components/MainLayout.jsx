@@ -14,22 +14,27 @@ const INVESTMENT_MEMO_QUESTIONS = [
   {
     id: 'arr',
     question: 'What is the current Annual Recurring Revenue (ARR) of the company?',
+    description: 'Find the most recent ARR figure with currency.'
   },
   {
-    id: 'burn_rate',
+    id: 'burn-rate',
     question: 'What is the current burn rate?',
+    description: 'Calculate the rate at which the company is spending cash.'
   },
   {
     id: 'runway',
     question: 'How many months of runway does the company have at the current expense level?',
+    description: 'Calculate how long the company can operate with current funds.'
+  },
+  {
+    id: 'problem',
+    question: 'What problem is this company trying to solve?',
+    description: 'Identify the core customer problem the company addresses.'
   },
   {
     id: 'team',
     question: 'Who are the key members of the management team and what are their backgrounds?',
-  },
-  {
-    id: 'profitable',
-    question: 'Is the company profitable?',
+    description: 'Identify key executives and their relevant experience.'
   },
 ];
 
@@ -250,6 +255,11 @@ export default function MainLayout({ notes }) {
         processedResponse = response.text;
       }
       
+      // Ensure processedResponse is a string
+      if (typeof processedResponse !== 'string') {
+        processedResponse = String(processedResponse);
+      }
+      
       setChatOutput(processedResponse);
       setSuggestedQuestions(response.suggestedQuestions || []);
     } catch (error) {
@@ -312,10 +322,10 @@ export default function MainLayout({ notes }) {
   const getQuestionPlaceholder = (questionId) => {
     const placeholders = {
       'arr': "Click 'Generate Investment Memo' to analyze the company's Annual Recurring Revenue from your uploaded documents.",
-      'burn_rate': "Upload financial documents and click 'Generate Investment Memo' to calculate the current burn rate.",
+      'burn-rate': "Upload financial documents and click 'Generate Investment Memo' to calculate the current burn rate.",
       'runway': "We'll analyze your documents to determine how many months of runway the company has left.",
-      'team': "Want to know about the management team? Upload relevant documents and generate the memo!",
-      'profitable': "Is the company making money? Let's find out by analyzing your documents."
+      'problem': "What problem is this company trying to solve? Identify the core customer problem the company addresses.",
+      'team': "Want to know about the management team? Upload relevant documents and generate the memo!"
     };
     
     return placeholders[questionId] || "Ready to analyze when you click 'Generate Investment Memo'";
@@ -354,6 +364,31 @@ export default function MainLayout({ notes }) {
     // Reset the answers first
     setMemoAnswers({});
     
+    // Check if there are any files available
+    if (files.length === 0) {
+      alert('Please upload at least one document to analyze.');
+      return;
+    }
+    
+    // Check if both PDF and Excel files are available
+    const pdfFiles = files.filter(file => 
+      file.type !== 'note' && file.name.toLowerCase().endsWith('.pdf')
+    );
+    
+    const excelFiles = files.filter(file => 
+      file.type !== 'note' && (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls'))
+    );
+    
+    if (pdfFiles.length === 0) {
+      alert('Please upload at least one pitch deck (PDF) file.');
+      return;
+    }
+    
+    if (excelFiles.length === 0) {
+      alert('Please upload at least one financial data (Excel) file.');
+      return;
+    }
+    
     // Initialize empty answers for each question to show loading state
     const initialAnswers = {};
     INVESTMENT_MEMO_QUESTIONS.forEach(question => {
@@ -361,19 +396,20 @@ export default function MainLayout({ notes }) {
     });
     setMemoAnswers(initialAnswers);
     
-    // Check if there are any files available
-    if (files.length === 0) {
-      alert('Please upload at least one document to analyze.');
-      setMemoAnswers({}); // Clear the "Generating..." placeholders
-      return;
-    }
-    
     // Call the analyze method on the ref
     if (investmentMemoRef.current && investmentMemoRef.current.analyzeDocuments) {
       try {
         investmentMemoRef.current.analyzeDocuments();
       } catch (error) {
         console.error('Error generating investment memo:', error);
+        
+        // Update answers to show error
+        const errorAnswers = {};
+        INVESTMENT_MEMO_QUESTIONS.forEach(question => {
+          errorAnswers[question.id] = { content: 'Error generating answer. Please try again.' };
+        });
+        setMemoAnswers(errorAnswers);
+        
         alert('Error generating investment memo. Please try again.');
       }
     } else {
@@ -593,9 +629,16 @@ export default function MainLayout({ notes }) {
                       <div className="p-4 bg-white">
                         {memoAnswers[question.id] ? (
                           <div>
-                            <ReactMarkdown>
-                              {memoAnswers[question.id].content}
-                            </ReactMarkdown>
+                            {typeof memoAnswers[question.id].content === 'string' && memoAnswers[question.id].content !== 'Generating...' ? (
+                              <ReactMarkdown>{memoAnswers[question.id].content}</ReactMarkdown>
+                            ) : memoAnswers[question.id].content === 'Generating...' ? (
+                              <div className="flex items-center space-x-2">
+                                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-500"></div>
+                                <span>Generating...</span>
+                              </div>
+                            ) : (
+                              <div className="text-red-500">Error displaying content. Please regenerate.</div>
+                            )}
                             <div className="flex justify-end gap-2 mt-2">
                               <button 
                                 className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
@@ -637,19 +680,40 @@ export default function MainLayout({ notes }) {
                     onAnswerUpdate={(id, content) => {
                       console.log(`Answer updated for ${id}:`, content);
                       // Handle both string and object content formats
-                      let processedContent = content;
+                      let processedContent = '';
+                      
+                      // Handle different content types
                       if (typeof content === 'string') {
-                        try {
-                          // Check if it's a JSON string and parse it
-                          if (content.startsWith('{') && content.includes('"text":')) {
+                        processedContent = content;
+                        
+                        // Check if it's a JSON string and parse it
+                        if (content.startsWith('{') && content.includes('"text":')) {
+                          try {
                             const parsed = JSON.parse(content);
-                            processedContent = parsed.text || content;
+                            if (parsed.text) {
+                              processedContent = parsed.text;
+                            }
+                          } catch (e) {
+                            console.error('Error parsing content:', e);
+                            // Keep original content if parsing fails
                           }
-                        } catch (e) {
-                          console.error('Error parsing content:', e);
-                          // Keep original content if parsing fails
                         }
+                      } else if (content && typeof content === 'object') {
+                        // Handle object response
+                        if (content.text) {
+                          processedContent = content.text;
+                        } else {
+                          try {
+                            processedContent = JSON.stringify(content);
+                          } catch (e) {
+                            processedContent = 'Error processing content';
+                          }
+                        }
+                      } else {
+                        // Fallback for any other type
+                        processedContent = String(content);
                       }
+                      
                       setMemoAnswers(prev => ({
                         ...prev,
                         [id]: { content: processedContent }
@@ -662,9 +726,12 @@ export default function MainLayout({ notes }) {
               <div className="h-full flex flex-col">
                 <div className="flex-1 overflow-auto">
                   <div className="prose max-w-none">
-                    <ReactMarkdown>
-                      {chatOutput}
-                    </ReactMarkdown>
+                    {typeof chatOutput === 'string' && (
+                      <ReactMarkdown>{chatOutput}</ReactMarkdown>
+                    )}
+                    {typeof chatOutput !== 'string' && (
+                      <ReactMarkdown>{String(chatOutput)}</ReactMarkdown>
+                    )}
                   </div>
                   {renderSuggestedQuestions()}
                 </div>
