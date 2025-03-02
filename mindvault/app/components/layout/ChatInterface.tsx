@@ -61,13 +61,27 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ files, suggestedQuestions
     setIsLoading(true);
 
     try {
-      // Call chat service to get AI response
+      // Check if we have any files
+      if (!files || files.length === 0) {
+        // Create 'no files' response message
+        const noFilesMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          content: 'Please upload at least one document (pitch deck PDF and financial data Excel file) to analyze.',
+          sender: 'assistant',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, noFilesMessage]);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Pass the full file objects to the chat service instead of just IDs
       const response = await chatService.sendMessage(messageText, files);
       
       // Create assistant message
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        content: typeof response === 'string' ? response : response?.text || 'Sorry, I could not process that.',
+        content: typeof response === 'string' ? response : response.text,
         sender: 'assistant',
         timestamp: new Date()
       };
@@ -75,17 +89,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ files, suggestedQuestions
       // Add assistant message to chat
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
-      console.error('Error getting chat response:', error);
+      console.error('Error sending message:', error);
       
-      // Create error message
+      // Add error message
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        content: 'Sorry, an error occurred while processing your request.',
+        content: 'Sorry, there was an error processing your request. Please try again.',
         sender: 'assistant',
         timestamp: new Date()
       };
 
-      // Add error message to chat
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -93,7 +106,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ files, suggestedQuestions
   };
 
   /**
-   * Handles clicking on a suggested question
+   * Handles clicking a suggested question
    */
   const handleSuggestedQuestionClick = (question: string) => {
     handleSendMessage(null, question);
@@ -102,35 +115,35 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ files, suggestedQuestions
   return (
     <div className="flex flex-col h-full">
       {/* Chat messages */}
-      <div className="flex-1 overflow-y-auto p-4 bg-gray-700 rounded">
+      <div className="innovera-chat-container flex-1 overflow-y-auto mb-4 space-y-4">
         {messages.length === 0 ? (
-          <div className="text-center text-gray-300 my-8">
-            <p>Ask the AI assistant about the uploaded documents</p>
+          <div className="text-center py-8">
+            <p className="text-text-secondary">No messages yet. Start a conversation!</p>
           </div>
         ) : (
           messages.map(message => (
             <div
               key={message.id}
-              className={`mb-4 ${
-                message.sender === 'user' ? 'text-right' : 'text-left'
+              className={`flex flex-col ${
+                message.sender === 'user' ? 'items-end' : 'items-start'
               }`}
             >
               <div
-                className={`inline-block max-w-3xl rounded-lg p-3 ${
+                className={`max-w-[80%] rounded-lg px-4 py-2 shadow-sm ${
                   message.sender === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-800 border border-gray-600 text-white'
+                    ? 'bg-primary text-white'
+                    : 'bg-background-secondary border-2 border-border-medium text-text-primary'
                 }`}
               >
                 {message.sender === 'assistant' ? (
-                  <div className="prose prose-invert prose-sm max-w-none">
+                  <div className="prose max-w-none">
                     <ReactMarkdown>{message.content}</ReactMarkdown>
                   </div>
                 ) : (
                   <p>{message.content}</p>
                 )}
               </div>
-              <div className="text-xs text-gray-400 mt-1">
+              <div className="text-xs text-text-secondary mt-1">
                 {message.timestamp.toLocaleTimeString()}
               </div>
             </div>
@@ -138,10 +151,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ files, suggestedQuestions
         )}
         
         {isLoading && (
-          <div className="flex items-center text-gray-300 mt-4">
-            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce mr-1"></div>
-            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce mr-1" style={{ animationDelay: '0.2s' }}></div>
-            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+          <div className="flex items-center justify-center text-text-secondary mt-4">
+            <div className="w-2 h-2 bg-primary rounded-full animate-bounce mr-1"></div>
+            <div className="w-2 h-2 bg-primary rounded-full animate-bounce mr-1" style={{ animationDelay: '0.2s' }}></div>
+            <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
           </div>
         )}
         
@@ -154,7 +167,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ files, suggestedQuestions
           {suggestedQuestions.map(question => (
             <button
               key={question.id}
-              className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-full text-sm border border-gray-600"
+              className="px-3 py-1 bg-background-secondary hover:bg-gray-200 text-text-primary rounded-full text-sm border-2 border-border-medium shadow-sm"
               onClick={() => handleSuggestedQuestionClick(question.text)}
             >
               {question.text}
@@ -165,10 +178,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ files, suggestedQuestions
 
       {/* Chat input */}
       <form onSubmit={handleSendMessage} className="mt-4">
-        <div className="flex">
+        <div className="flex shadow-md">
           <input
             type="text"
-            className="flex-1 p-3 bg-gray-700 border border-gray-600 text-white rounded-l focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 p-3 bg-white border-2 border-border-medium text-text-primary rounded-l-lg focus:outline-none focus:ring-2 focus:ring-primary"
             placeholder="Type your message..."
             value={currentMessage}
             onChange={e => setCurrentMessage(e.target.value)}
@@ -176,7 +189,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ files, suggestedQuestions
           />
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded-r hover:bg-blue-700 transition-colors disabled:bg-blue-400"
+            className="px-4 py-2 bg-primary text-white rounded-r-lg hover:bg-primary-dark transition-colors disabled:opacity-70 border-y-2 border-r-2 border-primary"
             disabled={isLoading || !currentMessage.trim()}
           >
             Send

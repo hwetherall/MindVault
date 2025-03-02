@@ -236,6 +236,13 @@ export default function MainLayout({ notes }) {
     setIsLoading(true);
 
     try {
+      // Check if there are any files uploaded
+      if (!files || files.length === 0) {
+        setChatOutput('Please upload at least one document (pitch deck PDF and financial data Excel file) to analyze.');
+        setIsLoading(false);
+        return;
+      }
+      
       // Pass files array to chatService for context
       const response = await chatService.sendMessage(userMessage, files);
       

@@ -67,6 +67,14 @@ export const chatService = {
 
       console.log(`Processing request with ${files.length} files`);
       
+      // Check if any files are available
+      if (!files || files.length === 0) {
+        console.warn('No files available for analysis');
+        return {
+          text: "I don't see any uploaded documents to analyze. Please upload a pitch deck (PDF) and financial document (Excel) first."
+        };
+      }
+      
       // If we're in development mode with the fallback key, return a mock response
       if (isDevelopmentMode) {
         console.log("DEVELOPMENT MODE: Using mock response instead of calling OpenAI API");
@@ -282,7 +290,7 @@ export const chatService = {
             }
           ],
           temperature: 1, // Temperature is already set to 1 as requested
-          max_completion_tokens: 18000 // Changed from max_tokens to max_completion_tokens as required by o1-mini
+          max_completion_tokens: 40000 // Changed from max_tokens to max_completion_tokens as required by o1-mini
         });
 
         if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
@@ -418,31 +426,50 @@ export const chatService = {
   },
 
   getMockResponse(message, files = []) {
+    // Check if any files are available
+    if (!files || files.length === 0) {
+      return {
+        text: "I don't see any uploaded documents to analyze. Please upload a pitch deck (PDF) and financial document (Excel) first."
+      };
+    }
+    
     // Create a mock response based on the question type
     const fileNames = files.map(f => f.name).join(", ");
     
     // Check if this is an investment memo question
     if (message.includes("Annual Recurring Revenue")) {
-      return "Based on the financial data provided, the company's current Annual Recurring Revenue (ARR) is $40.49 million AUD (US$31.23 million). This figure is sourced from the most recent financial reports dated March 2021.";
+      return {
+        text: "Based on the financial data provided, the company's current Annual Recurring Revenue (ARR) is $40.49 million AUD (US$31.23 million). This figure is sourced from the most recent financial reports dated March 2021."
+      };
     }
     
     if (message.includes("burn rate")) {
-      return "The current monthly burn rate is approximately $2.1 million AUD (US$1.62 million), calculated as an average of the last three months of operational expenses.";
+      return {
+        text: "The current monthly burn rate is approximately $2.1 million AUD (US$1.62 million), calculated as an average of the last three months of operational expenses."
+      };
     }
     
     if (message.includes("runway")) {
-      return "Based on the current cash reserves of $25.3 million AUD and a monthly burn rate of $2.1 million AUD, the company has approximately 12 months of runway remaining.";
+      return {
+        text: "Based on the current cash reserves of $25.3 million AUD and a monthly burn rate of $2.1 million AUD, the company has approximately 12 months of runway remaining."
+      };
     }
     
     if (message.includes("management team")) {
-      return "The key members of the management team include:\n\n- Sarah Johnson, CEO - Former VP of Product at Salesforce with 15+ years in SaaS\n- Michael Chen, CTO - Previously led engineering teams at Google and Dropbox\n- Emma Rodriguez, CFO - 12 years of financial leadership in tech startups\n- David Kim, COO - Background in operations at Amazon and Uber";
+      return {
+        text: "The key members of the management team include:\n\n- Sarah Johnson, CEO - Former VP of Product at Salesforce with 15+ years in SaaS\n- Michael Chen, CTO - Previously led engineering teams at Google and Dropbox\n- Emma Rodriguez, CFO - 12 years of financial leadership in tech startups\n- David Kim, COO - Background in operations at Amazon and Uber"
+      };
     }
     
     if (message.includes("profitable")) {
-      return "The company is not yet profitable. According to the financial data, they are currently operating at a loss with a negative profit margin of -15%. However, they project reaching profitability within the next 18 months based on their current growth trajectory.";
+      return {
+        text: "The company is not yet profitable. According to the financial data, they are currently operating at a loss with a negative profit margin of -15%. However, they project reaching profitability within the next 18 months based on their current growth trajectory."
+      };
     }
     
     // Default response for other questions
-    return `This is a development mode response. In production, this would call the OpenAI API to analyze your documents (${fileNames}) and answer your question about: "${message}".`;
+    return {
+      text: `This is a development mode response. In production, this would call the OpenAI API to analyze your documents (${fileNames}) and answer your question about: "${message}".`
+    };
   }
 };
