@@ -62,14 +62,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
    * Clears all repository content
    */
   const handleClearRepository = async () => {
-    if (window.confirm('Are you sure you want to clear all notes and files?')) {
-      try {
-        await notesService.clearRepository();
-        setNotes([]);
-        setFiles([]);
-      } catch (error) {
-        console.error('Error clearing repository:', error);
-      }
+    try {
+      // Clear all files
+      await filesService.clearFiles();
+      
+      // Reload files
+      const loadedFiles = await filesService.getFiles();
+      setFiles(loadedFiles);
+    } catch (error) {
+      console.error('Error clearing repository:', error);
     }
   };
 
@@ -77,6 +78,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
    * Handles files being uploaded
    */
   const handleFilesUploaded = (uploadedFiles: any[]) => {
+    // Update files state with newly uploaded files
     setFiles(prev => [...prev, ...uploadedFiles]);
   };
 
@@ -85,16 +87,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
    */
   const handleDeleteFile = async (fileId: string, fileType: string) => {
     try {
-      if (fileType === 'document') {
-        await filesService.deleteDocument(fileId);
-      } else {
-        await filesService.deleteSpreadsheet(fileId);
-      }
+      // Delete file using the unified deleteFile method
+      await filesService.deleteFile(fileId);
       
+      // Update files state
       setFiles(prev => prev.filter(file => file.id !== fileId));
     } catch (error) {
       console.error('Error deleting file:', error);
-      alert('Failed to delete file. Please try again.');
     }
   };
 
@@ -110,8 +109,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
    * Handles the completion of an analysis
    */
   const handleAnalysisComplete = (passed: boolean) => {
-    // You could trigger further actions when analysis is complete
-    console.log('Analysis complete, passed:', passed);
+    // Reset view after analysis is complete
+    setShowInvestmentMemo(false);
+    setShowDeepDive(false);
   };
 
   // Filter notes based on search query
@@ -124,7 +124,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-gray-900 text-gray-100">
+      <div className="min-h-screen bg-white text-text-primary">
         <Header
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
@@ -136,29 +136,33 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
             {/* Left Column - File Management */}
             <div className="md:col-span-4">
-              <FileUploader onFilesUploaded={handleFilesUploaded} />
-              <FileList files={files} onDeleteFile={handleDeleteFile} />
+              <div className="mb-6">
+                <FileUploader onFilesUploaded={handleFilesUploaded} />
+              </div>
+              <div>
+                <FileList files={files} onDeleteFile={handleDeleteFile} />
+              </div>
             </div>
 
             {/* Right Column - Chat or Analysis Content */}
             <div className="md:col-span-8">
               {showInvestmentMemo ? (
-                <div className="bg-gray-800 rounded-lg shadow-md p-6 border border-gray-700">
+                <div className="innovera-card shadow-elevated">
                   <InvestmentMemoMain 
                     files={files} 
                     onComplete={handleAnalysisComplete} 
                   />
                 </div>
               ) : showDeepDive ? (
-                <div className="bg-gray-800 rounded-lg shadow-md p-6 border border-gray-700">
+                <div className="innovera-card shadow-elevated">
                   <DeepDiveMain 
                     files={files} 
                     onComplete={handleAnalysisComplete} 
                   />
                 </div>
               ) : (
-                <div className="bg-gray-800 rounded-lg shadow-md p-6 h-[600px] flex flex-col border border-gray-700">
-                  <h2 className="text-xl font-bold mb-4">Chat with Documents</h2>
+                <div className="innovera-card h-[600px] flex flex-col shadow-elevated">
+                  <h2 className="text-xl font-bold mb-4 pb-2 border-b-2 border-border-medium">Conduct Due Dilligence</h2>
                   <ChatInterface
                     files={files}
                     suggestedQuestions={SUGGESTED_QUESTIONS}

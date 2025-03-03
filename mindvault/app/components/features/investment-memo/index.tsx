@@ -1,7 +1,7 @@
 import InvestmentMemoMain from './InvestmentMemoMain';
 import InvestmentMemoWizard from './InvestmentMemoWizard';
 import QuestionSelectionStep from './QuestionSelectionStep';
-import GenerationConfigStep from './GenerationConfigStep';
+import ReportSetupStep from './ReportSetupStep';
 import ReportGenerationStep from './ReportGenerationStep';
 import ReportEditor from './ReportEditor';
 import PDFExporter from './PDFExporter';
@@ -11,7 +11,7 @@ export {
   InvestmentMemoMain,
   InvestmentMemoWizard,
   QuestionSelectionStep,
-  GenerationConfigStep,
+  ReportSetupStep,
   ReportGenerationStep,
   ReportEditor,
   PDFExporter,

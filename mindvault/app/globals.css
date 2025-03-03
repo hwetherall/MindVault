@@ -9,13 +9,44 @@
   box-sizing: border-box;
 }
 
+/* Set base font and background for the light theme */
 body {
   min-height: 100vh;
   width: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #1A1F2E;
+  background-color: #FFFFFF;
 }
 
-/* Remove any default dark mode */
+/* Root styles for light theme */
 :root {
-  color: black;
-  background-color: white;
+  color: #1A1F2E;
+  background-color: #FFFFFF;
+}
+
+/* Define common styles as utility classes */
+@layer components {
+  .innovera-card {
+    @apply bg-white rounded-lg border-2 border-border-medium shadow-card p-6;
+  }
+
+  .innovera-button-primary {
+    @apply bg-primary hover:bg-primary-dark text-white font-medium px-4 py-2 rounded-lg transition-colors;
+  }
+
+  .innovera-button-secondary {
+    @apply bg-background-secondary text-text-primary border-2 border-border-medium hover:bg-gray-200 px-4 py-2 rounded-lg transition-colors;
+  }
+
+  .innovera-input {
+    @apply w-full px-4 py-2 border-2 border-border-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+  }
+
+  .innovera-container {
+    @apply bg-white rounded-lg shadow-card border-2 border-border-medium p-4;
+  }
+  
+  .innovera-chat-container {
+    @apply bg-white rounded-lg shadow-elevated border-2 border-border-medium p-4;
+  }
 }

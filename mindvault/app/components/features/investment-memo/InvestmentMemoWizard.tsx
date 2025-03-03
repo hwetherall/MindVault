@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { INVESTMENT_MEMO_QUESTIONS } from './constants';
 import QuestionSelectionStep from './QuestionSelectionStep';
-import GenerationConfigStep from './GenerationConfigStep';
+import ReportSetupStep from './ReportSetupStep';
 import ReportGenerationStep from './ReportGenerationStep';
 import ReportEditor from './ReportEditor';
 import PDFExporter from './PDFExporter';
@@ -22,7 +22,7 @@ const InvestmentMemoWizard: React.FC<InvestmentMemoWizardProps> = ({
   // Define the steps of the wizard
   const STEPS = [
     'Question Selection',
-    'Generation Configuration',
+    'Report Setup',
     'Report Generation',
     'Report Editing',
     'Export'
@@ -51,9 +51,16 @@ const InvestmentMemoWizard: React.FC<InvestmentMemoWizardProps> = ({
 
   // Handler for updating report state
   const updateReportState = (updates: Partial<typeof reportState>) => {
+    // Ensure title and description are always strings
+    const sanitizedUpdates = {
+      ...updates,
+      title: typeof updates.title !== 'undefined' ? String(updates.title || '') : undefined,
+      description: typeof updates.description !== 'undefined' ? String(updates.description || '') : undefined
+    };
+    
     setReportState(prev => ({
       ...prev,
-      ...updates
+      ...(sanitizedUpdates as Partial<typeof reportState>)
     }));
   };
 
@@ -73,7 +80,7 @@ const InvestmentMemoWizard: React.FC<InvestmentMemoWizardProps> = ({
         );
       case 1:
         return (
-          <GenerationConfigStep
+          <ReportSetupStep
             title={reportState.title}
             description={reportState.description}
             files={files}

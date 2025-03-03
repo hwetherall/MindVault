@@ -31,6 +31,11 @@ const ReportEditor: React.FC<ReportEditorProps> = ({
     Object.fromEntries(questions.map(q => [q.id, true]))
   );
   
+  // State for expanded details
+  const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>(
+    Object.fromEntries(questions.map(q => [q.id, false]))
+  );
+  
   // State for editing
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState<string>('');
@@ -39,6 +44,14 @@ const ReportEditor: React.FC<ReportEditorProps> = ({
   // Toggle section expansion
   const toggleSection = (id: string) => {
     setExpandedSections(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  // Toggle details expansion
+  const toggleDetails = (id: string) => {
+    setExpandedDetails(prev => ({
       ...prev,
       [id]: !prev[id]
     }));
@@ -152,6 +165,7 @@ Be specific and extract concrete numbers and facts where available.`;
         {questions.map(question => {
           const answer = answers[question.id];
           const isExpanded = expandedSections[question.id] || false;
+          const isDetailsExpanded = expandedDetails[question.id] || false;
           const isEditing = editingId === question.id;
           const isCurrentlyRegenerating = isRegenerating[question.id] || false;
           
@@ -212,7 +226,7 @@ Be specific and extract concrete numbers and facts where available.`;
                     <div>
                       {/* TLDR Section */}
                       <div className="mb-4">
-                        <div className="text-sm font-medium text-gray-500 mb-1">TL;DR</div>
+                        <div className="text-sm font-medium text-gray-500 mb-1">Summary</div>
                         <div className="prose prose-sm max-w-none">
                           <ReactMarkdown>{tldr}</ReactMarkdown>
                         </div>
@@ -221,10 +235,20 @@ Be specific and extract concrete numbers and facts where available.`;
                       {/* Details Section (if available) */}
                       {details && (
                         <div>
-                          <div className="text-sm font-medium text-gray-500 mb-1">Details</div>
-                          <div className="prose prose-sm max-w-none">
-                            <ReactMarkdown>{details}</ReactMarkdown>
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm font-medium text-gray-500 mb-1">Details</div>
+                            <button
+                              className="text-sm text-blue-600 hover:text-blue-800"
+                              onClick={() => toggleDetails(question.id)}
+                            >
+                              {isDetailsExpanded ? 'See Less' : 'See More'}
+                            </button>
                           </div>
+                          {isDetailsExpanded && (
+                            <div className="prose prose-sm max-w-none">
+                              <ReactMarkdown>{details}</ReactMarkdown>
+                            </div>
+                          )}
                         </div>
                       )}
                       
@@ -248,7 +272,7 @@ Be specific and extract concrete numbers and facts where available.`;
                           )}
                         </button>
                         <button
-                          className="flex items-center px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                          className="flex items-center px-3 py-1 text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
                           onClick={() => handleEdit(question.id)}
                         >
                           <Edit2 size={16} className="mr-1" />
@@ -264,7 +288,7 @@ Be specific and extract concrete numbers and facts where available.`;
         })}
       </div>
       
-      {/* Navigation Buttons */}
+      {/* Navigation */}
       <div className="flex justify-between p-6 border-t">
         <button
           className="flex items-center px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
@@ -277,7 +301,7 @@ Be specific and extract concrete numbers and facts where available.`;
           className="flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           onClick={onNext}
         >
-          Continue to Export
+          Next
           <ChevronRight size={16} className="ml-1" />
         </button>
       </div>

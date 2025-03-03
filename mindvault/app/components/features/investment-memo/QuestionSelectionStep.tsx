@@ -30,6 +30,9 @@ const QuestionSelectionStep: React.FC<QuestionSelectionStepProps> = ({
   // Get all unique categories
   const categories = Object.keys(questionsByCategory);
 
+  // Define Innovera's top 5 recommended questions
+  const innoveraTopQuestions = ['arr', 'burn_rate', 'team', 'business_model', 'runway'];
+
   // State for active filter
   const [activeFilter, setActiveFilter] = useState<string>('All');
 
@@ -46,7 +49,9 @@ const QuestionSelectionStep: React.FC<QuestionSelectionStepProps> = ({
   const selectAllInCategory = (category: string) => {
     const questionsInCategory = category === 'All'
       ? questions
-      : questionsByCategory[category] || [];
+      : category === 'Innovera Recommends'
+        ? questions.filter(q => innoveraTopQuestions.includes(q.id))
+        : questionsByCategory[category] || [];
     
     const questionIds = questionsInCategory.map(q => q.id);
     const newSelected = [...selectedQuestions];
@@ -64,7 +69,9 @@ const QuestionSelectionStep: React.FC<QuestionSelectionStepProps> = ({
   const deselectAllInCategory = (category: string) => {
     const questionsInCategory = category === 'All'
       ? questions
-      : questionsByCategory[category] || [];
+      : category === 'Innovera Recommends'
+        ? questions.filter(q => innoveraTopQuestions.includes(q.id))
+        : questionsByCategory[category] || [];
     
     const questionIds = questionsInCategory.map(q => q.id);
     const newSelected = selectedQuestions.filter(id => !questionIds.includes(id));
@@ -75,13 +82,17 @@ const QuestionSelectionStep: React.FC<QuestionSelectionStepProps> = ({
   // Filter questions to display
   const filteredQuestions = activeFilter === 'All'
     ? questions
-    : questionsByCategory[activeFilter] || [];
+    : activeFilter === 'Innovera Recommends'
+      ? questions.filter(q => innoveraTopQuestions.includes(q.id))
+      : questionsByCategory[activeFilter] || [];
 
   // Check if all questions in a category are selected
   const areAllSelectedInCategory = (category: string) => {
     const questionsInCategory = category === 'All'
       ? questions
-      : questionsByCategory[category] || [];
+      : category === 'Innovera Recommends'
+        ? questions.filter(q => innoveraTopQuestions.includes(q.id))
+        : questionsByCategory[category] || [];
     
     return questionsInCategory.every(q => selectedQuestions.includes(q.id));
   };
@@ -104,6 +115,15 @@ const QuestionSelectionStep: React.FC<QuestionSelectionStepProps> = ({
           onClick={() => setActiveFilter('All')}
         >
           All
+        </button>
+        <button
+          className={`px-3 py-1 rounded-full text-sm font-medium 
+            ${activeFilter === 'Innovera Recommends' 
+              ? 'bg-blue-600 text-white' 
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+          onClick={() => setActiveFilter('Innovera Recommends')}
+        >
+          Innovera Recommends
         </button>
         {categories.map(category => (
           <button
@@ -161,21 +181,6 @@ const QuestionSelectionStep: React.FC<QuestionSelectionStepProps> = ({
             <div className="ml-3 flex-1">
               <div className="font-medium">{question.question}</div>
               <div className="text-sm text-gray-500 mt-1">{question.description}</div>
-              {question.complexity && (
-                <div className="mt-2 flex items-center">
-                  <span 
-                    className={`text-xs px-2 py-1 rounded ${
-                      question.complexity === 'low' 
-                        ? 'bg-green-100 text-green-800' 
-                        : question.complexity === 'medium'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                    }`}
-                  >
-                    {question.complexity.charAt(0).toUpperCase() + question.complexity.slice(1)} complexity
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         ))}

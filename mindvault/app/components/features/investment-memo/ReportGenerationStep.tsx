@@ -34,6 +34,7 @@ const ReportGenerationStep: React.FC<ReportGenerationStepProps> = ({
   const [currentQuestion, setCurrentQuestion] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<number>(0);
+  const [activeGenerations, setActiveGenerations] = useState<Record<string, { content: string; isComplete: boolean }>>({});
 
   // Get prompt for a specific question
   const getPromptForQuestion = (id: string): string => {
@@ -53,18 +54,67 @@ Be specific and extract concrete numbers and facts where available.`;
   const generateAnswer = async (questionId: string): Promise<Answer | null> => {
     try {
       setCurrentQuestion(questionId);
-      const prompt = getPromptForQuestion(questionId);
-      const result = await chatService.sendMessage(prompt, files);
       
-      return {
-        content: result.text,
+      // Initialize the active generation with empty content
+      setActiveGenerations(prev => ({
+        ...prev,
+        [questionId]: { content: '', isComplete: false }
+      }));
+      
+      const prompt = getPromptForQuestion(questionId);
+      
+      // Simulate streaming content for the demo
+      // In a real implementation, you would use a streaming API
+      const result = await simulateStreamingResponse(prompt, questionId);
+      
+      const answer = {
+        content: result,
         isEdited: false
       };
+      
+      // Mark generation as complete
+      setActiveGenerations(prev => ({
+        ...prev,
+        [questionId]: { content: result, isComplete: true }
+      }));
+      
+      return answer;
     } catch (err) {
       console.error(`Error generating answer for question ${questionId}:`, err);
       setError(`Failed to generate answer for question ${questionId}`);
+      
+      // Mark as failed
+      setActiveGenerations(prev => ({
+        ...prev,
+        [questionId]: { content: 'Error generating response', isComplete: true }
+      }));
+      
       return null;
     }
+  };
+  
+  // Simulate streaming content for demonstration purposes
+  const simulateStreamingResponse = async (prompt: string, questionId: string): Promise<string> => {
+    // Get the full response first
+    const result = await chatService.sendMessage(prompt, files);
+    const fullText = result.text;
+    
+    // Simulate streaming by updating the content in chunks
+    const chunkSize = Math.ceil(fullText.length / 10);
+    for (let i = 0; i <= fullText.length; i += chunkSize) {
+      const partialContent = fullText.substring(0, i);
+      
+      // Update the streaming content
+      setActiveGenerations(prev => ({
+        ...prev,
+        [questionId]: { content: partialContent, isComplete: false }
+      }));
+      
+      // Wait a short delay to simulate streaming
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+    
+    return fullText;
   };
 
   // Generate all answers
@@ -81,6 +131,12 @@ Be specific and extract concrete numbers and facts where available.`;
       
       if (answer) {
         result[questionId] = answer;
+        
+        // Update answers state after each question is complete
+        setAnswers(prevAnswers => ({
+          ...prevAnswers,
+          [questionId]: answer
+        }));
       }
       
       // Update progress
@@ -89,7 +145,6 @@ Be specific and extract concrete numbers and facts where available.`;
       onProgress(newProgress);
     }
     
-    setAnswers(result);
     onGenerationComplete(result);
     setIsGenerating(false);
   };
@@ -150,11 +205,13 @@ Be specific and extract concrete numbers and facts where available.`;
         {selectedQuestions.map(questionId => {
           const isCompleted = !!answers[questionId];
           const isCurrent = currentQuestion === questionId && isGenerating;
+          const isActivelyGenerating = activeGenerations[questionId] && !activeGenerations[questionId].isComplete;
+          const partialContent = activeGenerations[questionId]?.content || '';
           
           return (
             <div 
               key={questionId}
-              className={`border rounded-md p-3 ${
+              className={`border rounded-md p-3 transition-all ${
                 isCompleted 
                   ? 'border-green-200 bg-green-50' 
                   : isCurrent 
@@ -163,7 +220,7 @@ Be specific and extract concrete numbers and facts where available.`;
               }`}
             >
               <div className="flex items-start">
-                <div className="mt-0.5 mr-3">
+                <div className="mt-0.5 mr-3 flex-shrink-0">
                   {isCompleted ? (
                     <CheckCircle2 size={18} className="text-green-500" />
                   ) : isCurrent ? (
@@ -174,17 +231,30 @@ Be specific and extract concrete numbers and facts where available.`;
                 </div>
                 <div className="flex-1">
                   <div className="font-medium">{getQuestionText(questionId)}</div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {isCompleted 
-                      ? 'Generated successfully' 
-                      : isCurrent 
-                        ? 'Generating...' 
-                        : 'Waiting...'}
-                  </div>
+                  
+                  {/* This shows either the generation status or the partial/complete content */}
+                  {partialContent ? (
+                    <div className={`mt-3 text-sm border-l-2 border-blue-300 pl-3 ${isActivelyGenerating ? 'animate-pulse' : ''}`}>
+                      <div className={`transition-opacity duration-300 ${isActivelyGenerating ? 'opacity-80' : 'opacity-100'}`}>
+                        {partialContent}
+                      </div>
+                      {isActivelyGenerating && (
+                        <span className="inline-block w-1 h-4 ml-1 bg-blue-500 animate-pulse"></span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500 mt-1">
+                      {isCompleted 
+                        ? 'Generated successfully' 
+                        : isCurrent 
+                          ? 'Generating...' 
+                          : 'Waiting...'}
+                    </div>
+                  )}
                 </div>
                 {isCompleted && (
                   <button
-                    className="text-sm text-blue-600 hover:text-blue-800"
+                    className="text-sm text-blue-600 hover:text-blue-800 flex-shrink-0"
                     onClick={() => handleRetry(questionId)}
                   >
                     Regenerate

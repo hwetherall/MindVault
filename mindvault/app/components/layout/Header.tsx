@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { Search } from '@mui/icons-material';
 
 interface HeaderProps {
@@ -18,17 +19,29 @@ const Header: React.FC<HeaderProps> = ({
   onClearRepository
 }) => {
   return (
-    <header className="bg-gray-800 shadow-md border-b border-gray-700 p-4 mb-6">
+    <header className="bg-white shadow-md border-b-2 border-border-medium p-4 mb-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <div className="flex items-center space-x-4 mb-4 md:mb-0">
-          <h1 className="text-2xl font-bold text-white">MindVault</h1>
+          <div className="flex items-center">
+            <Image
+              src="/innovera-logo.svg"
+              alt="Innovera Logo"
+              width={120}
+              height={30}
+              priority
+            />
+            <div className="ml-2 flex items-center">
+              <span className="text-primary font-bold">A</span>
+              <span className="text-secondary font-bold">I</span>
+            </div>
+          </div>
           
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary" />
             <input
               type="text"
               placeholder="Search notes..."
-              className="pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 text-white rounded-full w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="pl-10 pr-4 py-2 bg-background-secondary border-2 border-border-medium text-text-primary rounded-full w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-primary"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -37,14 +50,14 @@ const Header: React.FC<HeaderProps> = ({
         
         <div className="flex space-x-3">
           <button
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            className="innovera-button-primary"
             onClick={onGenerateInvestmentMemo}
           >
             Create Investment Memo
           </button>
           
           <button
-            className="px-4 py-2 bg-gray-700 text-white border border-gray-600 rounded hover:bg-gray-600 transition-colors"
+            className="innovera-button-secondary"
             onClick={onClearRepository}
           >
             Clear Repository

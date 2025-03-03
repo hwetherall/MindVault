@@ -1,7 +1,8 @@
-import React from 'react';
-import { ChevronLeft, Download, FileText, Share2, Mail } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChevronLeft, Download, FileText, Share2, Mail, Globe, Check } from 'lucide-react';
 import { Answer, InvestmentMemoQuestion } from './utils/pdfExport';
 import { exportToPDF } from './utils/pdfExport';
+import ReactMarkdown from 'react-markdown';
 
 interface PDFExporterProps {
   title: string;
@@ -10,6 +11,12 @@ interface PDFExporterProps {
   answers: Record<string, Answer>;
   onPrevious: () => void;
   onComplete: () => void;
+}
+
+interface ExportOptions {
+  includeTableOfContents: boolean;
+  includeAppendices: boolean;
+  language: 'en' | 'ja';
 }
 
 /**
@@ -23,9 +30,29 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
   onPrevious,
   onComplete
 }) => {
+  // Export options state
+  const [exportOptions, setExportOptions] = useState<ExportOptions>({
+    includeTableOfContents: true,
+    includeAppendices: true,
+    language: 'en'
+  });
+
+  // State for expanded details sections
+  const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>(
+    Object.fromEntries(questions.map(q => [q.id, false]))
+  );
+
+  // Function to toggle details section
+  const toggleDetails = (id: string) => {
+    setExpandedDetails(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+  
   // Function to export the report as PDF
   const handleExport = () => {
-    exportToPDF(questions, answers, title);
+    exportToPDF(questions, answers, title, exportOptions);
     onComplete();
   };
 
@@ -47,6 +74,20 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
     acc[category].push(question);
     return acc;
   }, {} as Record<string, InvestmentMemoQuestion[]>);
+
+  // Function to split answer content into TLDR and details sections
+  const splitAnswerContent = (content: string) => {
+    const parts = content.split('DETAILS:');
+    
+    if (parts.length === 1) {
+      return { tldr: parts[0].replace('TL;DR:', '').trim(), details: '' };
+    }
+    
+    return { 
+      tldr: parts[0].replace('TL;DR:', '').trim(), 
+      details: parts[1].trim() 
+    };
+  };
   
   return (
     <div className="bg-white rounded-lg shadow p-6">
@@ -92,62 +133,176 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
       </div>
       
       {/* Export Options */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h3 className="text-lg font-medium mb-3">Export Options</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div 
-            className="border rounded-lg p-4 cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors"
-            onClick={handleExport}
-          >
-            <div className="flex justify-center mb-3">
-              <Download size={32} className="text-blue-600" />
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div>
+              <div className="font-medium">Table of Contents</div>
+              <div className="text-sm text-gray-500">Include a structured table of contents</div>
             </div>
-            <h4 className="font-medium text-center">Download PDF</h4>
-            <p className="text-sm text-gray-500 text-center mt-1">
-              Save the memo as a PDF file on your device
-            </p>
+            <button
+              className={`px-3 py-1 rounded ${
+                exportOptions.includeTableOfContents
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-600'
+              }`}
+              onClick={() => setExportOptions(prev => ({
+                ...prev,
+                includeTableOfContents: !prev.includeTableOfContents
+              }))}
+            >
+              {exportOptions.includeTableOfContents ? (
+                <Check size={16} />
+              ) : (
+                'Include'
+              )}
+            </button>
           </div>
           
-          <div className="border rounded-lg p-4 bg-gray-50 cursor-not-allowed opacity-60">
-            <div className="flex justify-center mb-3">
-              <Share2 size={32} className="text-gray-400" />
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div>
+              <div className="font-medium">Appendices</div>
+              <div className="text-sm text-gray-500">Include supporting documents and references</div>
             </div>
-            <h4 className="font-medium text-center">Share Link</h4>
-            <p className="text-sm text-gray-500 text-center mt-1">
-              Generate a shareable link (Coming Soon)
-            </p>
+            <button
+              className={`px-3 py-1 rounded ${
+                exportOptions.includeAppendices
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-600'
+              }`}
+              onClick={() => setExportOptions(prev => ({
+                ...prev,
+                includeAppendices: !prev.includeAppendices
+              }))}
+            >
+              {exportOptions.includeAppendices ? (
+                <Check size={16} />
+              ) : (
+                'Include'
+              )}
+            </button>
           </div>
           
-          <div className="border rounded-lg p-4 bg-gray-50 cursor-not-allowed opacity-60">
-            <div className="flex justify-center mb-3">
-              <Mail size={32} className="text-gray-400" />
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div>
+              <div className="font-medium">Language</div>
+              <div className="text-sm text-gray-500">Choose the export language</div>
             </div>
-            <h4 className="font-medium text-center">Email Report</h4>
-            <p className="text-sm text-gray-500 text-center mt-1">
-              Send the report via email (Coming Soon)
-            </p>
+            <div className="flex space-x-2">
+              <button
+                className={`px-3 py-1 rounded ${
+                  exportOptions.language === 'en'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-600'
+                }`}
+                onClick={() => setExportOptions(prev => ({ ...prev, language: 'en' }))}
+              >
+                English
+              </button>
+              <button
+                className={`px-3 py-1 rounded ${
+                  exportOptions.language === 'ja'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-600'
+                }`}
+                onClick={() => setExportOptions(prev => ({ ...prev, language: 'ja' }))}
+              >
+                日本語
+              </button>
+            </div>
           </div>
         </div>
       </div>
       
-      {/* Table of Contents Preview */}
+      {/* Contents Preview */}
       <div className="mb-8">
         <h3 className="text-lg font-medium mb-3">Contents Preview</h3>
-        <div className="border rounded-lg p-4 bg-gray-50">
-          <div className="space-y-4">
-            {Object.entries(questionsByCategory).map(([category, categoryQuestions]) => (
-              <div key={category}>
-                <div className="font-medium text-gray-700 mb-2">{category}</div>
-                <ul className="space-y-1 pl-4">
-                  {categoryQuestions.map(question => (
-                    <li key={question.id} className="flex items-start">
-                      <FileText size={14} className="mr-2 mt-1 text-gray-400" />
-                      <span className="text-sm">{question.question}</span>
-                    </li>
-                  ))}
-                </ul>
+        <div className="border rounded-lg">
+          {/* Preview Header */}
+          <div className="p-4 border-b bg-gray-50">
+            <div className="text-xl font-bold">{title}</div>
+            {description && <div className="text-gray-600 mt-2">{description}</div>}
+          </div>
+          
+          {/* Scrollable Preview Content */}
+          <div className="max-h-96 overflow-y-auto">
+            {/* Table of Contents (if enabled) */}
+            {exportOptions.includeTableOfContents && (
+              <div className="p-4 border-b">
+                <div className="font-bold mb-2">Table of Contents</div>
+                {Object.entries(questionsByCategory).map(([category, categoryQuestions], index) => (
+                  <div key={category} className="mb-3">
+                    <div className="font-medium text-gray-700">{category}</div>
+                    <ul className="pl-4 space-y-1">
+                      {categoryQuestions.map(question => (
+                        <li key={question.id} className="text-sm text-gray-600">
+                          {question.question}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+            
+            {/* Questions Preview */}
+            <div className="divide-y">
+              {questions.map(question => {
+                const answer = answers[question.id];
+                if (!answer) return null;
+                
+                const { tldr, details } = splitAnswerContent(answer.content);
+                const isDetailsExpanded = expandedDetails[question.id];
+                
+                return (
+                  <div key={question.id} className="p-4">
+                    <div className="font-bold mb-2">{question.question}</div>
+                    {question.description && (
+                      <div className="text-sm text-gray-600 mb-3">{question.description}</div>
+                    )}
+                    <div className="prose prose-sm max-w-none">
+                      <div className="mb-3">
+                        <div className="font-medium text-gray-700">Summary</div>
+                        <ReactMarkdown>{tldr}</ReactMarkdown>
+                      </div>
+                      {details && (
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <div className="font-medium text-gray-700">Details</div>
+                            <button
+                              className="text-sm text-blue-600 hover:text-blue-800"
+                              onClick={() => toggleDetails(question.id)}
+                            >
+                              {isDetailsExpanded ? 'See Less' : 'See More'}
+                            </button>
+                          </div>
+                          {isDetailsExpanded && (
+                            <ReactMarkdown>{details}</ReactMarkdown>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {/* Page Break Indicator */}
+                    <div className="border-t border-dashed border-gray-300 my-4">
+                      <div className="text-xs text-gray-400 text-center -mt-2.5 bg-white inline-block px-2">
+                        Page Break
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* Appendices Preview (if enabled) */}
+            {exportOptions.includeAppendices && (
+              <div className="p-4 border-t">
+                <div className="font-bold mb-2">Appendices</div>
+                <div className="text-sm text-gray-600">
+                  Supporting documents and references will be included here.
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
