@@ -2,27 +2,24 @@
 import OpenAI from 'openai';
 import { processExcelQuestion, getSuggestedQuestions } from './excelAIService';
 
-// Define a fallback API key for development purposes
-// In production, this should be replaced with your actual OpenAI API key
-const FALLBACK_API_KEY = "sk-fallback-development-mode-key";
-
-// Log a message about the API key for debugging
-console.log("API Key present (NEXT_PUBLIC_OPENAI_API_KEY):", !!process.env.NEXT_PUBLIC_OPENAI_API_KEY);
-console.log("API Key format:", process.env.NEXT_PUBLIC_OPENAI_API_KEY ? 
-  `starts with ${process.env.NEXT_PUBLIC_OPENAI_API_KEY.substring(0, 8)}...` : "No key found");
+// Log a message about the API key for debugging (only in development)
+if (process.env.NODE_ENV === 'development') {
+  console.log("API Key present:", !!process.env.NEXT_PUBLIC_OPENAI_API_KEY);
+}
 
 // Use the NEXT_PUBLIC_ prefixed key since we're in a client component
-// Fall back to the development key if the environment variable is not set
-const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || FALLBACK_API_KEY;
+if (!process.env.NEXT_PUBLIC_OPENAI_API_KEY) {
+  throw new Error('OpenAI API key is required. Please set NEXT_PUBLIC_OPENAI_API_KEY in your environment variables.');
+}
+
+const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
 
 // Check if this is a project-based API key
 const isProjectKey = apiKey.startsWith('sk-proj-');
 console.log("Using project-based API key:", isProjectKey);
 
-// Get the project ID from environment variable or extract from the key
-const projectId = process.env.NEXT_PUBLIC_OPENAI_PROJECT_ID || 
-                 (isProjectKey ? apiKey.split('-')[2] : undefined);
-
+// Get the project ID from environment variable
+const projectId = process.env.NEXT_PUBLIC_OPENAI_PROJECT_ID;
 console.log("Project ID:", projectId ? `${projectId.substring(0, 8)}...` : "Not available");
 
 // Create the OpenAI client with the appropriate configuration
@@ -32,7 +29,7 @@ const openai = new OpenAI({
   // For project-based keys, we need to specify the project ID
   ...(isProjectKey && projectId && {
     projectId: projectId,
-    baseURL: 'https://api.openai.com/v1' // Ensure we're using the correct base URL
+    baseURL: 'https://api.openai.com/v1'
   })
 });
 
@@ -58,7 +55,7 @@ export const chatService = {
   async sendMessage(message, files = []) {
     try {
       // Check if we're using the fallback key
-      const isDevelopmentMode = apiKey === FALLBACK_API_KEY;
+      const isDevelopmentMode = apiKey === "sk-fallback-development-mode-key";
       
       if (!apiKey) {
         console.error('OpenAI API key is missing');
@@ -385,7 +382,7 @@ export const chatService = {
   async getSuggestedExcelQuestions(files) {
     try {
       // Check if we're using the fallback key
-      const isDevelopmentMode = apiKey === FALLBACK_API_KEY;
+      const isDevelopmentMode = apiKey === "sk-fallback-development-mode-key";
       
       // Filter for Excel files only
       const excelFiles = files.filter(file => 
