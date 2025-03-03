@@ -17,6 +17,7 @@ interface ExportOptions {
   includeTableOfContents: boolean;
   includeAppendices: boolean;
   language: 'en' | 'ja';
+  applyBranding: boolean;
 }
 
 /**
@@ -34,8 +35,12 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
     includeTableOfContents: true,
     includeAppendices: true,
-    language: 'en'
+    language: 'en',
+    applyBranding: false
   });
+
+  // State for collapsible sections
+  const [isExportOptionsExpanded, setIsExportOptionsExpanded] = useState(true);
 
   // State for expanded details sections
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>(
@@ -130,89 +135,174 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
             ))}
           </div>
         </div>
-      </div>
-      
-      {/* Export Options */}
-      <div className="mb-6">
-        <h3 className="text-lg font-medium mb-3">Export Options</h3>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-            <div>
-              <div className="font-medium">Table of Contents</div>
-              <div className="text-sm text-gray-500">Include a structured table of contents</div>
-            </div>
-            <button
-              className={`px-3 py-1 rounded ${
-                exportOptions.includeTableOfContents
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-600'
-              }`}
-              onClick={() => setExportOptions(prev => ({
-                ...prev,
-                includeTableOfContents: !prev.includeTableOfContents
-              }))}
-            >
-              {exportOptions.includeTableOfContents ? (
-                <Check size={16} />
-              ) : (
-                'Include'
-              )}
-            </button>
-          </div>
-          
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-            <div>
-              <div className="font-medium">Appendices</div>
-              <div className="text-sm text-gray-500">Include supporting documents and references</div>
-            </div>
-            <button
-              className={`px-3 py-1 rounded ${
-                exportOptions.includeAppendices
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-600'
-              }`}
-              onClick={() => setExportOptions(prev => ({
-                ...prev,
-                includeAppendices: !prev.includeAppendices
-              }))}
-            >
-              {exportOptions.includeAppendices ? (
-                <Check size={16} />
-              ) : (
-                'Include'
-              )}
-            </button>
-          </div>
-          
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-            <div>
-              <div className="font-medium">Language</div>
-              <div className="text-sm text-gray-500">Choose the export language</div>
-            </div>
-            <div className="flex space-x-2">
+
+        {/* Export Methods */}
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <h4 className="text-sm font-medium mb-4">Export Options</h4>
+          <div className="grid grid-cols-3 gap-6">
+            {/* Download as PDF */}
+            <div className="text-center">
               <button
-                className={`px-3 py-1 rounded ${
-                  exportOptions.language === 'en'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-600'
-                }`}
-                onClick={() => setExportOptions(prev => ({ ...prev, language: 'en' }))}
+                onClick={handleExport}
+                className="w-full flex flex-col items-center p-4 rounded-lg border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all duration-200"
               >
-                English
+                <div className="bg-blue-100 p-3 rounded-full mb-2">
+                  <Download size={20} className="text-blue-600" />
+                </div>
+                <h3 className="font-medium text-sm mb-1">Download PDF</h3>
+                <p className="text-xs text-gray-500">Save to your device</p>
               </button>
+            </div>
+
+            {/* Send as Link */}
+            <div className="text-center opacity-50">
               <button
-                className={`px-3 py-1 rounded ${
-                  exportOptions.language === 'ja'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-600'
-                }`}
-                onClick={() => setExportOptions(prev => ({ ...prev, language: 'ja' }))}
+                disabled
+                className="w-full flex flex-col items-center p-4 rounded-lg border-2 border-gray-200 cursor-not-allowed"
               >
-                日本語
+                <div className="bg-gray-100 p-3 rounded-full mb-2">
+                  <Share2 size={20} className="text-gray-600" />
+                </div>
+                <h3 className="font-medium text-sm mb-1">Share Link</h3>
+                <p className="text-xs text-gray-500">Coming soon</p>
+              </button>
+            </div>
+
+            {/* Send via Email */}
+            <div className="text-center opacity-50">
+              <button
+                disabled
+                className="w-full flex flex-col items-center p-4 rounded-lg border-2 border-gray-200 cursor-not-allowed"
+              >
+                <div className="bg-gray-100 p-3 rounded-full mb-2">
+                  <Mail size={20} className="text-gray-600" />
+                </div>
+                <h3 className="font-medium text-sm mb-1">Send Email</h3>
+                <p className="text-xs text-gray-500">Coming soon</p>
               </button>
             </div>
           </div>
         </div>
+      </div>
+      
+      {/* Export Options */}
+      <div className="mb-6">
+        <button 
+          onClick={() => setIsExportOptionsExpanded(!isExportOptionsExpanded)}
+          className="w-full flex items-center justify-between text-lg font-medium mb-3 hover:text-gray-700"
+        >
+          <span>Export Options</span>
+          <ChevronLeft className={`transform transition-transform ${isExportOptionsExpanded ? 'rotate-90' : '-rotate-90'}`} size={20} />
+        </button>
+        
+        {isExportOptionsExpanded && (
+          <div className="space-y-4">
+            {/* Table of Contents Option */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <div className="font-medium">Table of Contents</div>
+                <div className="text-sm text-gray-500">Include a structured table of contents</div>
+              </div>
+              <button
+                className={`px-3 py-1 rounded ${
+                  exportOptions.includeTableOfContents
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-600'
+                }`}
+                onClick={() => setExportOptions(prev => ({
+                  ...prev,
+                  includeTableOfContents: !prev.includeTableOfContents
+                }))}
+              >
+                {exportOptions.includeTableOfContents ? (
+                  <Check size={16} />
+                ) : (
+                  'Include'
+                )}
+              </button>
+            </div>
+            
+            {/* Appendices Option */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <div className="font-medium">Appendices</div>
+                <div className="text-sm text-gray-500">Include supporting documents and references</div>
+              </div>
+              <button
+                className={`px-3 py-1 rounded ${
+                  exportOptions.includeAppendices
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-600'
+                }`}
+                onClick={() => setExportOptions(prev => ({
+                  ...prev,
+                  includeAppendices: !prev.includeAppendices
+                }))}
+              >
+                {exportOptions.includeAppendices ? (
+                  <Check size={16} />
+                ) : (
+                  'Include'
+                )}
+              </button>
+            </div>
+
+            {/* Apply Branding Option */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <div className="font-medium">Apply Branding?</div>
+                <div className="text-sm text-gray-500">Add company branding to the memo</div>
+              </div>
+              <button
+                className={`px-3 py-1 rounded ${
+                  exportOptions.applyBranding
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-600'
+                }`}
+                onClick={() => setExportOptions(prev => ({
+                  ...prev,
+                  applyBranding: !prev.applyBranding
+                }))}
+              >
+                {exportOptions.applyBranding ? (
+                  <Check size={16} />
+                ) : (
+                  'Include'
+                )}
+              </button>
+            </div>
+            
+            {/* Language Option */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <div className="font-medium">Language</div>
+                <div className="text-sm text-gray-500">Choose the export language</div>
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  className={`px-3 py-1 rounded ${
+                    exportOptions.language === 'en'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}
+                  onClick={() => setExportOptions(prev => ({ ...prev, language: 'en' }))}
+                >
+                  English
+                </button>
+                <button
+                  className={`px-3 py-1 rounded ${
+                    exportOptions.language === 'ja'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}
+                  onClick={() => setExportOptions(prev => ({ ...prev, language: 'ja' }))}
+                >
+                  日本語
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       
       {/* Contents Preview */}

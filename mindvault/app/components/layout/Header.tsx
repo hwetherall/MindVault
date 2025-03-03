@@ -19,21 +19,18 @@ const Header: React.FC<HeaderProps> = ({
   onClearRepository
 }) => {
   return (
-    <header className="bg-white shadow-md border-b-2 border-border-medium p-4 mb-6">
+    <header className="bg-white shadow-md border-b-2 border-border-medium p-2 mb-4">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center space-x-4 mb-4 md:mb-0">
+        <div className="flex items-center space-x-4 mb-2 md:mb-0">
           <div className="flex items-center">
             <Image
-              src="/innovera-logo.svg"
+              src="/innovera-logo.png"
               alt="Innovera Logo"
               width={120}
               height={30}
               priority
+              className="object-contain"
             />
-            <div className="ml-2 flex items-center">
-              <span className="text-primary font-bold">A</span>
-              <span className="text-secondary font-bold">I</span>
-            </div>
           </div>
           
           <div className="relative">
