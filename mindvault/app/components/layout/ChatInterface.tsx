@@ -167,7 +167,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ files, suggestedQuestions
           {suggestedQuestions.map(question => (
             <button
               key={question.id}
-              className="px-3 py-1 bg-background-secondary hover:bg-gray-200 text-text-primary rounded-full text-sm border-2 border-border-medium shadow-sm"
+              className="px-3 py-1 bg-background-secondary hover:bg-gray-200 text-text-primary rounded-full text-sm border-2 border-border-medium shadow-sm text-center"
               onClick={() => handleSuggestedQuestionClick(question.text)}
             >
               {question.text}
@@ -178,10 +178,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ files, suggestedQuestions
 
       {/* Chat input */}
       <form onSubmit={handleSendMessage} className="mt-4">
-        <div className="flex shadow-md">
+        <div className="flex flex-col sm:flex-row shadow-md">
           <input
             type="text"
-            className="flex-1 p-3 bg-white border-2 border-border-medium text-text-primary rounded-l-lg focus:outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 p-3 bg-white border-2 border-border-medium text-text-primary rounded-t-lg sm:rounded-t-none sm:rounded-l-lg focus:outline-none focus:ring-2 focus:ring-primary"
             placeholder="Type your message..."
             value={currentMessage}
             onChange={e => setCurrentMessage(e.target.value)}
@@ -189,7 +189,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ files, suggestedQuestions
           />
           <button
             type="submit"
-            className="px-4 py-2 bg-primary text-white rounded-r-lg hover:bg-primary-dark transition-colors disabled:opacity-70 border-y-2 border-r-2 border-primary"
+            className="px-4 py-2 bg-primary text-white rounded-b-lg sm:rounded-b-none sm:rounded-r-lg hover:bg-primary-dark transition-colors disabled:opacity-70 border-y-2 border-r-2 border-primary"
             disabled={isLoading || !currentMessage.trim()}
           >
             Send

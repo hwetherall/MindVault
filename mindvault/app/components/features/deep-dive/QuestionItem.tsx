@@ -109,9 +109,25 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
               
               {answer ? (
                 <div className="prose prose-sm max-w-none">
-                  {answer.content.split('\n').map((line, i) => (
-                    <p key={i} className="my-1">{line}</p>
-                  ))}
+                  <div className="bg-blue-50 p-3 rounded mb-3">
+                    <h4 className="text-sm font-semibold text-blue-700 mb-2">Summary</h4>
+                    <div className="text-sm text-gray-800">
+                      {answer.summary.split('\n').map((line, i) => (
+                        <p key={i} className="my-1">{line}</p>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {answer.details && (
+                    <div className="mt-3">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-2">Details</h4>
+                      <div className="text-sm text-gray-800">
+                        {answer.details.split('\n').map((line, i) => (
+                          <p key={i} className="my-1">{line}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center p-4">

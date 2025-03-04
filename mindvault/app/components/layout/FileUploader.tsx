@@ -91,9 +91,9 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesUploaded }) => {
         </div>
       )}
       
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col gap-4">
         <button
-          className="flex-1 flex items-center justify-center px-4 py-3 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors shadow-sm border-2 border-primary"
+          className="w-full flex items-center justify-center px-4 py-3 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors shadow-sm border-2 border-primary"
           onClick={() => handleUploadType('document')}
           disabled={uploading}
         >
@@ -102,7 +102,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesUploaded }) => {
         </button>
 
         <button
-          className="flex-1 flex items-center justify-center px-4 py-3 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors shadow-sm border-2 border-primary"
+          className="w-full flex items-center justify-center px-4 py-3 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors shadow-sm border-2 border-primary"
           onClick={() => handleUploadType('spreadsheet')}
           disabled={uploading}
         >

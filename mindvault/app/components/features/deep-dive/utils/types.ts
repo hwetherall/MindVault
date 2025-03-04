@@ -15,6 +15,7 @@ export interface DeepDiveQuestion {
  * Answer data structure
  */
 export interface Answer {
-  content: string;
+  summary: string;
+  details: string;
   isEdited: boolean;
 } 

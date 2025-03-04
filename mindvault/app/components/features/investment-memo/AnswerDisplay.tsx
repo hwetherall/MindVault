@@ -1,8 +1,14 @@
 import React from 'react';
 import { Edit2, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { Answer } from './utils/pdfExport';
-import { formatNumbersInText, splitAnswerContent } from '../../../utils/formatters';
+import { formatNumbersInText } from '../../../utils/formatters';
+
+// Define the Answer interface locally 
+interface Answer {
+  summary: string;
+  details: string;
+  isEdited: boolean;
+}
 
 interface AnswerDisplayProps {
   answer: Answer | undefined;
@@ -22,9 +28,8 @@ const AnswerDisplay: React.FC<AnswerDisplayProps> = ({ answer, onEdit, onRegener
     );
   }
 
-  const { tldr, details } = splitAnswerContent(answer.content);
-  const formattedTldr = formatNumbersInText(tldr);
-  const formattedDetails = formatNumbersInText(details);
+  const formattedSummary = formatNumbersInText(answer.summary);
+  const formattedDetails = formatNumbersInText(answer.details);
 
   return (
     <div className="space-y-4">
@@ -45,11 +50,11 @@ const AnswerDisplay: React.FC<AnswerDisplayProps> = ({ answer, onEdit, onRegener
         </button>
       </div>
 
-      {/* TLDR Section */}
+      {/* Summary Section */}
       <div className="bg-blue-50 p-3 rounded">
-        <h4 className="text-sm font-semibold text-blue-700 mb-2">TL;DR</h4>
+        <h4 className="text-sm font-semibold text-blue-700 mb-2">Summary</h4>
         <div className="text-sm text-gray-800">
-          <ReactMarkdown>{formattedTldr}</ReactMarkdown>
+          <ReactMarkdown>{formattedSummary}</ReactMarkdown>
         </div>
       </div>
 

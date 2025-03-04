@@ -34,50 +34,95 @@ const ReportGenerationStep: React.FC<ReportGenerationStepProps> = ({
   const [currentQuestion, setCurrentQuestion] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<number>(0);
-  const [activeGenerations, setActiveGenerations] = useState<Record<string, { content: string; isComplete: boolean }>>({});
+  const [activeGenerations, setActiveGenerations] = useState<Record<string, {
+    summary: string;
+    details: string;
+    isComplete: boolean;
+  }>>({});
 
-  // Get prompt for a specific question
+  // Get prompt for a specific question to generate detailed answer
   const getPromptForQuestion = (id: string): string => {
     const question = INVESTMENT_MEMO_QUESTIONS.find(q => q.id === id);
     if (!question) return '';
     
-    return `Based on the provided documents, ${question.question} ${question.description ? `(${question.description})` : ''}
+    return `Based on the provided documents, provide a DETAILED answer to this question: ${question.question} ${question.description ? `(${question.description})` : ''}
 
-Organize your answer into:
-1. TL;DR - A concise summary of the key points
-2. DETAILS - More comprehensive explanation with supporting information
+Your answer should be comprehensive and include supporting information, calculations, and specific data points from the documents.
+Include source references where appropriate. Extract concrete numbers and facts where available.
 
-Be specific and extract concrete numbers and facts where available.`;
+This will be used as the DETAILS section of the answer, which will be shown when users click "Show Details".`;
+  };
+
+  // Get prompt to generate a summary based on the detailed answer
+  const getSummaryPrompt = (detailedAnswer: string, id: string): string => {
+    const question = INVESTMENT_MEMO_QUESTIONS.find(q => q.id === id);
+    if (!question) return '';
+    
+    return `Based on the following detailed answer to the question "${question.question}", provide a concise 1-2 sentence summary that directly answers the question with key facts.
+
+Detailed Answer:
+${detailedAnswer}
+
+Your summary should be brief but informative, capturing the most important points from the detailed answer.
+This will always be shown to the user as the Summary section.`;
   };
 
   // Generate a single answer
   const generateAnswer = async (questionId: string): Promise<Answer | null> => {
     try {
+      console.log(`Starting answer generation for question ${questionId}`);
       setCurrentQuestion(questionId);
       
       // Initialize the active generation with empty content
       setActiveGenerations(prev => ({
         ...prev,
-        [questionId]: { content: '', isComplete: false }
+        [questionId]: { 
+          summary: '',
+          details: 'Generating detailed answer...', 
+          isComplete: false 
+        }
       }));
       
-      const prompt = getPromptForQuestion(questionId);
+      // Step 1: Generate detailed answer
+      console.log(`Generating details for question ${questionId}`);
+      const detailsPrompt = getPromptForQuestion(questionId);
+      const detailedResult = await simulateStreamingResponse(detailsPrompt, questionId);
+      console.log(`Details generated for question ${questionId}, length: ${detailedResult.length} chars`);
       
-      // Simulate streaming content for the demo
-      // In a real implementation, you would use a streaming API
-      const result = await simulateStreamingResponse(prompt, questionId);
+      // Update progress for the detailed part and show we're generating summary
+      setActiveGenerations(prev => ({
+        ...prev,
+        [questionId]: { 
+          summary: 'Generating summary...', 
+          details: detailedResult,
+          isComplete: false 
+        }
+      }));
+      
+      // Step 2: Generate summary based on the detailed answer
+      console.log(`Generating summary for question ${questionId} based on details`);
+      const summaryPrompt = getSummaryPrompt(detailedResult, questionId);
+      const summaryResponse = await chatService.sendMessage(summaryPrompt, []);
+      const summaryResult = summaryResponse.text;
+      console.log(`Summary generated for question ${questionId}, length: ${summaryResult.length} chars`);
       
       const answer = {
-        content: result,
+        summary: summaryResult,
+        details: detailedResult,
         isEdited: false
       };
       
-      // Mark generation as complete
+      // Mark generation as complete with the final answer
       setActiveGenerations(prev => ({
         ...prev,
-        [questionId]: { content: result, isComplete: true }
+        [questionId]: { 
+          summary: summaryResult, 
+          details: detailedResult, 
+          isComplete: true 
+        }
       }));
       
+      console.log(`Completed answer generation for question ${questionId}`);
       return answer;
     } catch (err) {
       console.error(`Error generating answer for question ${questionId}:`, err);
@@ -86,7 +131,11 @@ Be specific and extract concrete numbers and facts where available.`;
       // Mark as failed
       setActiveGenerations(prev => ({
         ...prev,
-        [questionId]: { content: 'Error generating response', isComplete: true }
+        [questionId]: { 
+          summary: 'Error generating response', 
+          details: 'Error generating response',
+          isComplete: true 
+        }
       }));
       
       return null;
@@ -107,13 +156,17 @@ Be specific and extract concrete numbers and facts where available.`;
       // Update the streaming content
       setActiveGenerations(prev => ({
         ...prev,
-        [questionId]: { content: partialContent, isComplete: false }
+        [questionId]: { 
+          ...prev[questionId],
+          details: partialContent 
+        }
       }));
       
       // Wait a short delay to simulate streaming
       await new Promise(resolve => setTimeout(resolve, 300));
     }
     
+    console.log(`Completed streaming response for question ${questionId}`);
     return fullText;
   };
 
@@ -206,7 +259,7 @@ Be specific and extract concrete numbers and facts where available.`;
           const isCompleted = !!answers[questionId];
           const isCurrent = currentQuestion === questionId && isGenerating;
           const isActivelyGenerating = activeGenerations[questionId] && !activeGenerations[questionId].isComplete;
-          const partialContent = activeGenerations[questionId]?.content || '';
+          const partialContent = activeGenerations[questionId]?.details || '';
           
           return (
             <div 
@@ -233,22 +286,37 @@ Be specific and extract concrete numbers and facts where available.`;
                   <div className="font-medium">{getQuestionText(questionId)}</div>
                   
                   {/* This shows either the generation status or the partial/complete content */}
-                  {partialContent ? (
-                    <div className={`mt-3 text-sm border-l-2 border-blue-300 pl-3 ${isActivelyGenerating ? 'animate-pulse' : ''}`}>
-                      <div className={`transition-opacity duration-300 ${isActivelyGenerating ? 'opacity-80' : 'opacity-100'}`}>
-                        {partialContent}
-                      </div>
-                      {isActivelyGenerating && (
-                        <span className="inline-block w-1 h-4 ml-1 bg-blue-500 animate-pulse"></span>
+                  {isActivelyGenerating ? (
+                    <div className="mt-3 text-sm border-l-2 border-blue-300 pl-3 animate-pulse">
+                      {activeGenerations[questionId].summary && (
+                        <div className="mb-2">
+                          <span className="font-medium">Summary: </span>
+                          <span className="transition-opacity duration-300 opacity-80">
+                            {activeGenerations[questionId].summary}
+                          </span>
+                        </div>
                       )}
+                      {activeGenerations[questionId].details && (
+                        <div>
+                          <span className="font-medium">Details: </span>
+                          <div className="transition-opacity duration-300 opacity-80">
+                            {activeGenerations[questionId].details}
+                            <span className="inline-block w-1 h-4 ml-1 bg-blue-500 animate-pulse"></span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : isCompleted ? (
+                    <div className="mt-3 text-sm">
+                      <div className="mb-2">
+                        <span className="font-medium">Summary: </span>
+                        {answers[questionId].summary.substring(0, 100)}
+                        {answers[questionId].summary.length > 100 ? '...' : ''}
+                      </div>
                     </div>
                   ) : (
                     <div className="text-sm text-gray-500 mt-1">
-                      {isCompleted 
-                        ? 'Generated successfully' 
-                        : isCurrent 
-                          ? 'Generating...' 
-                          : 'Waiting...'}
+                      {isCurrent ? 'Generating...' : 'Waiting...'}
                     </div>
                   )}
                 </div>

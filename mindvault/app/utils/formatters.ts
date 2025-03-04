@@ -43,22 +43,35 @@ export const formatNumbersInText = (text: string | any): string => {
 };
 
 /**
- * Split answer content into TLDR and details sections and clean up asterisks
+ * Split answer content into Summary and details sections and clean up asterisks
  * @param content Answer content to split
  * @returns Object containing tldr and details sections
  */
 export const splitAnswerContent = (content: string | any) => {
-  // Ensure content is a string
-  if (!content || typeof content !== 'string') {
+  if (!content) {
     return { tldr: '', details: '' };
   }
   
-  const parts = content.split('DETAILS:');
+  // Ensure content is a string
+  if (typeof content !== 'string') {
+    content = String(content);
+  }
+  
+  // Handle both TL;DR and Summary formats
+  let processedContent = content;
+  if (processedContent.includes('TL;DR:')) {
+    processedContent = processedContent.replace('TL;DR:', 'Summary:');
+  }
+  
+  const parts = processedContent.split(/DETAILS:/i);
   
   if (parts.length === 1) {
     // Clean up asterisks in content if no DETAILS section
     let cleanContent = parts[0].trim();
-    cleanContent = cleanContent.replace('TL;DR:', '').trim();
+    cleanContent = cleanContent.replace(/Summary:/i, '').trim();
+    
+    // Remove numbered list format (e.g., "1. Summary")
+    cleanContent = cleanContent.replace(/^\d+\.\s*Summary\s*/i, '');
     
     // Remove markdown bold/italic formatting
     cleanContent = cleanContent.replace(/\*\*(.*?)\*\*/g, '$1'); // Bold
@@ -71,24 +84,30 @@ export const splitAnswerContent = (content: string | any) => {
     };
   }
   
-  // Process TL;DR section
+  // Process Summary section (previously TL;DR)
   let tldr = parts[0].trim();
-  tldr = tldr.replace('TL;DR:', '').trim();
+  tldr = tldr.replace(/Summary:/i, '').trim();
+  
+  // Remove numbered list format (e.g., "1. Summary")
+  tldr = tldr.replace(/^\d+\.\s*Summary\s*/i, '');
   
   // Process DETAILS section
   let details = parts[1].trim();
   
-  // Remove markdown bold/italic formatting from both sections
-  tldr = tldr.replace(/\*\*(.*?)\*\*/g, '$1');
-  tldr = tldr.replace(/\*(.*?)\*/g, '$1');
-  tldr = tldr.replace(/\*+/g, '');
+  // Remove numbered list format (e.g., "2. Details")
+  details = details.replace(/^\d+\.\s*Details\s*/i, '');
   
-  details = details.replace(/\*\*(.*?)\*\*/g, '$1');
-  details = details.replace(/\*(.*?)\*/g, '$1');
-  details = details.replace(/\*+/g, '');
+  // Remove markdown bold/italic formatting from both parts
+  tldr = tldr.replace(/\*\*(.*?)\*\*/g, '$1');    // Bold
+  tldr = tldr.replace(/\*(.*?)\*/g, '$1');        // Italic
+  tldr = tldr.replace(/\*+/g, '');                // Any remaining asterisks
+  
+  details = details.replace(/\*\*(.*?)\*\*/g, '$1'); // Bold
+  details = details.replace(/\*(.*?)\*/g, '$1');     // Italic
+  details = details.replace(/\*+/g, '');             // Any remaining asterisks
   
   return { 
     tldr: tldr, 
     details: details 
   };
-}; 
+};

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronLeft, Download, FileText, Share2, Mail, Globe, Check } from 'lucide-react';
-import { Answer, InvestmentMemoQuestion } from './utils/pdfExport';
+import { Answer, InvestmentMemoQuestion, ExportOptions as PDFExportOptions } from './utils/pdfExport';
 import { exportToPDF } from './utils/pdfExport';
 import ReactMarkdown from 'react-markdown';
 
@@ -11,13 +11,6 @@ interface PDFExporterProps {
   answers: Record<string, Answer>;
   onPrevious: () => void;
   onComplete: () => void;
-}
-
-interface ExportOptions {
-  includeTableOfContents: boolean;
-  includeAppendices: boolean;
-  language: 'en' | 'ja';
-  applyBranding: boolean;
 }
 
 /**
@@ -31,12 +24,12 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
   onPrevious,
   onComplete
 }) => {
-  // Export options state
-  const [exportOptions, setExportOptions] = useState<ExportOptions>({
+  // Default export options
+  const [exportOptions, setExportOptions] = useState<PDFExportOptions>({
     includeTableOfContents: true,
     includeAppendices: true,
     language: 'en',
-    applyBranding: false
+    isDetailedView: true
   });
 
   // State for collapsible sections
@@ -46,6 +39,9 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>(
     Object.fromEntries(questions.map(q => [q.id, false]))
   );
+
+  // State for export status
+  const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   // Function to toggle details section
   const toggleDetails = (id: string) => {
@@ -57,8 +53,17 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
   
   // Function to export the report as PDF
   const handleExport = () => {
-    exportToPDF(questions, answers, title, exportOptions);
-    onComplete();
+    try {
+      exportToPDF(questions, answers, title, exportOptions);
+      
+      setExportStatus('success');
+      setTimeout(() => setExportStatus('idle'), 3000);
+      onComplete();
+    } catch (err) {
+      console.error('PDF export error:', err);
+      setExportStatus('error');
+      setTimeout(() => setExportStatus('idle'), 3000);
+    }
   };
 
   // Count edited answers
@@ -66,11 +71,12 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
   
   // Calculate total word count
   const totalWordCount = Object.values(answers).reduce((total, answer) => {
-    const wordCount = answer.content.split(/\s+/).filter(Boolean).length;
-    return total + wordCount;
+    const summaryWordCount = answer.summary.split(/\s+/).filter(Boolean).length;
+    const detailsWordCount = answer.details.split(/\s+/).filter(Boolean).length;
+    return total + summaryWordCount + detailsWordCount;
   }, 0);
   
-  // Split questions by category
+  // Group questions by category
   const questionsByCategory = questions.reduce((acc, question) => {
     const category = question.category || 'General';
     if (!acc[category]) {
@@ -80,20 +86,6 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
     return acc;
   }, {} as Record<string, InvestmentMemoQuestion[]>);
 
-  // Function to split answer content into TLDR and details sections
-  const splitAnswerContent = (content: string) => {
-    const parts = content.split('DETAILS:');
-    
-    if (parts.length === 1) {
-      return { tldr: parts[0].replace('TL;DR:', '').trim(), details: '' };
-    }
-    
-    return { 
-      tldr: parts[0].replace('TL;DR:', '').trim(), 
-      details: parts[1].trim() 
-    };
-  };
-  
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h2 className="text-2xl font-bold mb-4">Export Investment Memo</h2>
@@ -247,31 +239,6 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
               </button>
             </div>
 
-            {/* Apply Branding Option */}
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <div className="font-medium">Apply Branding?</div>
-                <div className="text-sm text-gray-500">Add company branding to the memo</div>
-              </div>
-              <button
-                className={`px-3 py-1 rounded ${
-                  exportOptions.applyBranding
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-600'
-                }`}
-                onClick={() => setExportOptions(prev => ({
-                  ...prev,
-                  applyBranding: !prev.applyBranding
-                }))}
-              >
-                {exportOptions.applyBranding ? (
-                  <Check size={16} />
-                ) : (
-                  'Include'
-                )}
-              </button>
-            </div>
-            
             {/* Language Option */}
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <div>
@@ -298,6 +265,42 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
                   onClick={() => setExportOptions(prev => ({ ...prev, language: 'ja' }))}
                 >
                   日本語
+                </button>
+              </div>
+            </div>
+
+            {/* Concise vs Detailed View Option */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <div className="font-medium">Content Detail Level</div>
+                <div className="text-sm text-gray-500">{exportOptions.isDetailedView ? 'Detailed view with full answers' : 'Concise view with summaries only'}</div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  className={`px-3 py-1 rounded-l-md ${
+                    !exportOptions.isDetailedView
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}
+                  onClick={() => setExportOptions(prev => ({
+                    ...prev,
+                    isDetailedView: false
+                  }))}
+                >
+                  Concise
+                </button>
+                <button
+                  className={`px-3 py-1 rounded-r-md ${
+                    exportOptions.isDetailedView
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}
+                  onClick={() => setExportOptions(prev => ({
+                    ...prev,
+                    isDetailedView: true
+                  }))}
+                >
+                  Detailed
                 </button>
               </div>
             </div>
@@ -342,9 +345,6 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
                 const answer = answers[question.id];
                 if (!answer) return null;
                 
-                const { tldr, details } = splitAnswerContent(answer.content);
-                const isDetailsExpanded = expandedDetails[question.id];
-                
                 return (
                   <div key={question.id} className="p-4">
                     <div className="font-bold mb-2">{question.question}</div>
@@ -353,23 +353,23 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
                     )}
                     <div className="prose prose-sm max-w-none">
                       <div className="mb-3">
-                        <div className="font-medium text-gray-700">Summary</div>
-                        <ReactMarkdown>{tldr}</ReactMarkdown>
+                        <div className="font-medium text-blue-700 mb-1">Summary</div>
+                        <div className="prose prose-sm">
+                          <ReactMarkdown>
+                            {answer.summary}
+                          </ReactMarkdown>
+                        </div>
                       </div>
-                      {details && (
-                        <div>
-                          <div className="flex items-center justify-between">
-                            <div className="font-medium text-gray-700">Details</div>
-                            <button
-                              className="text-sm text-blue-600 hover:text-blue-800"
-                              onClick={() => toggleDetails(question.id)}
-                            >
-                              {isDetailsExpanded ? 'See Less' : 'See More'}
-                            </button>
+                      
+                      {/* Only show details if expanded */}
+                      {expandedDetails[question.id] && answer.details && (
+                        <div className="mt-4 pt-3 border-t">
+                          <div className="font-medium text-gray-700 mb-1">Details</div>
+                          <div className="prose prose-sm">
+                            <ReactMarkdown>
+                              {answer.details}
+                            </ReactMarkdown>
                           </div>
-                          {isDetailsExpanded && (
-                            <ReactMarkdown>{details}</ReactMarkdown>
-                          )}
                         </div>
                       )}
                     </div>

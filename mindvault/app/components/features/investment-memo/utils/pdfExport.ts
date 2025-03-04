@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import { formatNumbersInText, splitAnswerContent } from '../../../../utils/formatters';
+import { formatNumbersInText } from '../../../../utils/formatters';
 
 /**
  * Investment memo questions data structure
@@ -17,7 +17,8 @@ export interface InvestmentMemoQuestion {
  * Answer data structure
  */
 export interface Answer {
-  content: string;
+  summary: string;
+  details: string;
   isEdited: boolean;
 }
 
@@ -28,6 +29,7 @@ export interface ExportOptions {
   includeTableOfContents: boolean;
   includeAppendices: boolean;
   language: 'en' | 'ja';
+  isDetailedView?: boolean; // Toggle between Concise and Detailed view
 }
 
 /**
@@ -44,7 +46,8 @@ export const exportToPDF = (
   options: ExportOptions = {
     includeTableOfContents: true,
     includeAppendices: true,
-    language: 'en'
+    language: 'en',
+    isDetailedView: true
   }
 ): void => {
   const doc = new jsPDF();
@@ -144,18 +147,16 @@ export const exportToPDF = (
       // Add the answer
       doc.setFont(undefined, 'normal');
       
-      // Split answer content
-      const { tldr, details } = splitAnswerContent(answer.content);
-      const formattedTldr = formatNumbersInText(tldr);
+      const formattedSummary = formatNumbersInText(answer.summary);
       
       // Handle line breaks for long text
-      const splitTldr = doc.splitTextToSize(formattedTldr, pageWidth);
-      doc.text(splitTldr, leftMargin, yPosition);
+      const splitSummary = doc.splitTextToSize(formattedSummary, pageWidth);
+      doc.text(splitSummary, leftMargin, yPosition);
       
-      yPosition += 5 * (splitTldr.length);
+      yPosition += 5 * (splitSummary.length);
       
-      // Add details if available
-      if (details) {
+      // Add details if available and detailed view is enabled
+      if (answer.details && (options.isDetailedView ?? true)) {
         yPosition += 5;
         
         // Check if we need a page break
@@ -164,7 +165,7 @@ export const exportToPDF = (
           yPosition = 20;
         }
         
-        const formattedDetails = formatNumbersInText(details);
+        const formattedDetails = formatNumbersInText(answer.details);
         const splitDetails = doc.splitTextToSize(formattedDetails, pageWidth);
         doc.text(splitDetails, leftMargin, yPosition);
         
