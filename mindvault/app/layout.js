@@ -3,6 +3,7 @@ import { NotesProvider } from './context/NotesContext';
 import { AIProvider } from './context/AIContext';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import PropTypes from 'prop-types';
 
 export const metadata = {
   title: 'MindVault',
@@ -23,4 +24,8 @@ export default function RootLayout({ children }) {
       </body>
     </html>
   );
-} 
+}
+
+RootLayout.propTypes = {
+  children: PropTypes.node.isRequired,
+}; 

@@ -51,45 +51,6 @@ const enrichFinancialContext = (context) => {
 };
 
 /**
- * Detects the most common column names for various financial metrics
- */
-const detectCommonColumns = (sheets) => {
-    const columnPatterns = {
-        revenue: ['revenue', 'sales', 'income', 'turnover'],
-        expenses: ['expense', 'cost', 'expenditure', 'spending'],
-        profit: ['profit', 'earnings', 'income', 'ebitda', 'ebit'],
-        assets: ['asset', 'property', 'equipment'],
-        liabilities: ['liability', 'debt', 'loan', 'payable'],
-        equity: ['equity', 'capital', 'shareholder', 'retained'],
-        cash: ['cash', 'money', 'fund', 'liquidity']
-    };
-
-    const columnsFound = {};
-    
-    sheets.forEach(sheet => {
-        const headers = sheet.headers.map(h => String(h).toLowerCase());
-        
-        Object.entries(columnPatterns).forEach(([metricType, patterns]) => {
-            if (!columnsFound[metricType]) {
-                columnsFound[metricType] = [];
-            }
-            
-            headers.forEach((header, index) => {
-                if (patterns.some(pattern => header.includes(pattern))) {
-                    columnsFound[metricType].push({
-                        sheet: sheet.name,
-                        header: sheet.headers[index],
-                        index
-                    });
-                }
-            });
-        });
-    });
-    
-    return columnsFound;
-};
-
-/**
  * Analyzes financial trends in the data
  */
 const analyzeTrends = (timeSeries) => {
@@ -170,11 +131,11 @@ const analyzeTrends = (timeSeries) => {
  */
 const generateInsights = (context) => {
     const insights = [];
-    const { sheets, timeSeries, overallMetrics, metadata } = context;
+    const { sheets, timeSeries } = context;
 
     // Add general file information
-    if (metadata) {
-        insights.push(`Analyzed Excel file with ${metadata.sheetCount} sheets and size of ${(metadata.fileSize / 1024).toFixed(1)} KB`);
+    if (context.metadata) {
+        insights.push(`Analyzed Excel file with ${context.metadata.sheetCount} sheets and size of ${(context.metadata.fileSize / 1024).toFixed(1)} KB`);
     }
 
     // Analyze each sheet
@@ -231,26 +192,6 @@ const generateInsights = (context) => {
             insights.push(`${trend.metric} on ${trend.sheet} shows a ${trend.trend} trend (${trend.growthRate.toFixed(1)}% change)`);
         }
     });
-
-    // Find common columns across sheets
-    const commonColumns = detectCommonColumns(sheets);
-    if (Object.keys(commonColumns).length > 0) {
-        // Add insights about key financial metrics found
-        const keyMetrics = [];
-        if (commonColumns.revenue && commonColumns.revenue.length > 0) {
-            keyMetrics.push('revenue');
-        }
-        if (commonColumns.profit && commonColumns.profit.length > 0) {
-            keyMetrics.push('profit/earnings');
-        }
-        if (commonColumns.cash && commonColumns.cash.length > 0) {
-            keyMetrics.push('cash flow');
-        }
-        
-        if (keyMetrics.length > 0) {
-            insights.push(`Key financial metrics identified: ${keyMetrics.join(', ')}`);
-        }
-    }
 
     return insights;
 };
@@ -350,7 +291,7 @@ export const processExcelQuestion = async (cacheKey, question) => {
  * Generates prompts for common financial analysis questions
  */
 export const getSuggestedQuestions = (context) => {
-    const { sheets, metadata } = context;
+    const { sheets } = context;
     const questions = [];
 
     // Add general questions about the file
@@ -386,8 +327,8 @@ export const getSuggestedQuestions = (context) => {
                 );
                 break;
                 
-            case 'UNKNOWN':
-                // For unknown sheet types, suggest general questions based on sheet name
+            case 'UNKNOWN': {
+                // Move declaration outside of case block
                 const sheetNameLower = sheet.name.toLowerCase();
                 if (sheetNameLower.includes('forecast') || sheetNameLower.includes('projection')) {
                     questions.push(`What are the key projections in ${sheet.name}?`);
@@ -397,6 +338,7 @@ export const getSuggestedQuestions = (context) => {
                     questions.push(`What are the key trends in ${sheet.name}?`);
                 }
                 break;
+            }
         }
     });
 

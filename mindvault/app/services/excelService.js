@@ -1,25 +1,5 @@
-import * as XLSX from 'xlsx';
-import currency from 'currency.js';
+import { read } from 'xlsx';
 import _ from 'lodash';
-import Chart from 'chart.js/auto';
-
-/**
- * Financial statement types and their common patterns
- */
-const FINANCIAL_PATTERNS = {
-    INCOME_STATEMENT: {
-        headers: ['revenue', 'sales', 'income', 'expenses', 'profit', 'loss', 'ebitda', 'net income'],
-        metrics: ['gross margin', 'operating margin', 'net margin']
-    },
-    BALANCE_SHEET: {
-        headers: ['assets', 'liabilities', 'equity', 'current assets', 'current liabilities'],
-        metrics: ['working capital', 'debt to equity', 'current ratio']
-    },
-    CASH_FLOW: {
-        headers: ['operating activities', 'investing activities', 'financing activities', 'cash flow'],
-        metrics: ['free cash flow', 'operating cash flow', 'cash burn rate']
-    }
-};
 
 /**
  * Cache for processed Excel data
@@ -46,16 +26,22 @@ const formatNumber = (num) => {
 /**
  * Detects the type of financial statement based on headers and content
  */
-const detectSheetType = (headers, data) => {
-    // Convert headers to a single lowercase string for pattern matching
-    const headerStr = headers.map(h => String(h).toLowerCase()).join(' ');
-    
-    for (const [type, patterns] of Object.entries(FINANCIAL_PATTERNS)) {
-        if (patterns.headers.some(pattern => headerStr.includes(pattern))) {
-            return type;
-        }
+const detectSheetType = (headers) => {
+    const incomeStatementHeaders = ['revenue', 'sales', 'income', 'expenses', 'profit', 'margin'];
+    const balanceSheetHeaders = ['assets', 'liabilities', 'equity', 'current', 'fixed'];
+    const cashFlowHeaders = ['cash', 'operating', 'investing', 'financing', 'flow'];
+
+    const lowerHeaders = headers.map(h => String(h).toLowerCase());
+
+    if (incomeStatementHeaders.some(h => lowerHeaders.some(lh => lh.includes(h)))) {
+        return 'INCOME_STATEMENT';
     }
-    
+    if (balanceSheetHeaders.some(h => lowerHeaders.some(lh => lh.includes(h)))) {
+        return 'BALANCE_SHEET';
+    }
+    if (cashFlowHeaders.some(h => lowerHeaders.some(lh => lh.includes(h)))) {
+        return 'CASH_FLOW';
+    }
     return 'UNKNOWN';
 };
 
@@ -183,89 +169,49 @@ const calculateFinancialMetrics = (data, sheetType, headers) => {
 };
 
 /**
- * Main function to parse Excel files
+ * Process workbook data
  */
-export const parseXlsx = async (file) => {
-    try {
-        console.log(`Starting to process Excel file: ${file.name}, size: ${file.size / 1024} KB`);
-        const startTime = Date.now();
-        
-        const buffer = await file.arrayBuffer();
-        const workbook = XLSX.read(buffer, { type: 'array', cellDates: true, dateNF: 'yyyy-mm-dd' });
-        
-        console.log(`XLSX parsing complete in ${Date.now() - startTime}ms. Processing sheets...`);
-        
-        const processedData = {
-            sheets: {},
-            metrics: {},
-            timeSeries: {},
-            insights: [],
-            metadata: {
-                fileName: file.name,
-                fileSize: file.size,
-                sheetCount: workbook.SheetNames.length
-            }
-        };
-
-        // Process each sheet with chunking for large sheets
-        for (const sheetName of workbook.SheetNames) {
-            try {
-                console.log(`Processing sheet: ${sheetName}`);
-                const sheet = workbook.Sheets[sheetName];
-                
-                // Use sheet_to_json with header:1 to get array of arrays
-                const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-                
-                if (jsonData.length < 2) {
-                    console.log(`Skipping empty sheet: ${sheetName}`);
-                    continue; // Skip empty sheets
-                }
-                
-                const headers = jsonData[0].map(h => h || '');
-                
-                // Process in chunks if the sheet is very large
-                const MAX_ROWS_PER_CHUNK = 1000;
-                let processedRows = [];
-                
-                for (let i = 1; i < jsonData.length; i += MAX_ROWS_PER_CHUNK) {
-                    const chunk = jsonData.slice(i, i + MAX_ROWS_PER_CHUNK);
-                    processedRows = processedRows.concat(chunk);
-                }
-                
-                const sheetType = detectSheetType(headers, processedRows);
-                
-                processedData.sheets[sheetName] = {
-                    type: sheetType,
-                    headers,
-                    data: processedRows,
-                    metrics: calculateFinancialMetrics(processedRows, sheetType, headers)
-                };
-                
-                processedData.timeSeries[sheetName] = extractTimeSeries(processedRows, headers);
-                
-                console.log(`Completed processing sheet: ${sheetName}, type: ${sheetType}`);
-            } catch (error) {
-                console.error(`Error processing sheet ${sheetName}:`, error);
-                // Continue with other sheets despite errors
-            }
+const processWorkbookData = (workbook) => {
+    const processedData = {
+        sheets: {},
+        metrics: {},
+        timeSeries: {},
+        insights: [],
+        metadata: {
+            sheetCount: workbook.SheetNames.length
         }
+    };
 
-        console.log(`Excel processing completed in ${Date.now() - startTime}ms`);
+    // Process each sheet
+    for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const jsonData = read(sheet, { header: 1, defval: null });
         
-        // Cache the processed data
-        const cacheKey = `${file.name}_${Date.now()}`;
-        dataCache.set(cacheKey, processedData);
+        if (jsonData.length < 2) continue;
         
-        return {
-            cacheKey,
-            summary: generateSummary(processedData),
-            sheets: Object.keys(processedData.sheets),
-            metrics: _.mapValues(processedData.sheets, 'metrics'),
-            metadata: processedData.metadata
+        const headers = jsonData[0].map(h => h || '');
+        const data = jsonData.slice(1);
+        
+        processedData.sheets[sheetName] = {
+            headers,
+            data,
+            metrics: calculateFinancialMetrics(data, detectSheetType(headers), headers),
+            timeSeries: extractTimeSeries(data, headers)
         };
+    }
+
+    return processedData;
+};
+
+// Export the main function
+export const processExcelFile = async (file) => {
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = read(arrayBuffer);
+        return processWorkbookData(workbook);
     } catch (error) {
         console.error('Error processing Excel file:', error);
-        throw new Error(`Failed to process Excel file: ${error.message}`);
+        throw error;
     }
 };
 
@@ -335,35 +281,6 @@ export const prepareAIContext = (cacheKey, question) => {
     
     console.log(`AI context prepared for ${cacheKey} with ${Object.keys(compactData.context.sheets).length} sheets`);
     return compactData;
-};
-
-/**
- * Generates a summary of the Excel file
- */
-const generateSummary = (processedData) => {
-    const summary = [];
-    
-    summary.push(`File: ${processedData.metadata.fileName}`);
-    summary.push(`Size: ${(processedData.metadata.fileSize / 1024).toFixed(1)} KB`);
-    summary.push(`Sheets: ${processedData.metadata.sheetCount}`);
-    summary.push('');
-    
-    Object.entries(processedData.sheets).forEach(([sheetName, sheet]) => {
-        summary.push(`Sheet: ${sheetName} (${sheet.type})`);
-        summary.push(`Rows: ${sheet.data.length}`);
-        
-        if (Object.keys(sheet.metrics).length > 0) {
-            summary.push('Key Metrics:');
-            Object.entries(sheet.metrics).forEach(([metric, value]) => {
-                if (value !== null && value !== undefined && value !== 0) {
-                    summary.push(`- ${metric}: ${formatNumber(value)}`);
-                }
-            });
-        }
-        summary.push('');
-    });
-    
-    return summary.join('\n');
 };
 
 /**

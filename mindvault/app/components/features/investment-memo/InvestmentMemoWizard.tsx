@@ -5,6 +5,7 @@ import ReportSetupStep from './ReportSetupStep';
 import ReportGenerationStep from './ReportGenerationStep';
 import ReportEditor from './ReportEditor';
 import PDFExporter from './PDFExporter';
+import { Answer } from './utils/pdfExport';
 
 interface InvestmentMemoWizardProps {
   files: any[];
@@ -33,8 +34,8 @@ const InvestmentMemoWizard: React.FC<InvestmentMemoWizardProps> = ({
   const [reportState, setReportState] = useState({
     title: '',
     description: '',
-    selectedQuestions: [],
-    answers: {},
+    selectedQuestions: [] as string[],
+    answers: {} as Record<string, Answer>,
     status: 'initial', // 'initial', 'generating', 'complete'
     progress: 0
   });

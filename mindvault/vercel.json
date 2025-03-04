@@ -1,8 +1,6 @@
 {
-    "rewrites": [
-      {
-        "source": "/(.*)",
-        "destination": "/index.html"
-      }
-    ]
-  }
+  "buildCommand": "npm run build && mkdir -p dist && cp .next/routes-manifest.json dist/",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "rewrites": []
+}

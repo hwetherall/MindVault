@@ -20,11 +20,17 @@ const formatFileSize = (bytes) => {
  */
 const extractTextFromPDF = async (file) => {
   try {
+    // Only import PDF.js in browser environment
+    if (typeof window === 'undefined') {
+      console.log('PDF extraction skipped in server environment');
+      return 'PDF content extraction not available in server environment';
+    }
+
     // Import the PDF.js library dynamically
     const pdfjsLib = await import('pdfjs-dist');
     
     // Set the worker source
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.js`;
     
     const arrayBuffer = await file.arrayBuffer();
     
@@ -81,13 +87,13 @@ const extractTextFromExcel = async (file) => {
     console.log(`Starting Excel extraction for: ${file.name}, size: ${file.size} bytes`);
     
     // Import XLSX library dynamically
-    const XLSX = await import('xlsx');
+    const { read } = await import('xlsx');
     
     // Get array buffer from the file
     const arrayBuffer = await file.arrayBuffer();
     
     // Read the workbook
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const workbook = read(arrayBuffer, { type: 'array' });
     
     let fullText = '';
     
@@ -99,7 +105,7 @@ const extractTextFromExcel = async (file) => {
       const sheet = workbook.Sheets[sheetName];
       
       // Convert sheet to JSON with headers
-      const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      const jsonData = read(sheet, { header: 1, defval: null });
       
       // Calculate column widths for better formatting
       const columnWidths = [];
@@ -180,7 +186,7 @@ const uploadDocument = async (file) => {
     // Upload file to Supabase Storage
     const fileName = `${Date.now()}-${file.name}`;
     console.log(`Uploading file to Supabase storage bucket 'documents' with name: ${fileName}`);
-    const { error: uploadError, data: storageData } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('documents')
       .upload(fileName, file, {
         cacheControl: '3600',
@@ -318,7 +324,7 @@ const uploadSpreadsheet = async (file) => {
     // Upload file to Supabase Storage
     const fileName = `${Date.now()}-${file.name}`;
     console.log(`Uploading file to Supabase storage bucket 'spreadsheets' with name: ${fileName}`);
-    const { error: uploadError, data: storageData } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('spreadsheets')
       .upload(fileName, file, {
         cacheControl: '3600',

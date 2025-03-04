@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search } from '@mui/icons-material';
-import { Trash2, X, FileText, FileSpreadsheet, AlertCircle, Upload } from 'lucide-react';
+import { X, FileText, FileSpreadsheet } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { notesService } from '../services/notesService';
 import { filesService } from '../services/filesService';
@@ -38,19 +38,7 @@ const INVESTMENT_MEMO_QUESTIONS = [
   },
 ];
 
-// Utility function to format numbers to 2 decimal places maximum
-const formatNumbersInText = (text) => {
-  if (!text) return '';
-  
-  // Regular expression to find numbers with decimal points
-  // This regex looks for numbers that have a decimal point followed by at least one digit
-  return text.replace(/(\d+\.\d{3,})/g, (match) => {
-    // Convert to number and format to 2 decimal places
-    return parseFloat(match).toFixed(2);
-  });
-};
-
-export default function MainLayout({ notes }) {
+export default function MainLayout() {
   const [files, setFiles] = useState([]);
   const [noteDialog, setNoteDialog] = useState(false);
   const [chatInput, setChatInput] = useState('');
@@ -58,24 +46,18 @@ export default function MainLayout({ notes }) {
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [view, setView] = useState('memo'); // Default to memo view
-  const [errorMessage, setErrorMessage] = useState(null);
+  const [view, setView] = useState('memo');
   const [suggestedQuestions, setSuggestedQuestions] = useState([]);
-  const [uploadType, setUploadType] = useState(null);
-  const [isUploading, setIsUploading] = useState(false);
-  // Add state for memo answers
   const [memoAnswers, setMemoAnswers] = useState({});
   
   // Ref for file input
   const fileInputRef = useRef(null);
   // Ref for InvestmentMemo component
   const investmentMemoRef = useRef(null);
-  // Ref for memo container
-  const memoContainerRef = useRef(null);
 
   useEffect(() => {
     loadAllContent();
-
+    
     // Set up event listener for answer updates
     const handleAnswerUpdate = (event) => {
       const { id, content } = event.detail;
@@ -101,7 +83,7 @@ export default function MainLayout({ notes }) {
 
   const loadAllContent = async () => {
     try {
-      const [fetchedNotes, documents] = await Promise.all([
+      const [, documents] = await Promise.all([
         notesService.getNotes(),
         filesService.getFiles()
       ]);
@@ -117,7 +99,6 @@ export default function MainLayout({ notes }) {
       setFiles(formattedFiles);
     } catch (error) {
       console.error('Error loading content:', error);
-      setErrorMessage('Failed to load content. Please try again.');
     }
   };
 
@@ -139,37 +120,10 @@ export default function MainLayout({ notes }) {
     }
   };
 
-  const handleClearRepository = async () => {
-    if (window.confirm('Are you sure you want to clear all files and notes? This cannot be undone.')) {
-      try {
-        // First delete all files
-        const fileItems = files.filter(file => file.type !== 'note');
-        for (const file of fileItems) {
-          await filesService.deleteFile(file.id);
-        }
+  
 
-        // Then delete all notes
-        const noteItems = files.filter(file => file.type === 'note');
-        for (const note of noteItems) {
-          await notesService.deleteNote(note.id);
-        }
-
-        // Clear the files state
-        setFiles([]);
-      } catch (error) {
-        console.error('Error clearing repository:', error);
-        alert('Failed to clear repository. Please try again.');
-      }
-    }
-  };
-
-  const handleUploadType = (type) => {
-    setUploadType(type);
-    if (type === 'financials') {
-      fileInputRef.current.accept = ".xlsx,.xls";
-    } else {
-      fileInputRef.current.accept = ".pdf";
-    }
+  const handleUploadType = () => {
+    fileInputRef.current.accept = ".pdf";
     fileInputRef.current.click();
   };
 
@@ -221,14 +175,14 @@ export default function MainLayout({ notes }) {
         errorMsg = 'Storage quota exceeded. Please delete some files first.';
       }
       
-      setErrorMessage(errorMsg);
+      setChatOutput(errorMsg);
       alert(`File upload failed: ${errorMsg}`);
       setIsLoading(false);
     }
   };
 
-  const handleChatSubmit = async (e) => {
-    e.preventDefault();
+  const handleChatSubmit = async (event) => {
+    event.preventDefault();
     if (!chatInput.trim() || isLoading) return;
 
     const userMessage = chatInput.trim();
@@ -294,50 +248,20 @@ export default function MainLayout({ notes }) {
   };
 
   // Get pitch deck and financial files
-  const pitchDeckFiles = files.filter(file => 
-    file.type !== 'note' && file.name.toLowerCase().endsWith('.pdf')
-  );
   
-  const financialFiles = files.filter(file => 
-    file.type !== 'note' && (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls'))
-  );
+  
+ 
 
   // Create helper variables to check if documents exist
   const hasDocuments = files.filter(file => file.type !== 'note').length > 0;
   const hasNotes = files.filter(file => file.type === 'note').length > 0;
 
   // Create friendly messages for empty repository sections
-  const emptyDocumentsMessages = [
-    "It's lonely here! Upload a PDF or Excel file to get started.",
-    "Your document library is waiting for its first star! Upload something interesting.",
-    "This library is as empty as my coffee cup on Monday morning. Add some documents!",
-    "Upload a PDF or Excel file - they're getting impatient to help you!",
-  ];
-
-  const emptyNotesMessages = [
-    "No notes yet? Share your thoughts - they're valuable!",
-    "This space is perfect for your brilliant ideas. Add your first note!",
-    "Your notes will appear here. Start creating!",
-    "The best insights start with a simple note. Create one now!",
-  ];
-
-  // Replaced random message function with fixed message
   const EMPTY_DOCUMENTS_MESSAGE = "Upload a PDF or Excel file to get started.";
   const EMPTY_NOTES_MESSAGE = "Your notes will appear here. Start creating!";
 
   // Create placeholder helpful text for each question before analysis
-  const getQuestionPlaceholder = (questionId) => {
-    const placeholders = {
-      'arr': "Click 'Generate Investment Memo' to analyze the company's Annual Recurring Revenue from your uploaded documents.",
-      'burn-rate': "Upload financial documents and click 'Generate Investment Memo' to calculate the current burn rate.",
-      'runway': "We'll analyze your documents to determine how many months of runway the company has left.",
-      'problem': "What problem is this company trying to solve? Identify the core customer problem the company addresses.",
-      'team': "Want to know about the management team? Upload relevant documents and generate the memo!"
-    };
-    
-    return placeholders[questionId] || "Ready to analyze when you click 'Generate Investment Memo'";
-  };
-
+ 
   // Add a function to handle suggested question clicks
   const handleSuggestedQuestionClick = async (question) => {
     setChatInput(question);
@@ -504,14 +428,14 @@ export default function MainLayout({ notes }) {
           {/* Upload Buttons */}
           <div className="grid grid-cols-2 gap-2 mb-4">
             <button 
-              onClick={() => handleUploadType('pitch')}
+              onClick={() => handleUploadType()}
               className="bg-[#E6007E] hover:bg-[#C4006C] text-white p-2 rounded flex items-center justify-center gap-2"
             >
               <FileText size={18} />
               Upload Pitch Deck (PDF only)
             </button>
             <button 
-              onClick={() => handleUploadType('financials')}
+              onClick={() => handleUploadType()}
               className="bg-[#E6007E] hover:bg-[#C4006C] text-white p-2 rounded flex items-center justify-center gap-2"
             >
               <FileSpreadsheet size={18} />
@@ -669,7 +593,7 @@ export default function MainLayout({ notes }) {
                           </div>
                         ) : (
                           <div className="text-gray-500 italic">
-                            Click "Generate Investment Memo" to analyze this question
+                            Click &quot;Generate Investment Memo&quot; to analyze this question
                           </div>
                         )}
                       </div>
@@ -712,7 +636,7 @@ export default function MainLayout({ notes }) {
                         } else {
                           try {
                             processedContent = JSON.stringify(content);
-                          } catch (e) {
+                          } catch {
                             processedContent = 'Error processing content';
                           }
                         }

@@ -1,8 +1,14 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import OpenAI from 'openai';
+import { OpenAI } from 'openai';
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? '';
+
+if (!OPENAI_API_KEY) {
+    throw new Error('OpenAI API key is required');
+}
 
 const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: OPENAI_API_KEY,
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

@@ -162,7 +162,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
                 </div>
               ) : (
                 <div className="innovera-card h-[600px] flex flex-col shadow-elevated">
-                  <h2 className="text-xl font-bold mb-4 pb-2 border-b-2 border-border-medium">Conduct Due Dilligence</h2>
+                  <h2 className="text-xl font-bold mb-4 pb-2 border-b-2 border-border-medium">Conduct Due Diligence</h2>
                   <ChatInterface
                     files={files}
                     suggestedQuestions={SUGGESTED_QUESTIONS}
