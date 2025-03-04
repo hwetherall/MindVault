@@ -1,5 +1,19 @@
 import { useState } from 'react';
-import { Answer, InvestmentMemoQuestion } from '../utils/pdfExport';
+
+// Mock types to fix import errors
+export interface Answer {
+  content: string;
+  isEdited: boolean;
+}
+
+export interface InvestmentMemoQuestion {
+  id: string;
+  question: string;
+  description: string;
+  category?: string;
+  complexity?: 'low' | 'medium' | 'high';
+  recommended?: string[];
+}
 
 interface UseInvestmentMemoProps {
   files: any[];
@@ -19,6 +33,7 @@ interface UseInvestmentMemoReturn {
   currentPrompt: string;
   currentPromptId: string;
   setEditedAnswer: (answer: string) => void;
+  setCurrentPrompt: (prompt: string) => void;
   toggleAnswer: (id: string) => void;
   handleEdit: (id: string) => void;
   handleSave: (id: string) => void;
@@ -225,6 +240,7 @@ DETAILS: More comprehensive explanation with supporting evidence from the docume
     currentPrompt,
     currentPromptId,
     setEditedAnswer,
+    setCurrentPrompt,
     toggleAnswer,
     handleEdit,
     handleSave,

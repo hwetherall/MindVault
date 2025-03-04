@@ -1,36 +1,24 @@
+/* eslint-disable no-undef */
 // Updated chatService.js
-import OpenAI from 'openai';
-import { processExcelQuestion, getSuggestedQuestions } from './excelAIService';
+import { OpenAI } from 'openai';
+import { getSuggestedQuestions } from './excelAIService';
 
-// Log a message about the API key for debugging (only in development)
-if (process.env.NODE_ENV === 'development') {
-  console.log("API Key present:", !!process.env.NEXT_PUBLIC_OPENAI_API_KEY);
+const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+const OPENAI_PROJECT_ID = process.env.NEXT_PUBLIC_OPENAI_PROJECT_ID;
+
+if (!OPENAI_API_KEY) {
+  throw new Error('OpenAI API key is required');
 }
 
-// Use the NEXT_PUBLIC_ prefixed key since we're in a client component
-if (!process.env.NEXT_PUBLIC_OPENAI_API_KEY) {
-  throw new Error('OpenAI API key is required. Please set NEXT_PUBLIC_OPENAI_API_KEY in your environment variables.');
+if (!OPENAI_PROJECT_ID) {
+  throw new Error('OpenAI Project ID is required');
 }
-
-const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-
-// Check if this is a project-based API key
-const isProjectKey = apiKey.startsWith('sk-proj-');
-console.log("Using project-based API key:", isProjectKey);
-
-// Get the project ID from environment variable
-const projectId = process.env.NEXT_PUBLIC_OPENAI_PROJECT_ID;
-console.log("Project ID:", projectId ? `${projectId.substring(0, 8)}...` : "Not available");
 
 // Create the OpenAI client with the appropriate configuration
 const openai = new OpenAI({
-  apiKey: apiKey,
-  dangerouslyAllowBrowser: true,
-  // For project-based keys, we need to specify the project ID
-  ...(isProjectKey && projectId && {
-    projectId: projectId,
-    baseURL: 'https://api.openai.com/v1'
-  })
+  apiKey: OPENAI_API_KEY,
+  projectId: OPENAI_PROJECT_ID,
+  dangerouslyAllowBrowser: true
 });
 
 // Keywords that might indicate an Excel-related question
@@ -42,26 +30,9 @@ const EXCEL_KEYWORDS = [
   'trend', 'projection', 'quarterly', 'annual'
 ];
 
-// Function to prepare Excel content for better AI understanding
-const prepareExcelContextForAI = (content) => {
-  // Format the Excel content for better AI understanding
-  if (!content) return '';
-  
-  // Add a prefix to help the AI understand this is spreadsheet data
-  return `[Excel Spreadsheet Data]:\n${content}`;
-};
-
 export const chatService = {
   async sendMessage(message, files = []) {
     try {
-      // Check if we're using the fallback key
-      const isDevelopmentMode = apiKey === "sk-fallback-development-mode-key";
-      
-      if (!apiKey) {
-        console.error('OpenAI API key is missing');
-        throw new Error('OpenAI API key is not configured. Please check your .env.local file.');
-      }
-
       console.log(`Processing request with ${files.length} files`);
       
       // Check if any files are available
@@ -71,14 +42,6 @@ export const chatService = {
           text: "I don't see any uploaded documents to analyze. Please upload a pitch deck (PDF) and financial document (Excel) first."
         };
       }
-      
-      // If we're in development mode with the fallback key, return a mock response
-      if (isDevelopmentMode) {
-        console.log("DEVELOPMENT MODE: Using mock response instead of calling OpenAI API");
-        return this.getMockResponse(message, files);
-      }
-      
-      console.log("Using API key:", apiKey.substring(0, 10) + "...");
 
       // Create a context message based on files if they exist
       let contextMessage = '';
@@ -236,8 +199,8 @@ export const chatService = {
                     ? nextSheetMatch.index
                     : contentLength;
                   
-                  // Extract the sheet content
-                  const sheetContent = excelContent.substring(sheetStart, Math.min(sheetStart + 5000, sheetEnd));
+                  // Extract the sheet content and include sheet name in the output
+                  const sheetContent = `Sheet ${sheetName}:\n${excelContent.substring(sheetStart, Math.min(sheetStart + 5000, sheetEnd))}`;
                   extractedContent += sheetContent + "\n\n";
                 }
               }
@@ -264,11 +227,7 @@ export const chatService = {
       console.log("Sending request to OpenAI...");
       
       try {
-        // Select an appropriate model based on the API key type
-        // Project-based keys may have limited model access
-        let model = "o1-mini"; // Changed to o1-mini as requested
-
-        // Log the model being used
+        const model = "o1-mini";
         console.log(`Using model: ${model}`);
         
         const response = await openai.chat.completions.create({
@@ -286,8 +245,8 @@ export const chatService = {
               fullMessage 
             }
           ],
-          temperature: 1, // Temperature is already set to 1 as requested
-          max_completion_tokens: 40000 // Changed from max_tokens to max_completion_tokens as required by o1-mini
+          temperature: 1,
+          max_completion_tokens: 40000
         });
 
         if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
@@ -296,81 +255,19 @@ export const chatService = {
 
         const text = response.choices[0].message.content;
         
-        // Check if this is an investment memo question (from the message content)
+        // Check if this is an investment memo question
         if (message.includes('Investment Memo') || message.includes('investment memo')) {
-          // For investment memo questions, return just the text
           return text;
         }
         
-        // For regular chat questions, return the object with text and suggested questions
         return { text, suggestedQuestions: [] };
       } catch (apiError) {
         console.error('OpenAI API Error:', apiError);
-        
-        // Handle different types of API errors
-        if (apiError.status === 401) {
-          console.log('Authentication error with OpenAI API');
-          
-          // Check if we're using a project key and provide specific guidance
-          if (isProjectKey) {
-            console.log('Project-based API key detected. This may require special configuration.');
-            return { 
-              text: `There was an authentication issue with your OpenAI project-based API key. 
-                    Project keys (starting with sk-proj-) may have specific model access restrictions or require additional configuration.
-                    
-                    Please check:
-                    1. Your project has access to the o1-mini model
-                    2. The key has not expired or been revoked
-                    3. Your project has sufficient credits
-                    
-                    For testing purposes, this is a mock response to your question: "${message}"`,
-              suggestedQuestions: [] 
-            };
-          }
-          
-          // Fall back to mock response for testing
-          return this.getMockResponse(message, files);
-        }
-        
-        // Handle model availability issues
-        if (apiError.status === 404 || (apiError.message && apiError.message.includes('model'))) {
-          console.log('Model not available. Trying fallback model...');
-          
-          // Return a helpful message about model availability
-          return { 
-            text: `The requested AI model is not available with your current API key configuration.
-                  
-                  This could be because:
-                  1. Your API key doesn't have access to the requested model
-                  2. You're using a project-based key with limited model access
-                  3. The model name may have changed
-                  
-                  For testing purposes, this is a mock response to your question: "${message}"`,
-            suggestedQuestions: [] 
-          };
-        }
-        
         throw apiError;
       }
     } catch (error) {
       console.error('Error in AI chat:', error);
-      
-      // Provide more specific error messages based on the error type
-      if (error.status === 401) {
-        throw new Error(`Authentication error: Your OpenAI API key appears to be invalid or has expired. 
-                        Please check your .env.local file and ensure NEXT_PUBLIC_OPENAI_API_KEY is set correctly.
-                        Note that project-based keys (sk-proj-*) may have different requirements.`);
-      } else if (error.status === 429) {
-        throw new Error(`Rate limit exceeded: Your OpenAI API key has reached its rate limit or quota.
-                        Please check your usage limits or try again later.`);
-      } else if (error.message && error.message.includes('API key')) {
-        throw new Error(`API key issue: ${error.message}`);
-      } else if (error.message && error.message.includes('model')) {
-        throw new Error(`Model error: The requested AI model is not available with your current API key.
-                        Project-based keys may have limited model access.`);
-      } else {
-        throw new Error(`Failed to get response from AI: ${error.message || 'Unknown error'}`);
-      }
+      throw error;
     }
   },
   
@@ -381,9 +278,6 @@ export const chatService = {
   
   async getSuggestedExcelQuestions(files) {
     try {
-      // Check if we're using the fallback key
-      const isDevelopmentMode = apiKey === "sk-fallback-development-mode-key";
-      
       // Filter for Excel files only
       const excelFiles = files.filter(file => 
         file.type !== 'note' && 
@@ -392,18 +286,6 @@ export const chatService = {
       
       if (excelFiles.length === 0) {
         return [];
-      }
-      
-      // If we're in development mode, return mock suggestions
-      if (isDevelopmentMode) {
-        console.log("DEVELOPMENT MODE: Using mock Excel question suggestions");
-        return [
-          "What is the revenue growth rate year-over-year?",
-          "What is the current customer acquisition cost (CAC)?",
-          "What is the customer lifetime value (LTV)?",
-          "What are the main expense categories?",
-          "How has the gross margin changed over time?"
-        ];
       }
       
       // Get the most recently uploaded Excel file
