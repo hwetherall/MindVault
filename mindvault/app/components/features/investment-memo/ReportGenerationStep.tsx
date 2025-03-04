@@ -102,7 +102,7 @@ This will always be shown to the user as the Summary section.`;
       // Step 2: Generate summary based on the detailed answer
       console.log(`Generating summary for question ${questionId} based on details`);
       const summaryPrompt = getSummaryPrompt(detailedResult, questionId);
-      const summaryResponse = await chatService.sendMessage(summaryPrompt, []);
+      const summaryResponse = await chatService.sendMessage(summaryPrompt, files);
       const summaryResult = summaryResponse.text;
       console.log(`Summary generated for question ${questionId}, length: ${summaryResult.length} chars`);
       

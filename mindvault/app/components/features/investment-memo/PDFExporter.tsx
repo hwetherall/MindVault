@@ -361,8 +361,8 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
                         </div>
                       </div>
                       
-                      {/* Only show details if expanded */}
-                      {expandedDetails[question.id] && answer.details && (
+                      {/* Show details based on view mode and expanded state */}
+                      {exportOptions.isDetailedView && answer.details && (
                         <div className="mt-4 pt-3 border-t">
                           <div className="font-medium text-gray-700 mb-1">Details</div>
                           <div className="prose prose-sm">
@@ -370,6 +370,34 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
                               {answer.details}
                             </ReactMarkdown>
                           </div>
+                        </div>
+                      )}
+                      {!exportOptions.isDetailedView && expandedDetails[question.id] && answer.details && (
+                        <div className="mt-4 pt-3 border-t">
+                          <div className="font-medium text-gray-700 mb-1">Details</div>
+                          <div className="prose prose-sm">
+                            <ReactMarkdown>
+                              {answer.details}
+                            </ReactMarkdown>
+                          </div>
+                          <div className="mt-2">
+                            <button
+                              className="text-sm text-blue-600 hover:text-blue-800 bg-blue-50 py-1 px-3 rounded-md border border-blue-100"
+                              onClick={() => toggleDetails(question.id)}
+                            >
+                              Hide Details
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {!exportOptions.isDetailedView && !expandedDetails[question.id] && answer.details && (
+                        <div className="mt-2">
+                          <button
+                            className="text-sm text-blue-600 hover:text-blue-800 bg-blue-50 py-1 px-3 rounded-md border border-blue-100"
+                            onClick={() => toggleDetails(question.id)}
+                          >
+                            Show Details
+                          </button>
                         </div>
                       )}
                     </div>

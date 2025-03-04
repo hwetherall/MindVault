@@ -9,6 +9,7 @@ interface ReportEditorProps {
   description: string;
   questions: InvestmentMemoQuestion[];
   answers: Record<string, Answer>;
+  files: any[];
   onAnswersChange: (answers: Record<string, Answer>) => void;
   onPrevious: () => void;
   onNext: () => void;
@@ -22,6 +23,7 @@ const ReportEditor: React.FC<ReportEditorProps> = ({
   description,
   questions,
   answers,
+  files,
   onAnswersChange,
   onPrevious,
   onNext
@@ -67,11 +69,12 @@ const ReportEditor: React.FC<ReportEditorProps> = ({
     setExpandedDetails(prev => {
       const newState = {
         ...prev,
-        [id]: prev[id] === true ? false : true
+        [id]: !prev[id]
       };
-      console.log(`New state for ${id} = ${newState[id]}`);
+      console.log(`New expandedDetails state for ${id} = ${newState[id]}`);
       return newState;
     });
+    console.log(`New state for ${id} should be ${!expandedDetails[id]}`);
   };
 
   // Handle editing an answer
@@ -143,7 +146,7 @@ Include source references where appropriate. Extract concrete numbers and facts 
 
 This will be used as the DETAILS section of the answer, which will be shown when users click "Show Details".`;
       
-      const detailsResult = await chatService.sendMessage(detailsPromptWithInstructions, []);
+      const detailsResult = await chatService.sendMessage(detailsPromptWithInstructions, files);
       const detailedAnswer = detailsResult.text;
       
       // Then generate a summary based on the detailed answer
@@ -159,7 +162,7 @@ Your summary should be brief but informative, capturing the most important point
 
 This will always be shown to the user as the Summary section.`;
       
-      const summaryResult = await chatService.sendMessage(summaryPromptWithInstructions, []);
+      const summaryResult = await chatService.sendMessage(summaryPromptWithInstructions, files);
       
       onAnswersChange({
         ...answers,
@@ -206,9 +209,19 @@ This will always be shown to the user as the Summary section.`;
   useEffect(() => {
     // When new answers arrive, ensure details remain collapsed
     console.log('useEffect triggered: resetting expandedDetails');
-    const newExpandedDetails = Object.fromEntries(questions.map(q => [q.id, false]));
-    setExpandedDetails(newExpandedDetails);
-  }, [answers, questions]);
+    console.log('Current answers:', answers);
+    // Only reset for questions whose answers have changed
+    const updatedIds = Object.keys(answers).filter(id => answers[id].isEdited === false);
+    console.log('Resetting expandedDetails for IDs:', updatedIds);
+    
+    setExpandedDetails(prev => {
+      const newState = { ...prev };
+      updatedIds.forEach(id => {
+        newState[id] = false;
+      });
+      return newState;
+    });
+  }, [answers]);
 
   useLayoutEffect(() => {
     // Trace each render and log the state of expandedDetails
@@ -244,7 +257,7 @@ This will always be shown to the user as the Summary section.`;
         {questions.map(question => {
           const answer = answers[question.id];
           const isExpanded = expandedSections[question.id] || false;
-          const isDetailsExpanded = expandedDetails[question.id] === true;
+          const isDetailsExpanded = expandedDetails[question.id] || false;
           const isEditing = editingId === question.id;
           const isCurrentlyRegenerating = isRegenerating[question.id] || false;
           
@@ -323,6 +336,7 @@ This will always be shown to the user as the Summary section.`;
                               e.preventDefault();  // Prevent default behavior
                               e.stopPropagation(); // Prevent triggering question collapse
                               console.log(`Details button clicked for ${question.id}`);
+                              console.log(`Before toggle: isDetailsExpanded = ${isDetailsExpanded}`);
                               toggleDetails(question.id);
                             }}
                           >
@@ -330,7 +344,7 @@ This will always be shown to the user as the Summary section.`;
                           </button>
                           
                           {/* Details Content - Only shown when explicitly expanded */}
-                          {isDetailsExpanded === true && (
+                          {isDetailsExpanded && (
                             <div className="mt-3 pt-3 border-t border-gray-200">
                               <div className="text-sm font-medium text-gray-500 mb-2">Details</div>
                               <div className="prose prose-sm max-w-none">

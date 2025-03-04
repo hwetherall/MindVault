@@ -117,6 +117,7 @@ const InvestmentMemoWizard: React.FC<InvestmentMemoWizardProps> = ({
               reportState.selectedQuestions.includes(q.id)
             )}
             answers={reportState.answers}
+            files={files}
             onAnswersChange={(answers) => updateReportState({ answers })}
             onPrevious={handlePrevious}
             onNext={handleNext}

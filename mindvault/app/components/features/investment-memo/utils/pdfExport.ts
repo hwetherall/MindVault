@@ -147,6 +147,14 @@ export const exportToPDF = (
       // Add the answer
       doc.setFont(undefined, 'normal');
       
+      // Add "Summary" label when in detailed view
+      if (options.isDetailedView) {
+        doc.setFont(undefined, 'bold');
+        doc.text("Summary:", leftMargin, yPosition);
+        doc.setFont(undefined, 'normal');
+        yPosition += 5;
+      }
+      
       const formattedSummary = formatNumbersInText(answer.summary);
       
       // Handle line breaks for long text
@@ -156,7 +164,7 @@ export const exportToPDF = (
       yPosition += 5 * (splitSummary.length);
       
       // Add details if available and detailed view is enabled
-      if (answer.details && (options.isDetailedView ?? true)) {
+      if (answer.details && options.isDetailedView) {
         yPosition += 5;
         
         // Check if we need a page break
@@ -164,6 +172,12 @@ export const exportToPDF = (
           doc.addPage();
           yPosition = 20;
         }
+        
+        // Add "Details" label
+        doc.setFont(undefined, 'bold');
+        doc.text("Details:", leftMargin, yPosition);
+        doc.setFont(undefined, 'normal');
+        yPosition += 5;
         
         const formattedDetails = formatNumbersInText(answer.details);
         const splitDetails = doc.splitTextToSize(formattedDetails, pageWidth);
