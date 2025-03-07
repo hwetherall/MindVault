@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, Download, FileText, Share2, Mail, Globe, Check, Loader2 } from 'lucide-react';
-import { Answer, InvestmentMemoQuestion } from './utils/pdfExport';
+import { Answer, InvestmentMemoQuestion, ExportOptions as PDFExportOptions} from './utils/pdfExport';
 import { exportToPDF } from './utils/pdfExport';
 import ReactMarkdown from 'react-markdown';
 
@@ -38,12 +38,12 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
   onPrevious,
   onComplete
 }) => {
-  // Export options state
-  const [exportOptions, setExportOptions] = useState<ExportOptions>({
+  // Default export options
+  const [exportOptions, setExportOptions] = useState<PDFExportOptions>({
     includeTableOfContents: true,
     includeAppendices: true,
     language: 'en',
-    applyBranding: false
+    isDetailedView: true
   });
 
   // Translation state
@@ -81,7 +81,8 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
         })),
         answers: Object.entries(answers).map(([id, answer]) => ({
           id,
-          content: answer.content
+          summary: answer.summary,
+          details: answer.details
         }))
       };
 
@@ -117,7 +118,8 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
             id,
             {
               ...answer,
-              content: translatedData.answers.find((ta: any) => ta.id === id)?.content || answer.content
+              summary: translatedData.answers.find((ta: any) => ta.id === id)?.summary || answer.summary,
+              details: translatedData.answers.find((ta: any) => ta.id === id)?.details || answer.details
             }
           ])
         )
@@ -145,6 +147,9 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
       [id]: !prev[id]
     }));
   };
+
+  // State for export status
+  const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   
   // Function to export the report as PDF
   const handleExport = async () => {
@@ -185,9 +190,18 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
   
   // Calculate total word count
   const totalWordCount = Object.values(answers).reduce((total, answer) => {
-    const wordCount = answer.content.split(/\s+/).filter(Boolean).length;
-    return total + wordCount;
+    const summaryWordCount = answer.summary.split(/\s+/).filter(Boolean).length;
+    const detailsWordCount = answer.details.split(/\s+/).filter(Boolean).length;
+    return total + summaryWordCount + detailsWordCount;
   }, 0);
+
+  // Function to get answer display content
+  const getAnswerDisplay = (answer: Answer) => {
+    return {
+      tldr: answer.summary,
+      details: answer.details
+    };
+  };
   
   // Split questions by category
   const questionsByCategory = displayContent.questions.reduce((acc, question) => {
@@ -199,20 +213,6 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
     return acc;
   }, {} as Record<string, InvestmentMemoQuestion[]>);
 
-  // Function to split answer content into TLDR and details sections
-  const splitAnswerContent = (content: string) => {
-    const parts = content.split('DETAILS:');
-    
-    if (parts.length === 1) {
-      return { tldr: parts[0].replace('TL;DR:', '').trim(), details: '' };
-    }
-    
-    return { 
-      tldr: parts[0].replace('TL;DR:', '').trim(), 
-      details: parts[1].trim() 
-    };
-  };
-  
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h2 className="text-2xl font-bold mb-4">Export Investment Memo</h2>
@@ -372,23 +372,6 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
                 <div className="font-medium">Apply Branding?</div>
                 <div className="text-sm text-gray-500">Add company branding to the memo</div>
               </div>
-              <button
-                className={`px-3 py-1 rounded ${
-                  exportOptions.applyBranding
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-600'
-                }`}
-                onClick={() => setExportOptions(prev => ({
-                  ...prev,
-                  applyBranding: !prev.applyBranding
-                }))}
-              >
-                {exportOptions.applyBranding ? (
-                  <Check size={16} />
-                ) : (
-                  'Include'
-                )}
-              </button>
             </div>
             
             {/* Language Option with Translation Status */}
@@ -484,7 +467,7 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
                 const answer = displayContent.answers[question.id];
                 if (!answer) return null;
                 
-                const { tldr, details } = splitAnswerContent(answer.content);
+                const answerDisplay = getAnswerDisplay(answer);
                 const isDetailsExpanded = expandedDetails[question.id];
                 
                 return (
@@ -496,21 +479,21 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
                     <div className="prose prose-sm max-w-none">
                       <div className="mb-3">
                         <div className="font-medium text-gray-700">Summary</div>
-                        <ReactMarkdown>{tldr}</ReactMarkdown>
+                        <ReactMarkdown>{answerDisplay.tldr}</ReactMarkdown>
                       </div>
-                      {details && (
+                      {answerDisplay.details && (
                         <div>
                           <div className="flex items-center justify-between">
                             <div className="font-medium text-gray-700">Details</div>
                             <button
-                              className="text-sm text-blue-600 hover:text-blue-800"
                               onClick={() => toggleDetails(question.id)}
+                              className="text-blue-600 hover:text-blue-800"
                             >
-                              {isDetailsExpanded ? 'See Less' : 'See More'}
+                              {isDetailsExpanded ? 'Hide Details' : 'Show Details'}
                             </button>
                           </div>
                           {isDetailsExpanded && (
-                            <ReactMarkdown>{details}</ReactMarkdown>
+                            <ReactMarkdown>{answerDisplay.details}</ReactMarkdown>
                           )}
                         </div>
                       )}

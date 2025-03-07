@@ -16,7 +16,8 @@ export interface InvestmentMemoQuestion {
  * Answer data structure
  */
 export interface Answer {
-  content: string;
+  summary: string;
+  details: string;
   isEdited: boolean;
 }
 
@@ -27,6 +28,7 @@ export interface ExportOptions {
   includeTableOfContents: boolean;
   includeAppendices: boolean;
   language: 'en' | 'ja';
+  isDetailedView?: boolean;
 }
 
 /**
@@ -43,7 +45,8 @@ export const exportToPDF = async (
   options: ExportOptions = {
     includeTableOfContents: true,
     includeAppendices: true,
-    language: 'en'
+    language: 'en',
+    isDetailedView: true
   },
   logo?: string 
 ): Promise<void> => {

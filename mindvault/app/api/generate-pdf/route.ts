@@ -13,7 +13,8 @@ interface Question {
 }
 
 interface Answer {
-  content: string;
+  summary: string;
+  details: string;
   isEdited: boolean;
 }
 
@@ -21,6 +22,7 @@ interface ExportOptions {
   includeTableOfContents: boolean;
   includeAppendices: boolean;
   language: 'en' | 'ja';
+  isDetailedView?: boolean;
 }
 
 // Configure marked to use synchronous mode
@@ -82,7 +84,8 @@ export async function POST(request: Request) {
           id,
           {
             ...answer,
-            html: await marked.parse(formatNumbersInText(answer.content))
+            summaryHtml: await marked.parse(formatNumbersInText(answer.summary)),
+            detailsHtml: await marked.parse(formatNumbersInText(answer.details))
           }
         ])
       )
@@ -181,7 +184,7 @@ export async function POST(request: Request) {
     // Inject content into the existing structure
     await page.evaluate(({ questions, answers, options }: {
       questions: Question[];
-      answers: Record<string, { content: string; html: string }>;
+      answers: Record<string, { summary: string; summaryHtml: string; details: string; detailsHtml: string }>;
       options: ExportOptions;
     }) => {
       // Helper to safely get element
@@ -232,7 +235,7 @@ export async function POST(request: Request) {
       if (contentContainer) {
         questions.forEach(({ id, question, description }) => {
           const answer = answers[id];
-          if (answer?.content) {
+          if (answer?.summary) {
             const section = document.createElement('div');
             section.className = 'question-section';
 
@@ -248,10 +251,25 @@ export async function POST(request: Request) {
               section.appendChild(descriptionDiv);
             }
 
-            const answerDiv = document.createElement('div');
-            answerDiv.className = 'answer';
-            answerDiv.innerHTML = answer.html;
-            section.appendChild(answerDiv);
+            const summaryHeader = document.createElement('h3');
+            summaryHeader.textContent = 'Summary';
+            section.appendChild(summaryHeader);
+
+            const summaryDiv = document.createElement('div');
+            summaryDiv.className = 'answer';
+            summaryDiv.innerHTML = answer.summaryHtml;
+            section.appendChild(summaryDiv);
+
+            if (answer.details && options.isDetailedView) { 
+              const detailsHeader = document.createElement('h3');
+              detailsHeader.textContent = 'Details';
+              section.appendChild(detailsHeader);
+
+              const detailsDiv = document.createElement('div');
+              detailsDiv.className = 'answer';
+              detailsDiv.innerHTML = answer.detailsHtml;
+              section.appendChild(detailsDiv);
+            }
 
             contentContainer.appendChild(section);
           }

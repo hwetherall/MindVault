@@ -1,4 +1,4 @@
-import React, { useState, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { chatService } from '../services/chatService';
 import { ChevronDown, ChevronUp, Edit2, Save, RefreshCw, FileDown, Eye, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -47,12 +47,16 @@ const splitAnswerContent = (content: string | any) => {
     return { tldr: '', details: '' };
   }
   
-  const parts = content.split('DETAILS:');
+   // Handle both "TL;DR:" and "Summary:" formats for backward compatibility
+   let processedContent = content.replace(/TL;DR:/i, 'Summary:');
+  
+   // Split on "DETAILS:" - case insensitive
+   const parts = processedContent.split(/DETAILS:/i);
   
   if (parts.length === 1) {
-    // Clean up asterisks in content if no DETAILS section
+    // Clean up content if no DETAILS section is found
     let cleanContent = parts[0].trim();
-    cleanContent = cleanContent.replace('TL;DR:', '').trim();
+    cleanContent = cleanContent.replace(/Summary:/i, '').trim();
     
     // Remove markdown bold/italic formatting
     cleanContent = cleanContent.replace(/\*\*(.*?)\*\*/g, '$1'); // Bold
@@ -62,8 +66,8 @@ const splitAnswerContent = (content: string | any) => {
     return { tldr: cleanContent, details: '' };
   }
   
-  // Clean up TL;DR part
-  let tldr = parts[0].replace('TL;DR:', '').trim();
+  // Clean up Summary part
+  let tldr = parts[0].replace(/Summary:/i, '').trim();
   
   // Remove markdown formatting
   tldr = tldr.replace(/\*\*(.*?)\*\*/g, '$1');  // Bold
@@ -84,11 +88,12 @@ const splitAnswerContent = (content: string | any) => {
 interface InvestmentMemoProps {
     files: any[];
     onComplete?: (passed: boolean) => void;
-    onAnswerUpdate?: (id: string, content: string) => void;
+    onAnswerUpdate?: (id: string, summary: string, details: string) => void;
 }
 
 interface Answer {
-    content: string;
+    summary: string;
+    details: string;
     isEdited: boolean;
 }
 
@@ -135,7 +140,11 @@ const InvestmentMemo = forwardRef<{
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [answers, setAnswers] = useState<Record<string, Answer>>({});
     const [error, setError] = useState<string | null>(null);
-    const [expandedAnswers, setExpandedAnswers] = useState<Record<string, boolean>>({});
+    const [expandedAnswers, setExpandedAnswers] = useState<Record<string, boolean>>(() => {
+        const initialState = Object.fromEntries(INVESTMENT_MEMO_QUESTIONS.map(q => [q.id, false]));
+        console.log('Initial expandedAnswers state:', initialState);
+        return initialState;
+    });
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editedAnswer, setEditedAnswer] = useState<string>('');
     
@@ -145,14 +154,31 @@ const InvestmentMemo = forwardRef<{
     const [editedPrompt, setEditedPrompt] = useState<string>('');
     const [customPrompts, setCustomPrompts] = useState<Record<string, string>>({});
 
+    // Reset expandedAnswers whenever answers change
+    useEffect(() => {
+        // When new answers arrive, ensure details remain collapsed
+        setExpandedAnswers(Object.fromEntries(INVESTMENT_MEMO_QUESTIONS.map(q => [q.id, false])));
+    }, [answers]);
+
     const logo = '/templates/unnamed.jpg'
     // Export to PDF function
     const handleExportPDF = async () => {
         console.log('exportToPDF called from button click');
         try {
+            // Transform answers to match the expected format
+            const transformedAnswers = Object.fromEntries(
+                Object.entries(answers).map(([id, answer]) => {
+                    return [id, {
+                        summary: answer.summary,
+                        details: answer.details,
+                        isEdited: answer.isEdited
+                    }];
+                })
+            );
+
             await generatePDFExport(
                 INVESTMENT_MEMO_QUESTIONS,
-                answers,
+                transformedAnswers,
                 undefined, // companyName is optional
                 {
                     includeTableOfContents: true,
@@ -165,7 +191,7 @@ const InvestmentMemo = forwardRef<{
             console.error('Error generating PDF:', error);
             setError('Failed to generate PDF. Please try again.');
         }
-    }; //FIX
+    }; //
 
     // Expose methods to parent component via ref
     useImperativeHandle(ref, () => ({
@@ -175,21 +201,27 @@ const InvestmentMemo = forwardRef<{
     }));
 
     const toggleAnswer = (id: string) => {
-        setExpandedAnswers(prev => ({
-            ...prev,
-            [id]: !prev[id]
-        }));
+        console.log(`Toggle answer for ${id}: current state = ${expandedAnswers[id] || false}`);
+        setExpandedAnswers(prev => {
+            const newState = {
+                ...prev,
+                [id]: !prev[id]
+            };
+            console.log(`New state for ${id} = ${newState[id]}`);
+            return newState;
+        });
     };
 
     const handleEdit = (id: string) => {
         setEditingId(id);
-        setEditedAnswer(answers[id]?.content || '');
+        setEditedAnswer(answers[id]?.summary || '');
     };
 
     const handleSave = (id: string) => {
         if (editedAnswer.trim()) {
             const updatedAnswer = {
-                content: editedAnswer,
+                summary: editedAnswer,
+                details: answers[id]?.details || '',
                 isEdited: true
             };
             
@@ -197,11 +229,17 @@ const InvestmentMemo = forwardRef<{
                 ...prev,
                 [id]: updatedAnswer
             }));
+
+            // Reset details expansion state when saving
+            setExpandedAnswers(prev => ({
+                ...prev,
+                [id]: false
+            }));
             
             // Notify parent component of the update
             if (onAnswerUpdate) {
                 console.log('Response type:', typeof editedAnswer, 'Response value:', editedAnswer);
-                onAnswerUpdate(id, typeof editedAnswer === 'string' ? editedAnswer : String(editedAnswer));
+                onAnswerUpdate(id, typeof editedAnswer === 'string' ? editedAnswer : String(editedAnswer), answers[id]?.details || '');
             }
         }
         setEditingId(null);
@@ -245,6 +283,14 @@ const InvestmentMemo = forwardRef<{
             2. Then examine the ${docPriority.secondary} document for supporting details
             3. Integrate information from both sources into your answer
             4. NEVER claim information is missing if you've only checked one document type
+
+            Your answer MUST be structured in the following format:
+
+            Summary: 
+            A concise 1-2 sentence summary that directly answers the question with key facts. This will always be shown to the user.
+
+            DETAILS:
+            A more comprehensive explanation with supporting information, calculations, and specific data points from the documents. Include source references where appropriate. This section will be hidden by default and only shown when the user clicks "Show Details".
             
             Detailed instructions:
             ${questionObj.instructions}
@@ -256,6 +302,8 @@ const InvestmentMemo = forwardRef<{
             4. In your answer, specify what information came from which document type
             
             Format your response to be clear and readable, focusing only on answering this specific question using ALL available documents.
+
+            Ensure there's a clear separation between the Summary and DETAILS sections.
         `;
     };
 
@@ -374,7 +422,8 @@ const InvestmentMemo = forwardRef<{
                     }
 
                     newAnswers[id] = {
-                        content: stringResponse,
+                        summary: stringResponse,
+                        details: '',
                         isEdited: false
                     };
                     
@@ -387,7 +436,7 @@ const InvestmentMemo = forwardRef<{
                     // Notify parent component of the update
                     if (onAnswerUpdate) {
                         console.log('Response type:', typeof stringResponse, 'Response value:', stringResponse);
-                        onAnswerUpdate(id, stringResponse);
+                        onAnswerUpdate(id, stringResponse, '');
                     }
                     
                 } catch (questionError) {
@@ -395,7 +444,8 @@ const InvestmentMemo = forwardRef<{
                     const errorMsg = `Error analyzing this question: ${questionError.message || 'Please try again.'}`;
                     
                     newAnswers[id] = { 
-                        content: errorMsg,
+                        summary: errorMsg,
+                        details: '',
                         isEdited: false 
                     };
                     
@@ -407,7 +457,7 @@ const InvestmentMemo = forwardRef<{
                     
                     // Notify parent component of the error
                     if (onAnswerUpdate) {
-                        onAnswerUpdate(id, errorMsg);
+                        onAnswerUpdate(id, errorMsg, '');
                     }
                 }
             }
@@ -415,8 +465,8 @@ const InvestmentMemo = forwardRef<{
             // Check if all questions have been answered
             const allAnswered = INVESTMENT_MEMO_QUESTIONS.every(
                 ({ id }) => newAnswers[id] && 
-                            typeof newAnswers[id].content === 'string' && 
-                            newAnswers[id].content.trim().length > 0
+                    typeof newAnswers[id].summary === 'string' && 
+                    newAnswers[id].summary.trim().length > 0
             );
             
             if (allAnswered && onComplete) {
@@ -459,7 +509,8 @@ const InvestmentMemo = forwardRef<{
             setAnswers(prev => ({
                 ...prev,
                 [id]: {
-                    content: 'Regenerating...',
+                    summary: 'Regenerating...',
+                    details: '',
                     isEdited: false
                 }
             }));
@@ -507,14 +558,21 @@ const InvestmentMemo = forwardRef<{
             setAnswers(prev => ({
                 ...prev,
                 [id]: {
-                    content: stringResponse,
+                    summary: stringResponse,
+                    details: '',
                     isEdited: false
                 }
             }));
 
+            // Reset details expansion state when regenerating
+            setExpandedAnswers(prev => ({
+                ...prev,
+                [id]: false
+            }));
+
             // Notify parent component of the update
             if (onAnswerUpdate) {
-                onAnswerUpdate(id, stringResponse);
+                onAnswerUpdate(id, stringResponse, '');
             }
 
         } catch (error) {
@@ -574,10 +632,13 @@ const InvestmentMemo = forwardRef<{
                                     
                                     if (!answer) return null;
                                     
-                                    const { tldr, details } = splitAnswerContent(answer.content);
+                                    const { tldr, details } = splitAnswerContent(answer.summary);
                                     const formattedAnswer = formatNumbersInText(tldr);
                                     const formattedDetails = formatNumbersInText(details);
-                                    const isExpanded = expandedAnswers[id] || false;
+                                    // Make sure details are explicitly collapsed by default
+                                    const isExpanded = expandedAnswers[id] === true;
+                                    
+                                    console.log(`Question ${id}: isExpanded = ${isExpanded}`);
                                     
                                     return (
                                         <div key={id} className="p-4 bg-white rounded-lg shadow">
@@ -636,40 +697,41 @@ const InvestmentMemo = forwardRef<{
                                                 </div>
                                             ) : (
                                                 <div>
+                                                    {/* Summary Section - Always visible */}
                                                     <div className="prose max-w-none mt-2">
+                                                    <div className="text-sm font-medium text-gray-500 mb-1">Summary</div>
                                                         {typeof formattedAnswer === 'string' ? (
                                                             <ReactMarkdown>{formattedAnswer}</ReactMarkdown>
                                                         ) : (
                                                             <ReactMarkdown>{String(formattedAnswer)}</ReactMarkdown>
                                                         )}
                                                     </div>
-                                                    
+                                                    {/* Details Section - Only show button if details exist */}
                                                     {formattedDetails && (
-                                                        <div>
+                                                        <div className="mt-4">
                                                             <button
-                                                                onClick={() => toggleAnswer(id)}
-                                                                className="flex items-center text-sm text-blue-600 mt-2 focus:outline-none"
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();  // Prevent default behavior
+                                                                    e.stopPropagation(); // Prevent triggering question collapse
+                                                                    console.log(`Details button clicked for ${id}`);
+                                                                    toggleAnswer(id);
+                                                                }}
+                                                                className="text-sm text-blue-600 hover:text-blue-800 bg-blue-50 py-1 px-3 rounded-md border border-blue-100 focus:outline-none"
                                                             >
-                                                                {isExpanded ? (
-                                                                    <>
-                                                                        <ChevronUp size={16} className="mr-1" />
-                                                                        Show Less
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <ChevronDown size={16} className="mr-1" />
-                                                                        Show More Details
-                                                                    </>
-                                                                )}
+                                                                
+                                                            {isExpanded ? 'Hide Details' : 'Show Details'}
                                                             </button>
-                                                            
+                                                            {/* Only render details content when expanded */}
                                                             {isExpanded && (
-                                                                <div className="prose max-w-none mt-3 text-sm">
+                                                                <div className="mt-3 pt-3 border-t border-gray-200">
+                                                                <div className="text-sm font-medium text-gray-500 mb-2">Details</div>
+                                                                <div className="prose max-w-none text-sm">
                                                                     {typeof formattedDetails === 'string' ? (
                                                                         <ReactMarkdown>{formattedDetails}</ReactMarkdown>
                                                                     ) : (
                                                                         <ReactMarkdown>{String(formattedDetails)}</ReactMarkdown>
                                                                     )}
+                                                                </div>
                                                                 </div>
                                                             )}
                                                         </div>
