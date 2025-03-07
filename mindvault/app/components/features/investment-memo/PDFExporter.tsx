@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ChevronLeft, Download, FileText, Share2, Mail, Globe, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronLeft, Download, FileText, Share2, Mail, Globe, Check, Loader2 } from 'lucide-react';
 import { Answer, InvestmentMemoQuestion } from './utils/pdfExport';
 import { exportToPDF } from './utils/pdfExport';
 import ReactMarkdown from 'react-markdown';
@@ -18,6 +18,13 @@ interface ExportOptions {
   includeAppendices: boolean;
   language: 'en' | 'ja';
   applyBranding: boolean;
+}
+
+interface TranslatedContent {
+  title: string;
+  description: string;
+  questions: InvestmentMemoQuestion[];
+  answers: Record<string, Answer>;
 }
 
 /**
@@ -39,6 +46,11 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
     applyBranding: false
   });
 
+  // Translation state
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translatedContent, setTranslatedContent] = useState<TranslatedContent | null>(null);
+  const [translationProgress, setTranslationProgress] = useState(0);
+
   // State for collapsible sections
   const [isExportOptionsExpanded, setIsExportOptionsExpanded] = useState(true);
 
@@ -46,6 +58,85 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>(
     Object.fromEntries(questions.map(q => [q.id, false]))
   );
+
+  // Function to batch translate content using OpenAI API
+  const translateContent = async (language: 'en' | 'ja') => {
+    if (language === 'en') {
+      setTranslatedContent(null);
+      return;
+    }
+
+    setIsTranslating(true);
+    setTranslationProgress(0);
+
+    try {
+      // Prepare all content that needs translation
+      const contentToTranslate = {
+        title,
+        description,
+        questions: questions.map(q => ({
+          id: q.id,
+          question: q.question,
+          description: q.description
+        })),
+        answers: Object.entries(answers).map(([id, answer]) => ({
+          id,
+          content: answer.content
+        }))
+      };
+
+      // Batch translate using OpenAI API
+      const response = await fetch('/api/translate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: contentToTranslate,
+          targetLanguage: language
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Translation failed');
+      }
+
+      const translatedData = await response.json();
+
+      // Update translated content
+      setTranslatedContent({
+        title: translatedData.title,
+        description: translatedData.description,
+        questions: questions.map(q => ({
+          ...q,
+          question: translatedData.questions.find((tq: any) => tq.id === q.id)?.question || q.question,
+          description: translatedData.questions.find((tq: any) => tq.id === q.id)?.description || q.description
+        })),
+        answers: Object.fromEntries(
+          Object.entries(answers).map(([id, answer]) => [
+            id,
+            {
+              ...answer,
+              content: translatedData.answers.find((ta: any) => ta.id === id)?.content || answer.content
+            }
+          ])
+        )
+      });
+    } catch (error) {
+      console.error('Translation error:', error);
+      // Show error notification or handle error appropriately
+    } finally {
+      setIsTranslating(false);
+      setTranslationProgress(100);
+    }
+  };
+
+  // Effect to handle language changes
+  useEffect(() => {
+    if (exportOptions.language !== 'en') {
+      translateContent(exportOptions.language);
+    }
+  }, [exportOptions.language]);
 
   // Function to toggle details section
   const toggleDetails = (id: string) => {
@@ -56,9 +147,37 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
   };
   
   // Function to export the report as PDF
-  const handleExport = () => {
-    exportToPDF(questions, answers, title, exportOptions);
+  const handleExport = async () => {
+    const contentToExport = exportOptions.language === 'en' ? {
+      questions,
+      answers,
+      title,
+    } : {
+      questions: translatedContent?.questions || questions,
+      answers: translatedContent?.answers || answers,
+      title: translatedContent?.title || title,
+    };
+
+    await exportToPDF(
+      contentToExport.questions,
+      contentToExport.answers,
+      contentToExport.title,
+      exportOptions
+    );
     onComplete();
+  };
+
+  // Get the content to display based on language
+  const displayContent = exportOptions.language === 'en' ? {
+    title,
+    description,
+    questions,
+    answers,
+  } : translatedContent || {
+    title,
+    description,
+    questions,
+    answers,
   };
 
   // Count edited answers
@@ -71,7 +190,7 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
   }, 0);
   
   // Split questions by category
-  const questionsByCategory = questions.reduce((acc, question) => {
+  const questionsByCategory = displayContent.questions.reduce((acc, question) => {
     const category = question.category || 'General';
     if (!acc[category]) {
       acc[category] = [];
@@ -103,13 +222,13 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
       
       {/* Report Summary */}
       <div className="bg-gray-50 border rounded-lg p-5 mb-6">
-        <h3 className="text-lg font-medium mb-3">{title}</h3>
-        {description && <p className="text-gray-600 mb-4">{description}</p>}
+        <h3 className="text-lg font-medium mb-3">{displayContent.title}</h3>
+        {displayContent.description && <p className="text-gray-600 mb-4">{displayContent.description}</p>}
         
         <div className="grid grid-cols-3 gap-4 mb-4">
           <div className="bg-white p-3 rounded border">
             <div className="text-sm text-gray-500">Questions</div>
-            <div className="text-2xl font-bold">{questions.length}</div>
+            <div className="text-2xl font-bold">{displayContent.questions.length}</div>
           </div>
           <div className="bg-white p-3 rounded border">
             <div className="text-sm text-gray-500">Word Count</div>
@@ -272,13 +391,13 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
               </button>
             </div>
             
-            {/* Language Option */}
+            {/* Language Option with Translation Status */}
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <div>
                 <div className="font-medium">Language</div>
                 <div className="text-sm text-gray-500">Choose the export language</div>
               </div>
-              <div className="flex space-x-2">
+              <div className="flex items-center space-x-2">
                 <button
                   className={`px-3 py-1 rounded ${
                     exportOptions.language === 'en'
@@ -290,14 +409,22 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
                   English
                 </button>
                 <button
-                  className={`px-3 py-1 rounded ${
+                  className={`px-3 py-1 rounded flex items-center ${
                     exportOptions.language === 'ja'
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-200 text-gray-600'
                   }`}
                   onClick={() => setExportOptions(prev => ({ ...prev, language: 'ja' }))}
+                  disabled={isTranslating}
                 >
-                  日本語
+                  {isTranslating ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin mr-2" />
+                      Translating...
+                    </>
+                  ) : (
+                    '日本語'
+                  )}
                 </button>
               </div>
             </div>
@@ -305,14 +432,29 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
         )}
       </div>
       
+      {/* Translation Progress */}
+      {isTranslating && (
+        <div className="mt-2">
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${translationProgress}%` }}
+            />
+          </div>
+          <div className="text-sm text-gray-500 text-center mt-1">
+            Translating content...
+          </div>
+        </div>
+      )}
+      
       {/* Contents Preview */}
       <div className="mb-8">
         <h3 className="text-lg font-medium mb-3">Contents Preview</h3>
         <div className="border rounded-lg">
           {/* Preview Header */}
           <div className="p-4 border-b bg-gray-50">
-            <div className="text-xl font-bold">{title}</div>
-            {description && <div className="text-gray-600 mt-2">{description}</div>}
+            <div className="text-xl font-bold">{displayContent.title}</div>
+            {displayContent.description && <div className="text-gray-600 mt-2">{displayContent.description}</div>}
           </div>
           
           {/* Scrollable Preview Content */}
@@ -338,8 +480,8 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
             
             {/* Questions Preview */}
             <div className="divide-y">
-              {questions.map(question => {
-                const answer = answers[question.id];
+              {displayContent.questions.map(question => {
+                const answer = displayContent.answers[question.id];
                 if (!answer) return null;
                 
                 const { tldr, details } = splitAnswerContent(answer.content);

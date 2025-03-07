@@ -350,9 +350,14 @@ export default function MainLayout() {
   };
 
   // Function to handle Export PDF button click
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (investmentMemoRef.current && investmentMemoRef.current.exportToPDF) {
-      investmentMemoRef.current.exportToPDF();
+      try {
+        await investmentMemoRef.current.exportToPDF();
+      } catch (error) {
+        console.error('Export failed:', error);
+        alert('Failed to export PDF. Please try again.');
+      }
     }
   };
 

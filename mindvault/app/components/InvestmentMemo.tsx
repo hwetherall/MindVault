@@ -2,7 +2,7 @@ import React, { useState, forwardRef, useImperativeHandle } from 'react';
 import { chatService } from '../services/chatService';
 import { ChevronDown, ChevronUp, Edit2, Save, RefreshCw, FileDown, Eye, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import jsPDF from 'jspdf';
+import { exportToPDF as generatePDFExport } from './features/investment-memo/utils/pdfExport';
 
 // Utility function to format numbers to 2 decimal places maximum
 const formatNumbersInText = (text: string | any): string => {
@@ -145,50 +145,32 @@ const InvestmentMemo = forwardRef<{
     const [editedPrompt, setEditedPrompt] = useState<string>('');
     const [customPrompts, setCustomPrompts] = useState<Record<string, string>>({});
 
+    const logo = '/templates/unnamed.jpg'
     // Export to PDF function
-    const exportToPDF = () => {
-        const doc = new jsPDF();
-        let yPosition = 20;
-        
-        // Add title
-        doc.setFontSize(16);
-        doc.text('Investment Memo Analysis', 20, yPosition);
-        yPosition += 15;
-        
-        // Add each question and answer
-        doc.setFontSize(12);
-        INVESTMENT_MEMO_QUESTIONS.forEach(({ id, question }) => {
-            const answer = answers[id];
-            if (answer && answer.content) {
-                // Add question
-                doc.setFont(undefined, 'bold');
-                doc.text(question, 20, yPosition);
-                yPosition += 10;
-                
-                // Add answer
-                doc.setFont(undefined, 'normal');
-                const formattedAnswer = formatNumbersInText(answer.content);
-                const splitText = doc.splitTextToSize(formattedAnswer, 170);
-                
-                // Check if we need a new page
-                if (yPosition + (splitText.length * 7) > 280) {
-                    doc.addPage();
-                    yPosition = 20;
-                }
-                
-                doc.text(splitText, 20, yPosition);
-                yPosition += (splitText.length * 7) + 15;
-            }
-        });
-        
-        // Save the PDF
-        doc.save('investment-memo.pdf');
-    };
+    const handleExportPDF = async () => {
+        console.log('exportToPDF called from button click');
+        try {
+            await generatePDFExport(
+                INVESTMENT_MEMO_QUESTIONS,
+                answers,
+                undefined, // companyName is optional
+                {
+                    includeTableOfContents: true,
+                    includeAppendices: true,
+                    language: 'en'
+                },
+                logo
+            );
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            setError('Failed to generate PDF. Please try again.');
+        }
+    }; //FIX
 
     // Expose methods to parent component via ref
     useImperativeHandle(ref, () => ({
         analyzeDocuments,
-        exportToPDF,
+        exportToPDF: handleExportPDF,
         getAnswers: () => answers
     }));
 
@@ -578,7 +560,7 @@ const InvestmentMemo = forwardRef<{
                                     Refresh Analysis
                                 </button>
                                 <button
-                                    onClick={exportToPDF}
+                                    onClick={handleExportPDF}
                                     className="flex items-center px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-900 focus:outline-none"
                                 >
                                     <FileDown size={16} className="mr-2" />

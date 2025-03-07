@@ -15,12 +15,17 @@ const nextConfig = {
     domains: ['zxgjzlwzukjkhcoyqedd.supabase.co'],
   },
   webpack: (config, { isServer }) => {
-    // Add a fallback for the 'canvas' module
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      canvas: false,
-    };
-    return config;
+    if (!isServer) {
+      // Don't resolve 'fs' module on the client to prevent this error
+      config.resolve.fallback = {
+        fs: false,
+        net: false,
+        tls: false,
+        child_process: false,
+        canvas: false,
+      }
+    }
+    return config
   },
 };
 

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Investment Memo</title>
+    <style>
+        @font-face {
+            font-family: 'Gotham';
+            src: url('/fonts/gotham/Gotham-Book.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'Gotham';
+            src: url('/fonts/gotham/Gotham-Medium.otf') format('opentype');
+            font-weight: bold;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        body {
+            font-family: 'Gotham', Arial, sans-serif;
+            line-height: 1.4;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            font-size: 10pt;
+        }
+
+        .header {
+            margin-bottom: 25px;
+        }
+
+        .logo-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: row;
+            gap: 12px;
+            background: linear-gradient(
+                120deg,
+                rgba(176, 224, 230, 0.3) 0%,
+                rgb(234, 234, 234) 50%,
+                rgba(255, 218, 224, 0.3) 100%
+            );
+            padding: 12px;
+            margin: 0 0 28px 0;
+            border-radius: 4px;
+        }
+
+        #logo {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+        }
+
+        .logo-container h1 {
+            color: #1b2338;
+            font-size: 22px;
+            margin: 0;
+            padding: 0;
+        }
+
+        #title {
+            color: #1A1F2E;
+            font-size: 22px;
+            text-align: center;
+            margin: 15px 0;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        h2 {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .sectionTitle {
+            font-size: 16px;
+            font-weight: bold;
+            margin: 20px 0 12px 0;
+        }
+
+        .sectionBlock {
+            margin: 20px 0;
+            padding: 0 0 15px 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        #tableOfContents {
+            display: none;
+        }
+
+        #appendices {
+            display: none;
+        }
+
+        .category {
+            font-size: 14px;
+            font-weight: bold;
+            margin: 12px 0 6px 0;
+            color: #1A1F2E;
+        }
+
+        .category-questions {
+            margin-left: 18px;
+            margin-bottom: 8px;
+        }
+
+        .question-item {
+            font-size: 12px;
+            margin: 4px 0;
+            color: #333;
+        }
+
+        .question-section {
+            margin: 0 0 20px 0;
+        }
+
+        .question {
+            color: #1A1F2E;
+            font-weight: bold;
+            font-size: 16px;
+            margin: 0 0 6px 0;
+        }
+
+        .description {
+            font-size: 12px;
+            margin: 0 0 8px 30px;
+            color: #6a6a6a;
+            font-style: italic;
+        }
+
+        .answer {
+            margin: 0 0 12px 12px;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .answer p {
+            margin: 0 0 8px 0;
+        }
+
+        .answer h1, .answer h2, .answer h3, .answer h4, .answer h5, .answer h6 {
+            color: #1A1F2E;
+            font-weight: bold;
+            margin: 12px 0 6px 0;
+            font-size: 14px;
+        }
+
+        .answer ul, .answer ol {
+            margin: 6px 0;
+            padding-left: 20px;
+        }
+
+        .answer li {
+            margin-bottom: 3px;
+        }
+
+        .answer code {
+            background-color: #f8f9fa;
+            color: #333;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 11px;
+        }
+
+        .answer pre {
+            background-color: #f8f9fa;
+            color: #333;
+            padding: 8px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 8px 0;
+            font-size: 11px;
+        }
+
+        .answer blockquote {
+            border-left: 3px solid #1A1F2E;
+            margin: 10px 0;
+            padding-left: 10px;
+            color: #666;
+        }
+
+        .answer table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 8px 0;
+            font-size: 11px;
+        }
+
+        .answer th, .answer td {
+            border: 1px solid #ddd;
+            padding: 5px;
+            text-align: left;
+        }
+
+        .answer th {
+            background-color: #f8f9fa;
+            color: #1A1F2E;
+            font-weight: bold;
+        }
+
+        .footer {
+            margin-top: -8px;
+            text-align: center;
+            font-size: 10px;
+            color: #666;
+        }
+
+        /* Math formula styling */
+        .mjx-chtml {
+            margin: 6px 0;
+            font-size: 12px !important;
+        }
+        
+        .mjx-math {
+            font-size: 100% !important;
+        }
+        
+        /* For better alignment in lists */
+        li .mjx-chtml {
+            display: inline-block;
+            margin: 0 2px;
+        }
+    </style>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']], //Remove
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="header">
+        <div class="logo-container">
+            <img src="/templates/unnamed.jpg" id="logo" alt="Company Logo">
+            <h1>Go1</h1>
+        </div>
+    </div>
+
+    <h1 id="title">Investment Memo</h1>
+
+    <div id="tableOfContents" class="sectionBlock">
+        <!-- Content will be dynamically inserted here -->
+        <h2>Table of Contents</h2>
+
+    </div>
+
+    <div class="sectionBlock" id="content">
+        <!-- Content will be dynamically inserted here -->
+        <h2 id="key-questions">I. Key Questions</h2>
+
+    </div>
+
+    <div class="sectionBlock" id="appendices">
+        <!-- Content will be dynamically inserted here -->
+        <h2>Appendices</h2>
+
+    </div>
+
+    <div class="footer">
+        <p>Generated on: <span id="generation-date"></span></p>
+    </div>
+</body>
+</html> 

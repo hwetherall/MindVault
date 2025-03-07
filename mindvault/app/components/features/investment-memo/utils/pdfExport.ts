@@ -1,5 +1,4 @@
-import jsPDF from 'jspdf';
-import { formatNumbersInText, splitAnswerContent } from '../../../../utils/formatters';
+
 
 /**
  * Investment memo questions data structure
@@ -37,7 +36,7 @@ export interface ExportOptions {
  * @param companyName Optional company name for the PDF title
  * @param options Export options for customizing the PDF output
  */
-export const exportToPDF = (
+export const exportToPDF = async (
   questions: InvestmentMemoQuestion[],
   answers: Record<string, Answer>,
   companyName?: string,
@@ -45,164 +44,113 @@ export const exportToPDF = (
     includeTableOfContents: true,
     includeAppendices: true,
     language: 'en'
-  }
-): void => {
-  const doc = new jsPDF();
-  
-  // Set title
-  const title = companyName ? `Investment Memo: ${companyName}` : 'Investment Memo';
-  doc.setFontSize(18);
-  doc.text(title, 20, 20);
-  
-  // Set font for the rest of the document
-  doc.setFontSize(10);
-  
-  let yPosition = 30;
-  const leftMargin = 20;
-  const pageWidth = 180;
-  
-  // Group questions by category
-  const questionsByCategory = questions.reduce((acc, question) => {
-    const category = question.category || 'General';
-    if (!acc[category]) {
-      acc[category] = [];
+  },
+  logo?: string 
+): Promise<void> => {
+  try {
+    await preloadAssets();
+
+    // Get the template HTML
+    const templateResponse = await fetch('/templates/investment-memo.html');
+    if (!templateResponse.ok) {
+      throw new Error(`Failed to load template: ${templateResponse.statusText}`);
     }
-    acc[category].push(question);
-    return acc;
-  }, {} as Record<string, InvestmentMemoQuestion[]>);
-  
-  // Add table of contents if enabled
-  if (options.includeTableOfContents) {
-    doc.setFontSize(14);
-    doc.setFont(undefined, 'bold');
-    doc.text('Table of Contents', leftMargin, yPosition);
-    yPosition += 10;
+    const template = await templateResponse.text();
+
+    // Call the API endpoint to generate PDF
+    const response = await fetch('/api/generate-pdf', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        questions,
+        answers,
+        companyName,
+        options,
+        logo,
+        template
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to generate PDF');
+    }
+
+    // Get the PDF blob
+    const pdfBlob = await response.blob();
+
+    // Create a download link
+    const url = window.URL.createObjectURL(pdfBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = companyName 
+      ? `investment-memo-${companyName.toLowerCase().replace(/\s+/g, '-')}.pdf`
+      : 'investment-memo.pdf';
     
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
+    // Trigger download
+    document.body.appendChild(a);
+    a.click();
     
-    Object.entries(questionsByCategory).forEach(([category, categoryQuestions]) => {
-      // Add category
-      doc.setFont(undefined, 'bold');
-      doc.text(category, leftMargin, yPosition);
-      yPosition += 5;
-      
-      // Add questions
-      doc.setFont(undefined, 'normal');
-      categoryQuestions.forEach(question => {
-        if (yPosition > 270) {
-          doc.addPage();
-          yPosition = 20;
-        }
-        doc.text(`• ${question.question}`, leftMargin + 5, yPosition);
-        yPosition += 5;
+    // Cleanup
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    throw error;
+  }
+};
+
+async function preloadAssets() {
+  // Preload custom fonts
+  const fonts = [
+    {
+      family: 'Gotham',
+      url: '/fonts/gotham/Gotham-Book.otf',
+      weight: 'normal',
+      style: 'normal'
+    },
+    {
+      family: 'Gotham',
+      url: '/fonts/gotham/Gotham-Medium.otf',
+      weight: 'bold',
+      style: 'normal'
+    }
+  ];
+
+  // Load all fonts
+  await Promise.all(fonts.map(async (font) => {
+    try {
+      const fontFace = new FontFace(font.family, `url(${font.url})`, {
+        weight: font.weight,
+        style: font.style
       });
-      
-      yPosition += 5;
+      await fontFace.load();
+      document.fonts.add(fontFace);
+    } catch (error) {
+      console.warn(`Failed to load font ${font.family}:`, error);
+      // Fallback to system fonts if custom fonts fail to load
+      console.log('Falling back to system fonts');
+    }
+  }));
+
+  // Preload images
+  const images = [
+    '/templates/unnamed.jpg',
+    '/templates/kp-logo-placeholder.png'
+  ];
+
+  await Promise.all(images.map(src => {
+    return new Promise<void>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve();
+      img.onerror = (error) => {
+        console.warn(`Failed to load image ${src}:`, error);
+        resolve(); // Resolve anyway to not block the process
+      };
+      img.src = src;
     });
-    
-    // Add page break after table of contents
-    doc.addPage();
-    yPosition = 20;
-  }
-  
-  // Add main content
-  Object.entries(questionsByCategory).forEach(([category, categoryQuestions]) => {
-    // Add category header
-    doc.setFontSize(14);
-    doc.setFont(undefined, 'bold');
-    doc.text(category, leftMargin, yPosition);
-    yPosition += 10;
-    
-    doc.setFontSize(10);
-    
-    categoryQuestions.forEach(({ id, question, description }) => {
-      // Get answer content if available
-      const answer = answers[id];
-      if (!answer) return;
-      
-      // Add the question
-      doc.setFont(undefined, 'bold');
-      
-      // Check if we need a page break
-      if (yPosition > 270) {
-        doc.addPage();
-        yPosition = 20;
-      }
-      
-      doc.text(question, leftMargin, yPosition);
-      yPosition += 7;
-      
-      // Add description if available
-      if (description) {
-        doc.setFont(undefined, 'italic');
-        const splitDesc = doc.splitTextToSize(description, pageWidth);
-        doc.text(splitDesc, leftMargin, yPosition);
-        yPosition += 5 * splitDesc.length;
-      }
-      
-      // Add the answer
-      doc.setFont(undefined, 'normal');
-      
-      // Split answer content
-      const { tldr, details } = splitAnswerContent(answer.content);
-      const formattedTldr = formatNumbersInText(tldr);
-      
-      // Handle line breaks for long text
-      const splitTldr = doc.splitTextToSize(formattedTldr, pageWidth);
-      doc.text(splitTldr, leftMargin, yPosition);
-      
-      yPosition += 5 * (splitTldr.length);
-      
-      // Add details if available
-      if (details) {
-        yPosition += 5;
-        
-        // Check if we need a page break
-        if (yPosition > 270) {
-          doc.addPage();
-          yPosition = 20;
-        }
-        
-        const formattedDetails = formatNumbersInText(details);
-        const splitDetails = doc.splitTextToSize(formattedDetails, pageWidth);
-        doc.text(splitDetails, leftMargin, yPosition);
-        
-        yPosition += 5 * (splitDetails.length);
-      }
-      
-      // Add space between sections
-      yPosition += 10;
-    });
-  });
-  
-  // Add appendices if enabled
-  if (options.includeAppendices) {
-    doc.addPage();
-    yPosition = 20;
-    
-    doc.setFontSize(14);
-    doc.setFont(undefined, 'bold');
-    doc.text('Appendices', leftMargin, yPosition);
-    yPosition += 10;
-    
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    
-    // Add placeholder text for appendices
-    doc.text('Supporting documents and references', leftMargin, yPosition);
-  }
-  
-  // Add date and language indicator
-  const date = new Date().toLocaleDateString(options.language === 'ja' ? 'ja-JP' : 'en-US');
-  doc.setFontSize(8);
-  doc.text(`Generated on: ${date}`, leftMargin, 290);
-  doc.text(`Language: ${options.language === 'ja' ? '日本語' : 'English'}`, 160, 290);
-  
-  // Save the PDF with appropriate filename
-  const filename = companyName 
-    ? `investment-memo-${companyName.toLowerCase().replace(/\s+/g, '-')}.pdf`
-    : 'investment-memo.pdf';
-  
-  doc.save(filename);
-}; 
+  }));
+}
