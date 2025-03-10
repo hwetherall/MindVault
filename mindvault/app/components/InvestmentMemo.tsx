@@ -1,4 +1,4 @@
-import React, { useState, forwardRef, useImperativeHandle, useEffect } from 'react';
+
 import { chatService } from '../services/chatService';
 import { ChevronDown, ChevronUp, Edit2, Save, RefreshCw, FileDown, Eye, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -47,11 +47,11 @@ const splitAnswerContent = (content: string | any) => {
     return { tldr: '', details: '' };
   }
   
-   // Handle both "TL;DR:" and "Summary:" formats for backward compatibility
-   let processedContent = content.replace(/TL;DR:/i, 'Summary:');
+  // Handle both "TL;DR:" and "Summary:" formats for backward compatibility
+  let processedContent = content.replace(/TL;DR:/i, 'Summary:');
   
-   // Split on "DETAILS:" - case insensitive
-   const parts = processedContent.split(/DETAILS:/i);
+  // Split on "DETAILS:" - case insensitive
+  const parts = processedContent.split(/DETAILS:/i);
   
   if (parts.length === 1) {
     // Clean up content if no DETAILS section is found
@@ -160,6 +160,18 @@ const InvestmentMemo = forwardRef<{
         setExpandedAnswers(Object.fromEntries(INVESTMENT_MEMO_QUESTIONS.map(q => [q.id, false])));
     }, [answers]);
 
+    // Reset expandedAnswers whenever answers change
+    useEffect(() => {
+        // When new answers arrive, ensure details remain collapsed
+        setExpandedAnswers(Object.fromEntries(INVESTMENT_MEMO_QUESTIONS.map(q => [q.id, false])));
+    }, [answers]);
+
+    // Reset expandedAnswers whenever answers change
+    useEffect(() => {
+        // When new answers arrive, ensure details remain collapsed
+        setExpandedAnswers(Object.fromEntries(INVESTMENT_MEMO_QUESTIONS.map(q => [q.id, false])));
+    }, [answers]);
+
     const logo = '/templates/unnamed.jpg'
     // Export to PDF function
     const handleExportPDF = async () => {
@@ -229,7 +241,7 @@ const InvestmentMemo = forwardRef<{
                 ...prev,
                 [id]: updatedAnswer
             }));
-
+            
             // Reset details expansion state when saving
             setExpandedAnswers(prev => ({
                 ...prev,
@@ -283,7 +295,7 @@ const InvestmentMemo = forwardRef<{
             2. Then examine the ${docPriority.secondary} document for supporting details
             3. Integrate information from both sources into your answer
             4. NEVER claim information is missing if you've only checked one document type
-
+            
             Your answer MUST be structured in the following format:
 
             Summary: 
@@ -302,7 +314,6 @@ const InvestmentMemo = forwardRef<{
             4. In your answer, specify what information came from which document type
             
             Format your response to be clear and readable, focusing only on answering this specific question using ALL available documents.
-
             Ensure there's a clear separation between the Summary and DETAILS sections.
         `;
     };
@@ -465,8 +476,8 @@ const InvestmentMemo = forwardRef<{
             // Check if all questions have been answered
             const allAnswered = INVESTMENT_MEMO_QUESTIONS.every(
                 ({ id }) => newAnswers[id] && 
-                    typeof newAnswers[id].summary === 'string' && 
-                    newAnswers[id].summary.trim().length > 0
+                            typeof newAnswers[id].summary === 'string' && 
+                            newAnswers[id].summary.trim().length > 0
             );
             
             if (allAnswered && onComplete) {
@@ -563,7 +574,7 @@ const InvestmentMemo = forwardRef<{
                     isEdited: false
                 }
             }));
-
+            
             // Reset details expansion state when regenerating
             setExpandedAnswers(prev => ({
                 ...prev,
@@ -699,13 +710,14 @@ const InvestmentMemo = forwardRef<{
                                                 <div>
                                                     {/* Summary Section - Always visible */}
                                                     <div className="prose max-w-none mt-2">
-                                                    <div className="text-sm font-medium text-gray-500 mb-1">Summary</div>
+                                                        <div className="text-sm font-medium text-gray-500 mb-1">Summary</div>
                                                         {typeof formattedAnswer === 'string' ? (
                                                             <ReactMarkdown>{formattedAnswer}</ReactMarkdown>
                                                         ) : (
                                                             <ReactMarkdown>{String(formattedAnswer)}</ReactMarkdown>
                                                         )}
                                                     </div>
+                                                    
                                                     {/* Details Section - Only show button if details exist */}
                                                     {formattedDetails && (
                                                         <div className="mt-4">
@@ -718,19 +730,20 @@ const InvestmentMemo = forwardRef<{
                                                                 }}
                                                                 className="text-sm text-blue-600 hover:text-blue-800 bg-blue-50 py-1 px-3 rounded-md border border-blue-100 focus:outline-none"
                                                             >
-                                                                
-                                                            {isExpanded ? 'Hide Details' : 'Show Details'}
+                                                                {isExpanded ? 'Hide Details' : 'Show Details'}
                                                             </button>
+                                                            
                                                             {/* Only render details content when expanded */}
                                                             {isExpanded && (
                                                                 <div className="mt-3 pt-3 border-t border-gray-200">
-                                                                <div className="text-sm font-medium text-gray-500 mb-2">Details</div>
-                                                                <div className="prose max-w-none text-sm">
-                                                                    {typeof formattedDetails === 'string' ? (
-                                                                        <ReactMarkdown>{formattedDetails}</ReactMarkdown>
-                                                                    ) : (
-                                                                        <ReactMarkdown>{String(formattedDetails)}</ReactMarkdown>
-                                                                    )}
+                                                                    <div className="text-sm font-medium text-gray-500 mb-2">Details</div>
+                                                                    <div className="prose max-w-none text-sm">
+                                                                        {typeof formattedDetails === 'string' ? (
+                                                                            <ReactMarkdown>{formattedDetails}</ReactMarkdown>
+                                                                        ) : (
+                                                                            <ReactMarkdown>{String(formattedDetails)}</ReactMarkdown>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                                 </div>
                                                             )}

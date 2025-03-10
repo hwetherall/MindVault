@@ -1,6 +1,4 @@
 import React from 'react';
-import Image from 'next/image';
-import { Search } from '@mui/icons-material';
 
 interface HeaderProps {
   searchQuery: string;
@@ -10,7 +8,7 @@ interface HeaderProps {
 }
 
 /**
- * Header component for the main layout
+ * Header component for the main layout - now empty as per design change
  */
 const Header: React.FC<HeaderProps> = ({ 
   searchQuery, 
@@ -18,51 +16,8 @@ const Header: React.FC<HeaderProps> = ({
   onGenerateInvestmentMemo,
   onClearRepository
 }) => {
-  return (
-    <header className="bg-white shadow-md border-b-2 border-border-medium p-2 mb-4">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center space-x-4 mb-2 md:mb-0">
-          <div className="flex items-center">
-            <Image
-              src="/innovera-logo.png"
-              alt="Innovera Logo"
-              width={120}
-              height={30}
-              priority
-              className="object-contain"
-            />
-          </div>
-          
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary" />
-            <input
-              type="text"
-              placeholder="Search notes..."
-              className="pl-10 pr-4 py-2 bg-background-secondary border-2 border-border-medium text-text-primary rounded-full w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-primary"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
-        
-        <div className="flex space-x-3">
-          <button
-            className="innovera-button-primary"
-            onClick={onGenerateInvestmentMemo}
-          >
-            Create Investment Memo
-          </button>
-          
-          <button
-            className="innovera-button-secondary"
-            onClick={onClearRepository}
-          >
-            Clear Repository
-          </button>
-        </div>
-      </div>
-    </header>
-  );
+  // Return an empty div as we're removing the header
+  return <div></div>;
 };
 
 export default Header; 

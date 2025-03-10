@@ -409,13 +409,6 @@ export default function MainLayout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#1A1F2E]">
-      {/* Header */}
-      <header className="bg-[#1A1F2E] text-white p-4">
-        <div className="container mx-auto">
-          <h1 className="text-2xl font-bold">•••• Project Higgins: A Innovera Initiative</h1>
-        </div>
-      </header>
-
       {/* Main Content */}
       <div className="flex-1 flex flex-col md:flex-row p-4 gap-4 container mx-auto">
         {/* Left Panel - Notes Repository */}
@@ -479,7 +472,7 @@ export default function MainLayout() {
           </div>
           
           {/* Notes */}
-          <div>
+          <div className="mb-4">
             <h3 className="font-semibold mb-2">Notes</h3>
             <ul className="space-y-1">
               {hasNotes ? (
@@ -500,6 +493,29 @@ export default function MainLayout() {
                 </li>
               )}
             </ul>
+          </div>
+          
+          {/* Create Investment Memo and Clear Repository Buttons */}
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            <button 
+              onClick={handleGenerateInvestmentMemo}
+              className="bg-[#1A1F2E] hover:bg-[#2A2F3E] text-white p-2 rounded flex items-center justify-center gap-2"
+            >
+              Create Investment Memo
+            </button>
+            <button 
+              onClick={() => {
+                if (window.confirm('Are you sure you want to clear all files and notes?')) {
+                  setFiles([]);
+                  setMemoAnswers({});
+                  localStorage.removeItem('files');
+                  localStorage.removeItem('memoAnswers');
+                }
+              }}
+              className="bg-gray-200 hover:bg-gray-300 text-gray-800 p-2 rounded flex items-center justify-center gap-2"
+            >
+              Clear Repository
+            </button>
           </div>
           
           <input 
@@ -547,13 +563,6 @@ export default function MainLayout() {
                   This analysis will evaluate key financial metrics, business model, and team composition to determine investment potential.
                 </p>
                 
-                <button 
-                  onClick={handleGenerateInvestmentMemo}
-                  className="w-full bg-[#1A1F2E] text-white py-3 rounded mb-6"
-                >
-                  Generate Investment Memo
-                </button>
-                
                 {/* Display memo answers */}
                 <div className="space-y-4 mb-6">
                   {INVESTMENT_MEMO_QUESTIONS.map(question => (
@@ -598,7 +607,7 @@ export default function MainLayout() {
                           </div>
                         ) : (
                           <div className="text-gray-500 italic">
-                            Click &quot;Generate Investment Memo&quot; to analyze this question
+                            Click &quot;Create Investment Memo&quot; button on the left panel to analyze this question
                           </div>
                         )}
                       </div>

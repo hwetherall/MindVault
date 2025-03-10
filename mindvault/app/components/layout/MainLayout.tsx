@@ -139,8 +139,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
               <div className="mb-6">
                 <FileUploader onFilesUploaded={handleFilesUploaded} />
               </div>
-              <div>
+              
+              <div className="mb-6">
                 <FileList files={files} onDeleteFile={handleDeleteFile} />
+              </div>
+              
+              {/* Investment Memo Box */}
+              <div className="mb-6 border-2 border-border-medium p-5 rounded-lg shadow-md bg-white">
+                <h2 className="font-medium text-lg mb-4 border-b-2 border-border-medium pb-2">Investment Memo</h2>
+                <div className="flex flex-col gap-4">
+                  <button
+                    className="innovera-button-primary w-full"
+                    onClick={handleGenerateInvestmentMemo}
+                  >
+                    Create Investment Memo
+                  </button>
+                  
+                  <button
+                    className="innovera-button-secondary w-full"
+                    onClick={handleClearRepository}
+                  >
+                    Clear Repository
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -161,7 +182,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
                   />
                 </div>
               ) : (
-                <div className="innovera-card h-[600px] flex flex-col shadow-elevated">
+                <div className="innovera-card h-[650px] flex flex-col shadow-elevated">
                   <h2 className="text-xl font-bold mb-4 pb-2 border-b-2 border-border-medium">Conduct Due Diligence</h2>
                   <ChatInterface
                     files={files}

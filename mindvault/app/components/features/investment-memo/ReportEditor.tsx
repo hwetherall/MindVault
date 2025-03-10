@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Edit2, Save, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Answer, InvestmentMemoQuestion } from './utils/pdfExport';
@@ -9,6 +9,7 @@ interface ReportEditorProps {
   description: string;
   questions: InvestmentMemoQuestion[];
   answers: Record<string, Answer>;
+  files: any[];
   onAnswersChange: (answers: Record<string, Answer>) => void;
   onPrevious: () => void;
   onNext: () => void;
@@ -22,19 +23,22 @@ const ReportEditor: React.FC<ReportEditorProps> = ({
   description,
   questions,
   answers,
+  files,
   onAnswersChange,
   onPrevious,
   onNext
 }) => {
-  // State for expanded sections
+  // State for expanded sections - start with all collapsed (set to false)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(
-    Object.fromEntries(questions.map(q => [q.id, true]))
-  );
-  
-  // State for expanded details
-  const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>(
     Object.fromEntries(questions.map(q => [q.id, false]))
   );
+  
+  // State for expanded details - start with all collapsed (set to false)
+  const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>(() => {
+    const initialState = Object.fromEntries(questions.map(q => [q.id, false]));
+    console.log('Initial expandedDetails state:', initialState);
+    return initialState;
+  });
   
   // State for editing
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -43,25 +47,47 @@ const ReportEditor: React.FC<ReportEditorProps> = ({
 
   // Toggle section expansion
   const toggleSection = (id: string) => {
+    const newExpandedState = !expandedSections[id];
+    
     setExpandedSections(prev => ({
       ...prev,
-      [id]: !prev[id]
+      [id]: newExpandedState
     }));
+    
+    // When expanding a section, ensure details are initially collapsed
+    if (newExpandedState === true) {
+      setExpandedDetails(prev => ({
+        ...prev,
+        [id]: false
+      }));
+    }
   };
 
   // Toggle details expansion
   const toggleDetails = (id: string) => {
-    setExpandedDetails(prev => ({
-      ...prev,
-      [id]: !prev[id]
-    }));
+    console.log(`Toggle details for ${id}: current state = ${expandedDetails[id] || false}`);
+    setExpandedDetails(prev => {
+      const newState = {
+        ...prev,
+        [id]: !prev[id]
+      };
+      console.log(`New expandedDetails state for ${id} = ${newState[id]}`);
+      return newState;
+    });
+    console.log(`New state for ${id} should be ${!expandedDetails[id]}`);
   };
 
-  // Start editing an answer
+  // Handle editing an answer
   const handleEdit = (id: string) => {
     if (answers[id]) {
       setEditingId(id);
-      setEditedContent(answers[id].content);
+      // Create a combined content for editing
+      const combinedContent = `Summary: 
+${answers[id].summary}
+
+DETAILS:
+${answers[id].details}`;
+      setEditedContent(combinedContent);
     }
   };
 
@@ -69,13 +95,33 @@ const ReportEditor: React.FC<ReportEditorProps> = ({
   const handleSave = (id: string) => {
     if (!editingId) return;
     
+    // Split the edited content into summary and details
+    const parts = editedContent.split(/DETAILS:/i);
+    let summary = '';
+    let details = '';
+    
+    if (parts.length === 1) {
+      // If no DETAILS section found, treat everything as summary
+      summary = parts[0].replace(/Summary:/i, '').trim();
+    } else {
+      summary = parts[0].replace(/Summary:/i, '').trim();
+      details = parts[1].trim();
+    }
+    
     onAnswersChange({
       ...answers,
       [id]: {
-        content: editedContent,
+        summary,
+        details,
         isEdited: true
       }
     });
+    
+    // Reset details expansion state when saving
+    setExpandedDetails(prev => ({
+      ...prev,
+      [id]: false
+    }));
     
     setEditingId(null);
     setEditedContent('');
@@ -89,23 +135,49 @@ const ReportEditor: React.FC<ReportEditorProps> = ({
     setIsRegenerating(prev => ({ ...prev, [id]: true }));
     
     try {
-      const prompt = `Based on the provided documents, ${question.question} ${question.description ? `(${question.description})` : ''}
+      // First generate the detailed answer
+      const detailsPrompt = `Based on the provided documents, provide a DETAILED answer to this question: ${question.question} ${question.description ? `(${question.description})` : ''}
 
-Organize your answer into:
-1. TL;DR - A concise summary of the key points
-2. DETAILS - More comprehensive explanation with supporting information
-
-Be specific and extract concrete numbers and facts where available.`;
+Your answer should be comprehensive and include supporting information, calculations, and specific data points from the documents.
+Include source references where appropriate. Extract concrete numbers and facts where available.`;
       
-      const result = await chatService.sendMessage(prompt, []);
+      // Add instructions for DETAILS section
+      const detailsPromptWithInstructions = detailsPrompt + `
+
+This will be used as the DETAILS section of the answer, which will be shown when users click "Show Details".`;
+      
+      const detailsResult = await chatService.sendMessage(detailsPromptWithInstructions, files);
+      const detailedAnswer = detailsResult.text;
+      
+      // Then generate a summary based on the detailed answer
+      const summaryPrompt = `Based on the following detailed answer to the question "${question.question}", provide a concise 1-2 sentence summary that directly answers the question with key facts.
+
+Detailed Answer:
+${detailedAnswer}
+
+Your summary should be brief but informative, capturing the most important points from the detailed answer.`;
+      
+      // Add instructions for SUMMARY section
+      const summaryPromptWithInstructions = summaryPrompt + `
+
+This will always be shown to the user as the Summary section.`;
+      
+      const summaryResult = await chatService.sendMessage(summaryPromptWithInstructions, files);
       
       onAnswersChange({
         ...answers,
         [id]: {
-          content: result.text,
+          summary: summaryResult.text,
+          details: detailedAnswer,
           isEdited: false
         }
       });
+      
+      // Reset details expansion state when regenerating
+      setExpandedDetails(prev => ({
+        ...prev,
+        [id]: false
+      }));
     } catch (error) {
       console.error(`Error regenerating answer for ${id}:`, error);
     } finally {
@@ -118,23 +190,43 @@ Be specific and extract concrete numbers and facts where available.`;
     const element = document.getElementById(`question-${id}`);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' });
+      
+      // Automatically expand the section when navigating to it
+      setExpandedSections(prev => ({
+        ...prev,
+        [id]: true
+      }));
+      
+      // Ensure details are collapsed when navigating to a question
+      setExpandedDetails(prev => ({
+        ...prev,
+        [id]: false
+      }));
     }
   };
 
-  // Function to split answer content into TLDR and details sections
-  const splitAnswerContent = (content: string) => {
-    const parts = content.split('DETAILS:');
+  // Reset expandedDetails whenever answers change
+  useEffect(() => {
+    // When new answers arrive, ensure details remain collapsed
+    console.log('useEffect triggered: resetting expandedDetails');
+    console.log('Current answers:', answers);
+    // Only reset for questions whose answers have changed
+    const updatedIds = Object.keys(answers).filter(id => answers[id].isEdited === false);
+    console.log('Resetting expandedDetails for IDs:', updatedIds);
     
-    if (parts.length === 1) {
-      // Clean up the content if no DETAILS section
-      return { tldr: parts[0].replace('TL;DR:', '').trim(), details: '' };
-    }
-    
-    return { 
-      tldr: parts[0].replace('TL;DR:', '').trim(), 
-      details: parts[1].trim() 
-    };
-  };
+    setExpandedDetails(prev => {
+      const newState = { ...prev };
+      updatedIds.forEach(id => {
+        newState[id] = false;
+      });
+      return newState;
+    });
+  }, [answers]);
+
+  useLayoutEffect(() => {
+    // Trace each render and log the state of expandedDetails
+    console.log('Current expandedDetails state:', expandedDetails);
+  }, [expandedDetails]);
 
   return (
     <div className="bg-white rounded-lg shadow">
@@ -169,11 +261,11 @@ Be specific and extract concrete numbers and facts where available.`;
           const isEditing = editingId === question.id;
           const isCurrentlyRegenerating = isRegenerating[question.id] || false;
           
+          console.log(`Question ${question.id}: isExpanded = ${isExpanded}, isDetailsExpanded = ${isDetailsExpanded}`);
+          
           if (!answer) {
             return null;
           }
-          
-          const { tldr, details } = splitAnswerContent(answer.content);
           
           return (
             <div 
@@ -181,20 +273,23 @@ Be specific and extract concrete numbers and facts where available.`;
               id={`question-${question.id}`}
               className="p-6"
             >
-              {/* Question Header */}
-              <div className="flex justify-between items-start">
+              {/* Question Header - Always visible */}
+              <div 
+                className="flex justify-between items-start cursor-pointer"
+                onClick={() => toggleSection(question.id)}
+              >
                 <div className="flex-1">
                   <h2 className="text-xl font-semibold">{question.question}</h2>
                   <p className="text-sm text-gray-500 mt-1">{question.description}</p>
                 </div>
                 <button
                   className="ml-2 p-1 text-gray-400 hover:text-gray-600"
-                  onClick={() => toggleSection(question.id)}
                 >
                   {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                 </button>
               </div>
               
+              {/* Question Content - Only shown when expanded */}
               {isExpanded && (
                 <div className="mt-4">
                   {isEditing ? (
@@ -224,29 +319,37 @@ Be specific and extract concrete numbers and facts where available.`;
                   ) : (
                     /* View Mode */
                     <div>
-                      {/* TLDR Section */}
+                      {/* Summary Section - Always visible within an expanded question */}
                       <div className="mb-4">
                         <div className="text-sm font-medium text-gray-500 mb-1">Summary</div>
                         <div className="prose prose-sm max-w-none">
-                          <ReactMarkdown>{tldr}</ReactMarkdown>
+                          <ReactMarkdown>{answer.summary}</ReactMarkdown>
                         </div>
                       </div>
                       
-                      {/* Details Section (if available) */}
-                      {details && (
-                        <div>
-                          <div className="flex items-center justify-between">
-                            <div className="text-sm font-medium text-gray-500 mb-1">Details</div>
-                            <button
-                              className="text-sm text-blue-600 hover:text-blue-800"
-                              onClick={() => toggleDetails(question.id)}
-                            >
-                              {isDetailsExpanded ? 'See Less' : 'See More'}
-                            </button>
-                          </div>
+                      {/* Show Details Button - Only shown if details exist */}
+                      {answer.details && (
+                        <div className="mb-4">
+                          <button
+                            className="text-sm text-blue-600 hover:text-blue-800 bg-blue-50 py-1 px-3 rounded-md border border-blue-100"
+                            onClick={(e) => {
+                              e.preventDefault();  // Prevent default behavior
+                              e.stopPropagation(); // Prevent triggering question collapse
+                              console.log(`Details button clicked for ${question.id}`);
+                              console.log(`Before toggle: isDetailsExpanded = ${isDetailsExpanded}`);
+                              toggleDetails(question.id);
+                            }}
+                          >
+                            {isDetailsExpanded ? 'Hide Details' : 'Show Details'}
+                          </button>
+                          
+                          {/* Details Content - Only shown when explicitly expanded */}
                           {isDetailsExpanded && (
-                            <div className="prose prose-sm max-w-none">
-                              <ReactMarkdown>{details}</ReactMarkdown>
+                            <div className="mt-3 pt-3 border-t border-gray-200">
+                              <div className="text-sm font-medium text-gray-500 mb-2">Details</div>
+                              <div className="prose prose-sm max-w-none">
+                                <ReactMarkdown>{answer.details}</ReactMarkdown>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -256,7 +359,10 @@ Be specific and extract concrete numbers and facts where available.`;
                       <div className="flex justify-end mt-4 space-x-2">
                         <button
                           className="flex items-center px-3 py-1 text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
-                          onClick={() => handleRegenerate(question.id)}
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering question collapse
+                            handleRegenerate(question.id);
+                          }}
                           disabled={isCurrentlyRegenerating}
                         >
                           {isCurrentlyRegenerating ? (
@@ -273,7 +379,10 @@ Be specific and extract concrete numbers and facts where available.`;
                         </button>
                         <button
                           className="flex items-center px-3 py-1 text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
-                          onClick={() => handleEdit(question.id)}
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering question collapse
+                            handleEdit(question.id);
+                          }}
                         >
                           <Edit2 size={16} className="mr-1" />
                           Edit

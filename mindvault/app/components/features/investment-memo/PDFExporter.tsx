@@ -203,8 +203,8 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
     };
   };
   
-  // Split questions by category
-  const questionsByCategory = displayContent.questions.reduce((acc, question) => {
+  // Group questions by category
+  const questionsByCategory = questions.reduce((acc, question) => {
     const category = question.category || 'General';
     if (!acc[category]) {
       acc[category] = [];
@@ -366,15 +366,7 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
               </button>
             </div>
 
-            {/* Apply Branding Option */}
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <div className="font-medium">Apply Branding?</div>
-                <div className="text-sm text-gray-500">Add company branding to the memo</div>
-              </div>
-            </div>
-            
-            {/* Language Option with Translation Status */}
+            {/* Language Option */}
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <div>
                 <div className="font-medium">Language</div>
@@ -408,6 +400,78 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
                   ) : (
                     '日本語'
                   )}
+                </button>
+              </div>
+            </div>
+
+            {/* Concise vs Detailed View Option */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <div className="font-medium">Content Detail Level</div>
+                <div className="text-sm text-gray-500">{exportOptions.isDetailedView ? 'Detailed view with full answers' : 'Concise view with summaries only'}</div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  className={`px-3 py-1 rounded-l-md ${
+                    !exportOptions.isDetailedView
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}
+                  onClick={() => setExportOptions(prev => ({
+                    ...prev,
+                    isDetailedView: false
+                  }))}
+                >
+                  Concise
+                </button>
+                <button
+                  className={`px-3 py-1 rounded-r-md ${
+                    exportOptions.isDetailedView
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}
+                  onClick={() => setExportOptions(prev => ({
+                    ...prev,
+                    isDetailedView: true
+                  }))}
+                >
+                  Detailed
+                </button>
+              </div>
+            </div>
+
+            {/* Concise vs Detailed View Option */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <div className="font-medium">Content Detail Level</div>
+                <div className="text-sm text-gray-500">{exportOptions.isDetailedView ? 'Detailed view with full answers' : 'Concise view with summaries only'}</div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  className={`px-3 py-1 rounded-l-md ${
+                    !exportOptions.isDetailedView
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}
+                  onClick={() => setExportOptions(prev => ({
+                    ...prev,
+                    isDetailedView: false
+                  }))}
+                >
+                  Concise
+                </button>
+                <button
+                  className={`px-3 py-1 rounded-r-md ${
+                    exportOptions.isDetailedView
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}
+                  onClick={() => setExportOptions(prev => ({
+                    ...prev,
+                    isDetailedView: true
+                  }))}
+                >
+                  Detailed
                 </button>
               </div>
             </div>
@@ -467,9 +531,6 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
                 const answer = displayContent.answers[question.id];
                 if (!answer) return null;
                 
-                const answerDisplay = getAnswerDisplay(answer);
-                const isDetailsExpanded = expandedDetails[question.id];
-                
                 return (
                   <div key={question.id} className="p-4">
                     <div className="font-bold mb-2">{question.question}</div>
@@ -478,23 +539,51 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
                     )}
                     <div className="prose prose-sm max-w-none">
                       <div className="mb-3">
-                        <div className="font-medium text-gray-700">Summary</div>
-                        <ReactMarkdown>{answerDisplay.tldr}</ReactMarkdown>
+                        <div className="font-medium text-blue-700 mb-1">Summary</div>
+                        <div className="prose prose-sm">
+                          <ReactMarkdown>
+                            {answer.summary}
+                          </ReactMarkdown>
+                        </div>
                       </div>
-                      {answerDisplay.details && (
-                        <div>
-                          <div className="flex items-center justify-between">
-                            <div className="font-medium text-gray-700">Details</div>
+                      
+                      {/* Show details based on view mode and expanded state */}
+                      {exportOptions.isDetailedView && answer.details && (
+                        <div className="mt-4 pt-3 border-t">
+                          <div className="font-medium text-gray-700 mb-1">Details</div>
+                          <div className="prose prose-sm">
+                            <ReactMarkdown>
+                              {answer.details}
+                            </ReactMarkdown>
+                          </div>
+                        </div>
+                      )}
+                      {!exportOptions.isDetailedView && expandedDetails[question.id] && answer.details && (
+                        <div className="mt-4 pt-3 border-t">
+                          <div className="font-medium text-gray-700 mb-1">Details</div>
+                          <div className="prose prose-sm">
+                            <ReactMarkdown>
+                              {answer.details}
+                            </ReactMarkdown>
+                          </div>
+                          <div className="mt-2">
                             <button
+                              className="text-sm text-blue-600 hover:text-blue-800 bg-blue-50 py-1 px-3 rounded-md border border-blue-100"
                               onClick={() => toggleDetails(question.id)}
-                              className="text-blue-600 hover:text-blue-800"
                             >
-                              {isDetailsExpanded ? 'Hide Details' : 'Show Details'}
+                              Hide Details
                             </button>
                           </div>
-                          {isDetailsExpanded && (
-                            <ReactMarkdown>{answerDisplay.details}</ReactMarkdown>
-                          )}
+                        </div>
+                      )}
+                      {!exportOptions.isDetailedView && !expandedDetails[question.id] && answer.details && (
+                        <div className="mt-2">
+                          <button
+                            className="text-sm text-blue-600 hover:text-blue-800 bg-blue-50 py-1 px-3 rounded-md border border-blue-100"
+                            onClick={() => toggleDetails(question.id)}
+                          >
+                            Show Details
+                          </button>
                         </div>
                       )}
                     </div>
