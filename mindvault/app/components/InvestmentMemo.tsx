@@ -1,4 +1,4 @@
-
+import React, { useState, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { chatService } from '../services/chatService';
 import { ChevronDown, ChevronUp, Edit2, Save, RefreshCw, FileDown, Eye, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -744,7 +744,6 @@ const InvestmentMemo = forwardRef<{
                                                                             <ReactMarkdown>{String(formattedDetails)}</ReactMarkdown>
                                                                         )}
                                                                     </div>
-                                                                </div>
                                                                 </div>
                                                             )}
                                                         </div>

@@ -59,52 +59,61 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
     Object.fromEntries(questions.map(q => [q.id, false]))
   );
 
-  // Function to batch translate content using OpenAI API
   const translateContent = async (language: 'en' | 'ja') => {
     if (language === 'en') {
       setTranslatedContent(null);
       return;
     }
-
+  
     setIsTranslating(true);
     setTranslationProgress(0);
-
+  
     try {
-      // Prepare all content that needs translation
+      // Prepare content for translation
       const contentToTranslate = {
         title,
-        description,
+        description: description || '',
         questions: questions.map(q => ({
           id: q.id,
           question: q.question,
-          description: q.description
+          description: q.description || ''
         })),
         answers: Object.entries(answers).map(([id, answer]) => ({
           id,
-          summary: answer.summary,
-          details: answer.details
+          content: {
+            summary: answer.summary,
+            details: answer.details
+          }
         }))
       };
-
-      // Batch translate using OpenAI API
+  
+      // Call translation API
       const response = await fetch('/api/translate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           content: contentToTranslate,
           targetLanguage: language
         })
       });
-
-      if (!response.ok) {
-        throw new Error('Translation failed');
-      }
-
+  
+      // Handle translation response
+      if (!response.ok) throw new Error('Translation failed');
       const translatedData = await response.json();
 
       // Update translated content
+      const translatedAnswers = Object.fromEntries(
+        Object.keys(answers).map(id => [
+          id,
+          {
+            ...answers[id],
+            summary: translatedData.answers.find((ta: any) => ta.id === id)?.content?.summary || answers[id].summary,
+            details: translatedData.answers.find((ta: any) => ta.id === id)?.content?.details || answers[id].details,
+            isEdited: answers[id].isEdited
+          }
+        ])
+      );
+
       setTranslatedContent({
         title: translatedData.title,
         description: translatedData.description,
@@ -113,20 +122,10 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
           question: translatedData.questions.find((tq: any) => tq.id === q.id)?.question || q.question,
           description: translatedData.questions.find((tq: any) => tq.id === q.id)?.description || q.description
         })),
-        answers: Object.fromEntries(
-          Object.entries(answers).map(([id, answer]) => [
-            id,
-            {
-              ...answer,
-              summary: translatedData.answers.find((ta: any) => ta.id === id)?.summary || answer.summary,
-              details: translatedData.answers.find((ta: any) => ta.id === id)?.details || answer.details
-            }
-          ])
-        )
+        answers: translatedAnswers
       });
     } catch (error) {
       console.error('Translation error:', error);
-      // Show error notification or handle error appropriately
     } finally {
       setIsTranslating(false);
       setTranslationProgress(100);
@@ -173,17 +172,12 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
   };
 
   // Get the content to display based on language
-  const displayContent = exportOptions.language === 'en' ? {
+  const displayContent = exportOptions.language === 'en' || !translatedContent ? {
     title,
     description,
     questions,
     answers,
-  } : translatedContent || {
-    title,
-    description,
-    questions,
-    answers,
-  };
+  } : translatedContent;
 
   // Count edited answers
   const editedAnswersCount = Object.values(answers).filter(answer => answer.isEdited).length;
@@ -194,7 +188,7 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
     const detailsWordCount = answer.details.split(/\s+/).filter(Boolean).length;
     return total + summaryWordCount + detailsWordCount;
   }, 0);
-
+  
   // Function to get answer display content
   const getAnswerDisplay = (answer: Answer) => {
     return {
@@ -365,7 +359,7 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
                 )}
               </button>
             </div>
-
+            
             {/* Language Option */}
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <div>
@@ -400,42 +394,6 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
                   ) : (
                     '日本語'
                   )}
-                </button>
-              </div>
-            </div>
-
-            {/* Concise vs Detailed View Option */}
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <div className="font-medium">Content Detail Level</div>
-                <div className="text-sm text-gray-500">{exportOptions.isDetailedView ? 'Detailed view with full answers' : 'Concise view with summaries only'}</div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  className={`px-3 py-1 rounded-l-md ${
-                    !exportOptions.isDetailedView
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-600'
-                  }`}
-                  onClick={() => setExportOptions(prev => ({
-                    ...prev,
-                    isDetailedView: false
-                  }))}
-                >
-                  Concise
-                </button>
-                <button
-                  className={`px-3 py-1 rounded-r-md ${
-                    exportOptions.isDetailedView
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-600'
-                  }`}
-                  onClick={() => setExportOptions(prev => ({
-                    ...prev,
-                    isDetailedView: true
-                  }))}
-                >
-                  Detailed
                 </button>
               </div>
             </div>
@@ -514,11 +472,17 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
                   <div key={category} className="mb-3">
                     <div className="font-medium text-gray-700">{category}</div>
                     <ul className="pl-4 space-y-1">
-                      {categoryQuestions.map(question => (
-                        <li key={question.id} className="text-sm text-gray-600">
-                          {question.question}
-                        </li>
-                      ))}
+                      {categoryQuestions.map(question => {
+                        // Find the translated question if it exists
+                        const translatedQuestion = translatedContent?.questions.find(
+                          tq => tq.id === question.id
+                        );
+                        return (
+                          <li key={question.id} className="text-sm text-gray-600">
+                            {translatedQuestion?.question || question.question}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 ))}
@@ -565,7 +529,7 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
                             <ReactMarkdown>
                               {answer.details}
                             </ReactMarkdown>
-                          </div>
+                      </div>
                           <div className="mt-2">
                             <button
                               className="text-sm text-blue-600 hover:text-blue-800 bg-blue-50 py-1 px-3 rounded-md border border-blue-100"

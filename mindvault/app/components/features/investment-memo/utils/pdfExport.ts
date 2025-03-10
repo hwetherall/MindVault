@@ -18,8 +18,6 @@ export interface InvestmentMemoQuestion {
 export interface Answer {
   summary: string;
   details: string;
-  summary: string;
-  details: string;
   isEdited: boolean;
 }
 
