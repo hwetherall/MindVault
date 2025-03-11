@@ -63,13 +63,26 @@
             padding: 0;
         }
 
+        .title-container {
+            text-align: center;
+            align-items: center;
+            margin: 15px 0;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
         #title {
             color: #1A1F2E;
             font-size: 22px;
             text-align: center;
-            margin: 15px 0;
-            padding-bottom: 12px;
-            border-bottom: 1px solid #ddd;
+            margin: 0;
+        }
+
+        #description {
+            font-size: 12px;
+            text-align: center;
+            margin-top: 10px;
+            margin-bottom: 0px;
         }
 
         h2 {
@@ -247,8 +260,11 @@
         </div>
     </div>
 
-    <h1 id="title">Investment Memo</h1>
-
+    <div class="title-container">
+    	<h1 id="title">Investment Memo</h1>
+        <p id="description">Description for the investment memo inputted by the user</p>
+    </div>
+    
     <div id="tableOfContents" class="sectionBlock">
         <!-- Content will be dynamically inserted here -->
         <h2>Table of Contents</h2>

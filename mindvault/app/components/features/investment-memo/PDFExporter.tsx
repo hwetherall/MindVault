@@ -156,16 +156,19 @@ const PDFExporter: React.FC<PDFExporterProps> = ({
       questions,
       answers,
       title,
+      description
     } : {
       questions: translatedContent?.questions || questions,
       answers: translatedContent?.answers || answers,
       title: translatedContent?.title || title,
+      description: translatedContent?.description || description  
     };
 
     await exportToPDF(
       contentToExport.questions,
       contentToExport.answers,
-      contentToExport.title,
+      contentToExport.title || 'Investment Memo',
+      contentToExport.description || 'Empty Description',
       exportOptions
     );
     onComplete();

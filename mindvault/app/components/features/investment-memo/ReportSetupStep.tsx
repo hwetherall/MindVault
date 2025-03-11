@@ -49,13 +49,14 @@ const ReportSetupStep: React.FC<ReportSetupStepProps> = ({
       [name]: value
     };
     
-    // Update local state
     setFormValues(updatedValues);
     
-    // Also update parent component state for title and description
-    if (name === 'title' || name === 'description') {
-      onConfigChange(updatedValues);
-    }
+    // Always update parent with both values
+    onConfigChange({
+      title: updatedValues.title,
+      description: updatedValues.description,
+      generationDepth: updatedValues.generationDepth
+    });
   };
 
   // Handler for form submission

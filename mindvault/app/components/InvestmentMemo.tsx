@@ -191,7 +191,8 @@ const InvestmentMemo = forwardRef<{
             await generatePDFExport(
                 INVESTMENT_MEMO_QUESTIONS,
                 transformedAnswers,
-                undefined, // companyName is optional
+                "Investment Memo", // title is required
+                "Investment Memo", // description is required
                 {
                     includeTableOfContents: true,
                     includeAppendices: true,

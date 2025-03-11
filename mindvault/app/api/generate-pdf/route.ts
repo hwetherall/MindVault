@@ -36,14 +36,16 @@ export async function POST(request: Request) {
     const { 
       questions,
       answers,
-      companyName,
+      title,
+      description,
       options,
       logo,
       template
     }: {
       questions: Question[];
       answers: Record<string, Answer>;
-      companyName?: string;
+      title: string;
+      description: string;
       options: ExportOptions;
       logo?: string;
       template: string;
@@ -182,15 +184,33 @@ export async function POST(request: Request) {
     }
 
     // Inject content into the existing structure
-    await page.evaluate(({ questions, answers, options }: {
+    await page.evaluate(({ questions, answers, options, title, description }: {
       questions: Question[];
       answers: Record<string, { summary: string; summaryHtml: string; details: string; detailsHtml: string }>;
       options: ExportOptions;
+      title: string;
+      description: string;
     }) => {
       // Helper to safely get element
       const getElement = (selector: string) => {
-        return document.querySelector(selector);
+        const element = document.querySelector(selector);
+        if (!element) {
+          console.error(`Element not found: ${selector}`);
+        }
+        return element;
       };
+      
+      //Setup title
+      const titleElement = getElement('#title');
+      if (titleElement) {
+        titleElement.textContent = title;
+      }
+
+      //Setup description
+      const descriptionElement = getElement('#description');
+      if (descriptionElement) {
+        descriptionElement.textContent = description;
+      }
 
       // Handle table of contents
       if (options.includeTableOfContents) {
@@ -283,7 +303,8 @@ export async function POST(request: Request) {
           (appendicesContainer as HTMLElement).style.display = 'block';
         }
       }
-    }, { questions, answers: processedAnswers, options });
+      
+    }, { questions, answers: processedAnswers, options, title, description });
 
     // Handle logo
     await page.evaluate(async (logoData: { defaultLogo: string; customLogo?: string }) => {
@@ -380,16 +401,24 @@ export async function POST(request: Request) {
     return new NextResponse(uint8Array, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${
-          companyName 
-            ? `investment-memo-${encodeURIComponent(companyName.toLowerCase().replace(/\s+/g, '-'))}.pdf` 
-            : 'investment-memo.pdf'
+        'Content-Disposition': `attachment; filename="${`${encodeURIComponent(title.toLowerCase().replace(/\s+/g, '-'))}.pdf` 
         }"`,
       },
     });
 
   } catch (error) {
-    console.error('Error generating PDF:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Error generating PDF:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      cause: error.cause
+    });
+    return NextResponse.json({ 
+      error: error.message,
+      details: {
+        errorType: error.name,
+        errorCause: error.cause
+      }
+    }, { status: 500 });
   }
 } 
