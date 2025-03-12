@@ -6,19 +6,9 @@
 import React, { useState, useEffect } from 'react';
 import { notesService } from '../../services/notesService';
 import { filesService } from '../../services/filesService';
-import { Header, FileUploader, FileList, ChatInterface } from './index';
+import { Header, FileUploader, FileList } from './index';
 import InvestmentMemoMain from '../features/investment-memo';
-import DeepDiveMain from '../features/deep-dive';
 import ErrorBoundary from '../ErrorBoundary';
-
-// Suggested questions for the chat interface
-const SUGGESTED_QUESTIONS = [
-  { id: '1', text: 'What is the ARR of the company?' },
-  { id: '2', text: 'What is the burn rate?' },
-  { id: '3', text: 'How does the company generate revenue?' },
-  { id: '4', text: 'Who are the key competitors?' },
-  { id: '5', text: 'What are the biggest risks?' }
-];
 
 interface Note {
   id: string;
@@ -36,8 +26,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
   const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [files, setFiles] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showInvestmentMemo, setShowInvestmentMemo] = useState(false);
-  const [showDeepDive, setShowDeepDive] = useState(false);
 
   // Load initial data
   useEffect(() => {
@@ -101,17 +89,41 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
    * Starts the investment memo generation process
    */
   const handleGenerateInvestmentMemo = () => {
-    setShowInvestmentMemo(true);
-    setShowDeepDive(false);
+    // No need to toggle state, Investment Memo is always visible
+    // Just notify the component to start analysis
+    if (files.length === 0) {
+      alert('Please upload at least one document to analyze.');
+      return;
+    }
+    
+    // Check if both PDF and Excel files are available
+    const pdfFiles = files.filter(file => 
+      file.name.toLowerCase().endsWith('.pdf')
+    );
+    
+    const excelFiles = files.filter(file => 
+      file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls')
+    );
+    
+    if (pdfFiles.length === 0) {
+      alert('Please upload at least one pitch deck (PDF) file.');
+      return;
+    }
+    
+    if (excelFiles.length === 0) {
+      alert('Please upload at least one financial data (Excel) file.');
+      return;
+    }
+    
+    // The analysis should be triggered in the InvestmentMemo component
   };
 
   /**
    * Handles the completion of an analysis
    */
   const handleAnalysisComplete = (passed: boolean) => {
-    // Reset view after analysis is complete
-    setShowInvestmentMemo(false);
-    setShowDeepDive(false);
+    console.log('Analysis complete, passed:', passed);
+    // Can handle any post-analysis tasks here
   };
 
   // Filter notes based on search query
@@ -165,31 +177,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
               </div>
             </div>
 
-            {/* Right Column - Chat or Analysis Content */}
+            {/* Right Column - Investment Memo Content */}
             <div className="md:col-span-8">
-              {showInvestmentMemo ? (
-                <div className="innovera-card shadow-elevated">
-                  <InvestmentMemoMain 
-                    files={files} 
-                    onComplete={handleAnalysisComplete} 
-                  />
-                </div>
-              ) : showDeepDive ? (
-                <div className="innovera-card shadow-elevated">
-                  <DeepDiveMain 
-                    files={files} 
-                    onComplete={handleAnalysisComplete} 
-                  />
-                </div>
-              ) : (
-                <div className="innovera-card h-[650px] flex flex-col shadow-elevated">
-                  <h2 className="text-xl font-bold mb-4 pb-2 border-b-2 border-border-medium">Conduct Due Diligence</h2>
-                  <ChatInterface
-                    files={files}
-                    suggestedQuestions={SUGGESTED_QUESTIONS}
-                  />
-                </div>
-              )}
+              <div className="innovera-card shadow-elevated">
+                <InvestmentMemoMain 
+                  files={files} 
+                  onComplete={handleAnalysisComplete} 
+                />
+              </div>
             </div>
           </div>
         </main>

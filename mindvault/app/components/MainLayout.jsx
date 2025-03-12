@@ -1,12 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Search } from '@mui/icons-material';
 import { X, FileText, FileSpreadsheet } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { notesService } from '../services/notesService';
 import { filesService } from '../services/filesService';
-import { chatService } from '../services/chatService';
 import InvestmentMemo from './InvestmentMemo';
 
 // List of questions for the investment memo (updated with detailed prompts)
@@ -41,13 +39,9 @@ const INVESTMENT_MEMO_QUESTIONS = [
 export default function MainLayout() {
   const [files, setFiles] = useState([]);
   const [noteDialog, setNoteDialog] = useState(false);
-  const [chatInput, setChatInput] = useState('');
-  const [chatOutput, setChatOutput] = useState('To use MindVault, upload PDFs or add your own notes!');
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [view, setView] = useState('memo');
-  const [suggestedQuestions, setSuggestedQuestions] = useState([]);
   const [memoAnswers, setMemoAnswers] = useState({});
   
   // Ref for file input
@@ -120,8 +114,6 @@ export default function MainLayout() {
     }
   };
 
-  
-
   const handleUploadType = () => {
     fileInputRef.current.accept = ".pdf";
     fileInputRef.current.click();
@@ -175,58 +167,7 @@ export default function MainLayout() {
         errorMsg = 'Storage quota exceeded. Please delete some files first.';
       }
       
-      setChatOutput(errorMsg);
       alert(`File upload failed: ${errorMsg}`);
-      setIsLoading(false);
-    }
-  };
-
-  const handleChatSubmit = async (event) => {
-    event.preventDefault();
-    if (!chatInput.trim() || isLoading) return;
-
-    const userMessage = chatInput.trim();
-    setChatInput('');
-    setIsLoading(true);
-
-    try {
-      // Check if there are any files uploaded
-      if (!files || files.length === 0) {
-        setChatOutput('Please upload at least one document (pitch deck PDF and financial data Excel file) to analyze.');
-        setIsLoading(false);
-        return;
-      }
-      
-      // Pass files array to chatService for context
-      const response = await chatService.sendMessage(userMessage, files);
-      
-      // Process the response to extract text if it's in JSON format
-      let processedResponse = response;
-      if (typeof response === 'string') {
-        try {
-          if (response.startsWith('{') && response.includes('"text":')) {
-            const parsed = JSON.parse(response);
-            processedResponse = parsed.text || response;
-          }
-        } catch (e) {
-          console.error('Error parsing chat response:', e);
-          // Keep original response if parsing fails
-        }
-      } else if (response && response.text) {
-        processedResponse = response.text;
-      }
-      
-      // Ensure processedResponse is a string
-      if (typeof processedResponse !== 'string') {
-        processedResponse = String(processedResponse);
-      }
-      
-      setChatOutput(processedResponse);
-      setSuggestedQuestions(response.suggestedQuestions || []);
-    } catch (error) {
-      console.error('Error getting chat response:', error);
-      setChatOutput('Sorry, there was an error processing your request. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -247,11 +188,6 @@ export default function MainLayout() {
     }
   };
 
-  // Get pitch deck and financial files
-  
-  
- 
-
   // Create helper variables to check if documents exist
   const hasDocuments = files.filter(file => file.type !== 'note').length > 0;
   const hasNotes = files.filter(file => file.type === 'note').length > 0;
@@ -259,36 +195,6 @@ export default function MainLayout() {
   // Create friendly messages for empty repository sections
   const EMPTY_DOCUMENTS_MESSAGE = "Upload a PDF or Excel file to get started.";
   const EMPTY_NOTES_MESSAGE = "Your notes will appear here. Start creating!";
-
-  // Create placeholder helpful text for each question before analysis
- 
-  // Add a function to handle suggested question clicks
-  const handleSuggestedQuestionClick = async (question) => {
-    setChatInput(question);
-    await handleChatSubmit({ preventDefault: () => {} });
-  };
-
-  // Add this new rendering section for suggested Excel questions
-  const renderSuggestedQuestions = () => {
-    if (suggestedQuestions.length === 0) return null;
-    
-    return (
-      <div className="mt-4 mb-2">
-        <h3 className="text-sm font-medium text-gray-700 mb-2">Suggested questions about your Excel data:</h3>
-        <div className="flex flex-wrap gap-2">
-          {suggestedQuestions.map((question, index) => (
-            <button
-              key={index}
-              onClick={() => handleSuggestedQuestionClick(question)}
-              className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs rounded-full"
-            >
-              {question}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  };
 
   // Function to handle Generate Investment Memo button click
   const handleGenerateInvestmentMemo = () => {
@@ -527,179 +433,129 @@ export default function MainLayout() {
           />
         </div>
 
-        {/* Right Panel - Content View */}
+        {/* Right Panel - Investment Memo View */}
         <div className="w-full md:w-1/2 bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
-          {/* View Toggle */}
-          <div className="flex bg-gray-100 border-b">
-            <button 
-              onClick={() => setView('memo')} 
-              className={`px-6 py-3 flex-1 font-medium ${view === 'memo' ? 'bg-white text-black' : 'text-gray-700 hover:bg-gray-200'}`}
-            >
-              Investment Memo
-            </button>
-            <button 
-              onClick={() => setView('chat')} 
-              className={`px-6 py-3 flex-1 font-medium ${view === 'chat' ? 'bg-white text-black' : 'text-gray-700 hover:bg-gray-200'}`}
-            >
-              Chat Mode
-            </button>
-          </div>
-          
           {/* Content Area */}
           <div className="flex-1 p-6 overflow-auto">
-            {view === 'memo' ? (
-              <div>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-bold">Investment Memo</h2>
-                  <button 
-                    onClick={handleExportPDF}
-                    className="text-gray-700 border border-gray-300 px-3 py-1 rounded hover:bg-gray-100"
-                  >
-                    Export PDF
-                  </button>
-                </div>
-                
-                <p className="text-gray-700 mb-6">
-                  This analysis will evaluate key financial metrics, business model, and team composition to determine investment potential.
-                </p>
-                
-                {/* Display memo answers */}
-                <div className="space-y-4 mb-6">
-                  {INVESTMENT_MEMO_QUESTIONS.map(question => (
-                    <div key={question.id} className="border rounded-lg overflow-hidden">
-                      <div className="p-3 bg-gray-50">
-                        <h3 className="font-medium text-[#1A1F2E]">{question.question}</h3>
-                        <p className="text-sm text-gray-500">{question.description}</p>
-                      </div>
-                      <div className="p-4 bg-white">
-                        {memoAnswers[question.id] ? (
-                          <div>
-                            {typeof memoAnswers[question.id].content === 'string' && memoAnswers[question.id].content !== 'Generating...' ? (
-                              <ReactMarkdown>{memoAnswers[question.id].content}</ReactMarkdown>
-                            ) : memoAnswers[question.id].content === 'Generating...' ? (
-                              <div className="flex items-center space-x-2">
-                                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-500"></div>
-                                <span>Generating...</span>
-                              </div>
-                            ) : (
-                              <div className="text-red-500">Error displaying content. Please regenerate.</div>
-                            )}
-                            <div className="flex justify-end gap-2 mt-2">
-                              <button 
-                                className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
-                                onClick={() => handleRegenerateAnswer(question.id)}
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                </svg>
-                                Regenerate
-                              </button>
-                              <button 
-                                className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
-                                onClick={() => handleManualEdit(question.id)}
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                </svg>
-                                Edit
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-gray-500 italic">
-                            Click &quot;Create Investment Memo&quot; button on the left panel to analyze this question
-                          </div>
-                        )}
-                      </div>
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Investment Memo</h2>
+                <button 
+                  onClick={handleExportPDF}
+                  className="text-gray-700 border border-gray-300 px-3 py-1 rounded hover:bg-gray-100"
+                >
+                  Export PDF
+                </button>
+              </div>
+              
+              <p className="text-gray-700 mb-6">
+                This analysis will evaluate key financial metrics, business model, and team composition to determine investment potential.
+              </p>
+              
+              {/* Display memo answers */}
+              <div className="space-y-4 mb-6">
+                {INVESTMENT_MEMO_QUESTIONS.map(question => (
+                  <div key={question.id} className="border rounded-lg overflow-hidden">
+                    <div className="p-3 bg-gray-50">
+                      <h3 className="font-medium text-[#1A1F2E]">{question.question}</h3>
+                      <p className="text-sm text-gray-500">{question.description}</p>
                     </div>
-                  ))}
-                </div>
-                
-                <div id="memo-container">
-                  <InvestmentMemo 
-                    ref={investmentMemoRef} 
-                    files={files}
-                    onComplete={(passed) => {
-                      console.log('Investment memo analysis completed:', passed);
-                    }}
-                    onAnswerUpdate={(id, content) => {
-                      console.log(`Answer updated for ${id}:`, content);
-                      // Handle both string and object content formats
-                      let processedContent = '';
-                      
-                      // Handle different content types
-                      if (typeof content === 'string') {
-                        processedContent = content;
-                        
-                        // Check if it's a JSON string and parse it
-                        if (content.startsWith('{') && content.includes('"text":')) {
-                          try {
-                            const parsed = JSON.parse(content);
-                            if (parsed.text) {
-                              processedContent = parsed.text;
-                            }
-                          } catch (e) {
-                            console.error('Error parsing content:', e);
-                            // Keep original content if parsing fails
-                          }
-                        }
-                      } else if (content && typeof content === 'object') {
-                        // Handle object response
-                        if (content.text) {
-                          processedContent = content.text;
-                        } else {
-                          try {
-                            processedContent = JSON.stringify(content);
-                          } catch {
-                            processedContent = 'Error processing content';
-                          }
-                        }
-                      } else {
-                        // Fallback for any other type
-                        processedContent = String(content);
-                      }
-                      
-                      setMemoAnswers(prev => ({
-                        ...prev,
-                        [id]: { content: processedContent }
-                      }));
-                    }}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="h-full flex flex-col">
-                <div className="flex-1 overflow-auto">
-                  <div className="prose max-w-none">
-                    {typeof chatOutput === 'string' && (
-                      <ReactMarkdown>{chatOutput}</ReactMarkdown>
-                    )}
-                    {typeof chatOutput !== 'string' && (
-                      <ReactMarkdown>{String(chatOutput)}</ReactMarkdown>
-                    )}
+                    <div className="p-4 bg-white">
+                      {memoAnswers[question.id] ? (
+                        <div>
+                          {typeof memoAnswers[question.id].content === 'string' && memoAnswers[question.id].content !== 'Generating...' ? (
+                            <ReactMarkdown>{memoAnswers[question.id].content}</ReactMarkdown>
+                          ) : memoAnswers[question.id].content === 'Generating...' ? (
+                            <div className="flex items-center space-x-2">
+                              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-500"></div>
+                              <span>Generating...</span>
+                            </div>
+                          ) : (
+                            <div className="text-red-500">Error displaying content. Please regenerate.</div>
+                          )}
+                          <div className="flex justify-end gap-2 mt-2">
+                            <button 
+                              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+                              onClick={() => handleRegenerateAnswer(question.id)}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              Regenerate
+                            </button>
+                            <button 
+                              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+                              onClick={() => handleManualEdit(question.id)}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                              Edit
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-gray-500 italic">
+                          Click &quot;Create Investment Memo&quot; button on the left panel to analyze this question
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  {renderSuggestedQuestions()}
-                </div>
-                
-                <form onSubmit={handleChatSubmit} className="mt-4 flex gap-2">
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    className="flex-1 p-2 border rounded"
-                    placeholder="Ask about your documents..."
-                    disabled={isLoading}
-                  />
-                  <button 
-                    type="submit" 
-                    className="bg-[#E6007E] hover:bg-[#C4006C] text-white p-2 rounded"
-                    disabled={isLoading}
-                  >
-                    <Search />
-                  </button>
-                </form>
+                ))}
               </div>
-            )}
+              
+              <div id="memo-container">
+                <InvestmentMemo 
+                  ref={investmentMemoRef} 
+                  files={files}
+                  onComplete={(passed) => {
+                    console.log('Investment memo analysis completed:', passed);
+                  }}
+                  onAnswerUpdate={(id, content) => {
+                    console.log(`Answer updated for ${id}:`, content);
+                    // Handle both string and object content formats
+                    let processedContent = '';
+                    
+                    // Handle different content types
+                    if (typeof content === 'string') {
+                      processedContent = content;
+                      
+                      // Check if it's a JSON string and parse it
+                      if (content.startsWith('{') && content.includes('"text":')) {
+                        try {
+                          const parsed = JSON.parse(content);
+                          if (parsed.text) {
+                            processedContent = parsed.text;
+                          }
+                        } catch (e) {
+                          console.error('Error parsing content:', e);
+                          // Keep original content if parsing fails
+                        }
+                      }
+                    } else if (content && typeof content === 'object') {
+                      // Handle object response
+                      if (content.text) {
+                        processedContent = content.text;
+                      } else {
+                        try {
+                          processedContent = JSON.stringify(content);
+                        } catch {
+                          processedContent = 'Error processing content';
+                        }
+                      }
+                    } else {
+                      // Fallback for any other type
+                      processedContent = String(content);
+                    }
+                    
+                    setMemoAnswers(prev => ({
+                      ...prev,
+                      [id]: { content: processedContent }
+                    }));
+                  }}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -748,28 +604,6 @@ export default function MainLayout() {
             </div>
           </div>
         </div>
-      )}
-
-      {view === 'memo' ? (
-        <button
-          onClick={() => setView('chat')}
-          className="fixed bottom-4 right-4 bg-[#1A1F2E] text-white py-2 px-4 rounded-full hover:bg-[#2A2F3E] transition-colors flex items-center gap-2 shadow-lg"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11a1 1 0 11-2 0v-4a1 1 0 112 0v4z" clipRule="evenodd" />
-          </svg>
-          Switch to Chat
-        </button>
-      ) : (
-        <button
-          onClick={() => setView('memo')}
-          className="fixed bottom-4 right-4 bg-[#1A1F2E] text-white py-2 px-4 rounded-full hover:bg-[#2A2F3E] transition-colors flex items-center gap-2 shadow-lg"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11a1 1 0 11-2 0v-4a1 1 0 112 0v4z" clipRule="evenodd" />
-          </svg>
-          Switch to Memo
-        </button>
       )}
     </div>
   );
