@@ -209,7 +209,11 @@ export async function POST(request: Request) {
       //Setup description
       const descriptionElement = getElement('#description');
       if (descriptionElement) {
-        descriptionElement.textContent = description;
+        if (description !== '') {
+          descriptionElement.textContent = description;
+        } else {
+          (descriptionElement as HTMLElement).style.display = 'none';
+        }
       }
 
       // Handle table of contents

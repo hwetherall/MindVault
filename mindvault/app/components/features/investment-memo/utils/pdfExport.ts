@@ -45,10 +45,6 @@ function validateInput(
     throw new Error(`Title is required (received: ${JSON.stringify(title)})`);
   }
 
-  if (!description?.trim()) {
-    throw new Error(`Description is required (received: ${JSON.stringify(description)})`);
-  }
-
   if (!Array.isArray(questions) || questions.length === 0) {
     throw new Error('Questions must be a non-empty array');
   }
