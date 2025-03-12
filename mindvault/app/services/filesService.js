@@ -27,10 +27,13 @@ const extractTextFromPDF = async (file) => {
     }
 
     // Import the PDF.js library dynamically
-    const pdfjsLib = await import('pdfjs-dist');
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf');
     
-    // Set the worker source
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.js`;
+    // Configure the worker source
+    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      const worker = await import('pdfjs-dist/legacy/build/pdf.worker.entry');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = worker.default;
+    }
     
     const arrayBuffer = await file.arrayBuffer();
     

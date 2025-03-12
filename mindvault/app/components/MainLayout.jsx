@@ -1,13 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Search } from '@mui/icons-material';
 import { X, FileText, FileSpreadsheet } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { notesService } from '../services/notesService';
 import { filesService } from '../services/filesService';
-import { chatService } from '../services/chatService';
-import InvestmentMemo from './InvestmentMemo';
+import { InvestmentMemoMain } from './features/investment-memo';
 
 // List of questions for the investment memo (updated with detailed prompts)
 const INVESTMENT_MEMO_QUESTIONS = [
@@ -41,44 +39,15 @@ const INVESTMENT_MEMO_QUESTIONS = [
 export default function MainLayout() {
   const [files, setFiles] = useState([]);
   const [noteDialog, setNoteDialog] = useState(false);
-  const [chatInput, setChatInput] = useState('');
-  const [chatOutput, setChatOutput] = useState('To use MindVault, upload PDFs or add your own notes!');
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [view, setView] = useState('memo');
-  const [suggestedQuestions, setSuggestedQuestions] = useState([]);
-  const [memoAnswers, setMemoAnswers] = useState({});
   
   // Ref for file input
   const fileInputRef = useRef(null);
-  // Ref for InvestmentMemo component
-  const investmentMemoRef = useRef(null);
 
   useEffect(() => {
     loadAllContent();
-    
-    // Set up event listener for answer updates
-    const handleAnswerUpdate = (event) => {
-      const { id, content } = event.detail;
-      setMemoAnswers(prev => ({
-        ...prev,
-        [id]: { content }
-      }));
-    };
-
-    // Add event listener
-    const memoContainer = document.getElementById('memo-container');
-    if (memoContainer) {
-      memoContainer.addEventListener('answer-updated', handleAnswerUpdate);
-    }
-
-    // Clean up
-    return () => {
-      if (memoContainer) {
-        memoContainer.removeEventListener('answer-updated', handleAnswerUpdate);
-      }
-    };
   }, []);
 
   const loadAllContent = async () => {
@@ -119,8 +88,6 @@ export default function MainLayout() {
       alert('Failed to create note. Please try again.');
     }
   };
-
-  
 
   const handleUploadType = () => {
     fileInputRef.current.accept = ".pdf";
@@ -175,58 +142,7 @@ export default function MainLayout() {
         errorMsg = 'Storage quota exceeded. Please delete some files first.';
       }
       
-      setChatOutput(errorMsg);
       alert(`File upload failed: ${errorMsg}`);
-      setIsLoading(false);
-    }
-  };
-
-  const handleChatSubmit = async (event) => {
-    event.preventDefault();
-    if (!chatInput.trim() || isLoading) return;
-
-    const userMessage = chatInput.trim();
-    setChatInput('');
-    setIsLoading(true);
-
-    try {
-      // Check if there are any files uploaded
-      if (!files || files.length === 0) {
-        setChatOutput('Please upload at least one document (pitch deck PDF and financial data Excel file) to analyze.');
-        setIsLoading(false);
-        return;
-      }
-      
-      // Pass files array to chatService for context
-      const response = await chatService.sendMessage(userMessage, files);
-      
-      // Process the response to extract text if it's in JSON format
-      let processedResponse = response;
-      if (typeof response === 'string') {
-        try {
-          if (response.startsWith('{') && response.includes('"text":')) {
-            const parsed = JSON.parse(response);
-            processedResponse = parsed.text || response;
-          }
-        } catch (e) {
-          console.error('Error parsing chat response:', e);
-          // Keep original response if parsing fails
-        }
-      } else if (response && response.text) {
-        processedResponse = response.text;
-      }
-      
-      // Ensure processedResponse is a string
-      if (typeof processedResponse !== 'string') {
-        processedResponse = String(processedResponse);
-      }
-      
-      setChatOutput(processedResponse);
-      setSuggestedQuestions(response.suggestedQuestions || []);
-    } catch (error) {
-      console.error('Error getting chat response:', error);
-      setChatOutput('Sorry, there was an error processing your request. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -247,168 +163,16 @@ export default function MainLayout() {
     }
   };
 
-  // Get pitch deck and financial files
-  
-  
- 
-
-  // Create helper variables to check if documents exist
-  const hasDocuments = files.filter(file => file.type !== 'note').length > 0;
-  const hasNotes = files.filter(file => file.type === 'note').length > 0;
+  // Check if there are any documents or notes
+  const hasDocuments = files.some(file => file.type !== 'note');
+  const hasNotes = files.some(file => file.type === 'note');
 
   // Create friendly messages for empty repository sections
   const EMPTY_DOCUMENTS_MESSAGE = "Upload a PDF or Excel file to get started.";
   const EMPTY_NOTES_MESSAGE = "Your notes will appear here. Start creating!";
 
-  // Create placeholder helpful text for each question before analysis
- 
-  // Add a function to handle suggested question clicks
-  const handleSuggestedQuestionClick = async (question) => {
-    setChatInput(question);
-    await handleChatSubmit({ preventDefault: () => {} });
-  };
-
-  // Add this new rendering section for suggested Excel questions
-  const renderSuggestedQuestions = () => {
-    if (suggestedQuestions.length === 0) return null;
-    
-    return (
-      <div className="mt-4 mb-2">
-        <h3 className="text-sm font-medium text-gray-700 mb-2">Suggested questions about your Excel data:</h3>
-        <div className="flex flex-wrap gap-2">
-          {suggestedQuestions.map((question, index) => (
-            <button
-              key={index}
-              onClick={() => handleSuggestedQuestionClick(question)}
-              className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs rounded-full"
-            >
-              {question}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  // Function to handle Generate Investment Memo button click
-  const handleGenerateInvestmentMemo = () => {
-    // Reset the answers first
-    setMemoAnswers({});
-    
-    // Check if there are any files available
-    if (files.length === 0) {
-      alert('Please upload at least one document to analyze.');
-      return;
-    }
-    
-    // Check if both PDF and Excel files are available
-    const pdfFiles = files.filter(file => 
-      file.type !== 'note' && file.name.toLowerCase().endsWith('.pdf')
-    );
-    
-    const excelFiles = files.filter(file => 
-      file.type !== 'note' && (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls'))
-    );
-    
-    if (pdfFiles.length === 0) {
-      alert('Please upload at least one pitch deck (PDF) file.');
-      return;
-    }
-    
-    if (excelFiles.length === 0) {
-      alert('Please upload at least one financial data (Excel) file.');
-      return;
-    }
-    
-    // Initialize empty answers for each question to show loading state
-    const initialAnswers = {};
-    INVESTMENT_MEMO_QUESTIONS.forEach(question => {
-      initialAnswers[question.id] = { content: 'Generating...' };
-    });
-    setMemoAnswers(initialAnswers);
-    
-    // Call the analyze method on the ref
-    if (investmentMemoRef.current && investmentMemoRef.current.analyzeDocuments) {
-      try {
-        investmentMemoRef.current.analyzeDocuments();
-      } catch (error) {
-        console.error('Error generating investment memo:', error);
-        
-        // Update answers to show error
-        const errorAnswers = {};
-        INVESTMENT_MEMO_QUESTIONS.forEach(question => {
-          errorAnswers[question.id] = { content: 'Error generating answer. Please try again.' };
-        });
-        setMemoAnswers(errorAnswers);
-        
-        alert('Error generating investment memo. Please try again.');
-      }
-    } else {
-      console.error('InvestmentMemo reference or analyzeDocuments method not available');
-      alert('Unable to generate investment memo. Please refresh the page and try again.');
-    }
-  };
-
-  // Function to handle Export PDF button click
-  const handleExportPDF = async () => {
-    if (investmentMemoRef.current && investmentMemoRef.current.exportToPDF) {
-      try {
-        await investmentMemoRef.current.exportToPDF();
-      } catch (error) {
-        console.error('Export failed:', error);
-        alert('Failed to export PDF. Please try again.');
-      }
-    }
-  };
-
-  // Handler for regenerating an answer
-  const handleRegenerateAnswer = (key) => {
-    console.log(`Handling answer for: ${key}`);
-    
-    // This is called by the InvestmentMemo component with each question ID
-    // The component is responsible for getting the answer from the API
-    // and then calling this function to update the parent state
-    
-    // For demo purposes, we're generating test data if real data is not provided
-    // In a real implementation, this function would be called with the actual content
-    setMemoAnswers(prevAnswers => {
-      // If this key doesn't exist yet or is still in "Generating..." state, keep it as is
-      if (!prevAnswers[key] || prevAnswers[key].content === 'Generating...') {
-        return prevAnswers;
-      }
-      
-      // Otherwise, this is a request to regenerate the answer
-      // For demo purposes, we'll just append "(Regenerated)" to the content
-      return {
-        ...prevAnswers,
-        [key]: { 
-          content: prevAnswers[key].content + " (Regenerated)" 
-        }
-      };
-    });
-  };
-
-  // Handler for manually editing an answer
-  const handleManualEdit = (key) => {
-    console.log(`Editing answer for: ${key}`);
-    
-    // In a real implementation, you would show a dialog to edit the content
-    // For now, we'll just add a placeholder functionality
-    const currentContent = memoAnswers[key]?.content || '';
-    
-    // This is very simplified - in a real app, you'd use a modal dialog with a text area
-    const newContent = prompt('Edit the content:', currentContent);
-    
-    if (newContent !== null && newContent !== currentContent) {
-      setMemoAnswers(prevAnswers => ({
-        ...prevAnswers,
-        [key]: { content: newContent }
-      }));
-    }
-  };
-
   return (
-    <div className="min-h-screen flex flex-col bg-[#1A1F2E]">
+    <div className="min-h-screen flex flex-col bg-gray-100">
       {/* Main Content */}
       <div className="flex-1 flex flex-col md:flex-row p-4 gap-4 container mx-auto">
         {/* Left Panel - Notes Repository */}
@@ -712,70 +476,54 @@ export default function MainLayout() {
 
       {/* Note Dialog */}
       {noteDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-6">Create New Note</h2>
-            <input
-              type="text"
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-[#E6007E] focus:border-transparent"
-              placeholder="Title"
-              value={noteTitle}
-              onChange={(e) => setNoteTitle(e.target.value)}
-            />
-            <textarea
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-md mb-6 h-32 focus:outline-none focus:ring-2 focus:ring-[#E6007E] focus:border-transparent resize-none"
-              placeholder="Content"
-              value={noteContent}
-              onChange={(e) => setNoteContent(e.target.value)}
-            />
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => setNoteDialog(false)}
-                className="px-6 py-2.5 text-gray-600 hover:text-gray-800 font-medium transition-colors duration-150 ease-in-out"
-              >
-                Cancel
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-bold">Create Note</h2>
+              <button onClick={() => setNoteDialog(false)} className="text-gray-500 hover:text-gray-700">
+                <X size={24} />
               </button>
-              <button
-                onClick={handleCreateNote}
-                className="px-6 py-2.5 bg-[#E6007E] text-white rounded-md hover:bg-[#C4006C] transition-colors duration-150 ease-in-out font-medium"
-              >
-                Save Note
-              </button>
+            </div>
+            <div className="p-4">
+              <div className="mb-4">
+                <label htmlFor="note-title" className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input
+                  type="text"
+                  id="note-title"
+                  value={noteTitle}
+                  onChange={(e) => setNoteTitle(e.target.value)}
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter note title"
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="note-content" className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                <textarea
+                  id="note-content"
+                  value={noteContent}
+                  onChange={(e) => setNoteContent(e.target.value)}
+                  className="w-full p-2 border rounded h-32 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter note content"
+                ></textarea>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <button
+                  onClick={() => setNoteDialog(false)}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateNote}
+                  className="px-4 py-2 bg-[#F15A29] text-white rounded hover:bg-[#D94315]"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Creating...' : 'Create Note'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      )}
-
-      {isLoading && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl">
-            <div className="text-center text-gray-700">
-              Processing your request...
-            </div>
-          </div>
-        </div>
-      )}
-
-      {view === 'memo' ? (
-        <button
-          onClick={() => setView('chat')}
-          className="fixed bottom-4 right-4 bg-[#1A1F2E] text-white py-2 px-4 rounded-full hover:bg-[#2A2F3E] transition-colors flex items-center gap-2 shadow-lg"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11a1 1 0 11-2 0v-4a1 1 0 112 0v4z" clipRule="evenodd" />
-          </svg>
-          Switch to Chat
-        </button>
-      ) : (
-        <button
-          onClick={() => setView('memo')}
-          className="fixed bottom-4 right-4 bg-[#1A1F2E] text-white py-2 px-4 rounded-full hover:bg-[#2A2F3E] transition-colors flex items-center gap-2 shadow-lg"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11a1 1 0 11-2 0v-4a1 1 0 112 0v4z" clipRule="evenodd" />
-          </svg>
-          Switch to Memo
-        </button>
       )}
     </div>
   );

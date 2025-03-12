@@ -5,6 +5,7 @@ import ReportSetupStep from './ReportSetupStep';
 import ReportGenerationStep from './ReportGenerationStep';
 import ReportEditor from './ReportEditor';
 import PDFExporter from './PDFExporter';
+import QuestionSelectionModal from './QuestionSelectionModal';
 import { INVESTMENT_MEMO_QUESTIONS } from './constants';
 
 export {
@@ -15,6 +16,7 @@ export {
   ReportGenerationStep,
   ReportEditor,
   PDFExporter,
+  QuestionSelectionModal,
   INVESTMENT_MEMO_QUESTIONS
 };
 

@@ -6,20 +6,11 @@
 import React, { useState, useEffect } from 'react';
 import { notesService } from '../../services/notesService';
 import { filesService } from '../../services/filesService';
-import { Header, FileUploader, FileList, ChatInterface } from './index';
-import InvestmentMemoMain from '../features/investment-memo';
-import DeepDiveMain from '../features/deep-dive';
+import { Header, FileUploader, FileList } from './index';
+import { InvestmentMemoMain } from '../features/investment-memo';
 import ErrorBoundary from '../ErrorBoundary';
 import { FileText, FileSpreadsheet, X, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 
-// Suggested questions for the chat interface
-const SUGGESTED_QUESTIONS = [
-  { id: '1', text: 'What is the ARR of the company?' },
-  { id: '2', text: 'What is the burn rate?' },
-  { id: '3', text: 'How does the company generate revenue?' },
-  { id: '4', text: 'Who are the key competitors?' },
-  { id: '5', text: 'What are the biggest risks?' }
-];
 
 interface Note {
   id: string;
@@ -37,8 +28,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
   const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [files, setFiles] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showInvestmentMemo, setShowInvestmentMemo] = useState(false);
-  const [showDeepDive, setShowDeepDive] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Load initial data
@@ -128,20 +117,19 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
   };
 
   /**
-   * Starts the investment memo generation process
-   */
-  const handleGenerateInvestmentMemo = () => {
-    setShowInvestmentMemo(true);
-    setShowDeepDive(false);
-  };
-
-  /**
    * Handles the completion of an analysis
    */
   const handleAnalysisComplete = (passed: boolean) => {
-    // Reset view after analysis is complete
-    setShowInvestmentMemo(false);
-    setShowDeepDive(false);
+    console.log('Analysis complete, passed:', passed);
+    // Can handle any post-analysis tasks here
+  };
+
+  /**
+   * Handles answer updates from investment memo
+   */
+  const handleAnswerUpdate = (id: string, summary: string, details: string) => {
+    console.log(`Answer updated for ${id}:`, { summary, details });
+    // Handle answer updates as needed
   };
 
   // Filter notes based on search query
@@ -182,7 +170,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
         <Header
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          onGenerateInvestmentMemo={handleGenerateInvestmentMemo}
           onClearRepository={handleClearRepository}
         />
 
@@ -312,15 +299,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
 
               {/* Investment Memo Box */}
               <div className="mb-6 border-2 border-border-medium p-5 rounded-lg shadow-md bg-white">
-                <h2 className="font-medium text-lg mb-4 border-b-2 border-border-medium pb-2">Investment Memo</h2>
-                <div className="flex flex-col gap-4">
-                  <button
-                    className="innovera-button-primary w-full"
-                    onClick={handleGenerateInvestmentMemo}
-                  >
-                    Create Investment Memo
-                  </button>
-                  
+                <h2 className="font-medium text-lg mb-4 border-b-2 border-border-medium pb-2">Repository Actions</h2>
+                <div className="flex flex-col gap-4">  
                   <button
                     className="innovera-button-secondary w-full"
                     onClick={handleClearRepository}
@@ -331,31 +311,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
               </div>
             </div>
 
-            {/* Right Column - Chat or Analysis Content */}
-            <div className={`transition-all duration-300 ease-in-out ${isCollapsed ? 'md:col-span-11' : 'md:col-span-8'}`}>
-              {showInvestmentMemo ? (
-                <div className="innovera-card shadow-elevated">
-                  <InvestmentMemoMain 
-                    files={files} 
-                    onComplete={handleAnalysisComplete} 
-                  />
-                </div>
-              ) : showDeepDive ? (
-                <div className="innovera-card shadow-elevated">
-                  <DeepDiveMain 
-                    files={files} 
-                    onComplete={handleAnalysisComplete} 
-                  />
-                </div>
-              ) : (
-                <div className="innovera-card h-[650px] flex flex-col shadow-elevated">
-                  <h2 className="text-xl font-bold mb-4 pb-2 border-b-2 border-border-medium">Conduct Due Diligence</h2>
-                  <ChatInterface
-                    files={files}
-                    suggestedQuestions={SUGGESTED_QUESTIONS}
-                  />
-                </div>
-              )}
+            {/* Right Column - Investment Memo Content */}
+            <div className="md:col-span-8">
+              <div className="innovera-card shadow-elevated">
+                <InvestmentMemoMain 
+                  files={files} 
+                  onComplete={handleAnalysisComplete} 
+                  onAnswerUpdate={handleAnswerUpdate}
+                />
+              </div>
             </div>
           </div>
         </main>
@@ -364,4 +328,4 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
   );
 };
 
-export default MainLayout; 
+export default MainLayout;
