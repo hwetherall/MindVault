@@ -415,6 +415,60 @@ export default function MainLayout() {
         <div className="w-full md:w-1/2 bg-white rounded-lg p-6 shadow-lg">
           <h2 className="text-xl font-bold mb-4 text-center border-b pb-2">Notes Repository</h2>
           
+          {/* Unified File Management Section */}
+          <div className="mb-6">
+            <h3 className="font-semibold mb-3">Document Management</h3>
+            <div className="space-y-4">
+              {/* Upload Buttons */}
+              <div className="grid grid-cols-2 gap-2">
+                <button 
+                  onClick={() => handleUploadType()}
+                  className="bg-[#E6007E] hover:bg-[#C4006C] text-white p-2 rounded flex items-center justify-center gap-2"
+                >
+                  <FileText size={18} />
+                  Upload Pitch Deck (PDF)
+                </button>
+                <button 
+                  onClick={() => handleUploadType()}
+                  className="bg-[#E6007E] hover:bg-[#C4006C] text-white p-2 rounded flex items-center justify-center gap-2"
+                >
+                  <FileSpreadsheet size={18} />
+                  Upload Financials (Excel)
+                </button>
+              </div>
+
+              {/* Uploaded Files List */}
+              <div className="border rounded-lg p-3 bg-gray-50">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Uploaded Documents</h4>
+                {hasDocuments ? (
+                  <ul className="space-y-1">
+                    {files.filter(file => file.type !== 'note').map(file => (
+                      <li key={file.id} className="p-2 hover:bg-gray-100 rounded flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          {file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls') ? 
+                            <FileSpreadsheet size={16} className="text-green-500" /> : 
+                            <FileText size={16} className="text-red-500" />
+                          }
+                          <span className="truncate">{file.name}</span>
+                        </div>
+                        <button 
+                          onClick={() => handleDeleteFile(file.id, file.type)} 
+                          className="text-gray-500 hover:text-red-500"
+                        >
+                          <X size={16} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-center p-4 text-gray-500 italic bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                    {EMPTY_DOCUMENTS_MESSAGE}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Insert Note Button */}
           <button 
             onClick={() => setNoteDialog(true)}
@@ -422,56 +476,8 @@ export default function MainLayout() {
           >
             Insert Note
           </button>
-          
-          {/* Upload Buttons */}
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            <button 
-              onClick={() => handleUploadType()}
-              className="bg-[#E6007E] hover:bg-[#C4006C] text-white p-2 rounded flex items-center justify-center gap-2"
-            >
-              <FileText size={18} />
-              Upload Pitch Deck (PDF only)
-            </button>
-            <button 
-              onClick={() => handleUploadType()}
-              className="bg-[#E6007E] hover:bg-[#C4006C] text-white p-2 rounded flex items-center justify-center gap-2"
-            >
-              <FileSpreadsheet size={18} />
-              Upload Financials (Excel only)
-            </button>
-          </div>
-          
-          {/* Uploaded Documents */}
-          <div className="mb-4">
-            <h3 className="font-semibold mb-2">Uploaded Documents</h3>
-            <ul className="space-y-1">
-              {hasDocuments ? (
-                files.filter(file => file.type !== 'note').map(file => (
-                  <li key={file.id} className="p-2 hover:bg-gray-100 rounded flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      {file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls') ? 
-                        <FileSpreadsheet size={16} className="text-green-500" /> : 
-                        <FileText size={16} className="text-red-500" />
-                      }
-                      <span className="truncate">{file.name}</span>
-                    </div>
-                    <button 
-                      onClick={() => handleDeleteFile(file.id, file.type)} 
-                      className="text-gray-500 hover:text-red-500"
-                    >
-                      <X size={16} />
-                    </button>
-                  </li>
-                ))
-              ) : (
-                <li className="p-4 text-center italic text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                  {EMPTY_DOCUMENTS_MESSAGE}
-                </li>
-              )}
-            </ul>
-          </div>
-          
-          {/* Notes */}
+
+          {/* Notes Section */}
           <div className="mb-4">
             <h3 className="font-semibold mb-2">Notes</h3>
             <ul className="space-y-1">
