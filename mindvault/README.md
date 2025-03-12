@@ -32,3 +32,18 @@ mindvault/
 ```
 
 This structure follows Next.js best practices and keeps related code organized by feature.
+
+## Environment Variables
+
+This project uses environment variables for configuration. To set up your local environment:
+
+1. Copy the `.env.example` file in the root directory to `.env.local`:
+   ```
+   cp .env.example .env.local
+   ```
+
+2. Fill in your own API keys and configuration values in `.env.local`
+
+3. **IMPORTANT**: Never commit your `.env.local` file to the repository. It contains sensitive information like API keys.
+
+The `.env.local` file is already in `.gitignore` to prevent accidental commits of sensitive information.
