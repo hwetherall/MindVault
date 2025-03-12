@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { INVESTMENT_MEMO_QUESTIONS } from './constants';
+import { INVESTMENT_MEMO_QUESTIONS } from './data/questions';
 import { X } from 'lucide-react';
 
 // Define the category types - match the actual categories in the data

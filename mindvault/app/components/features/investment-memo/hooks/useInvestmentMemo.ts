@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { chatService } from '../../../../services/chatService.js';
+import { generatePromptForQuestion, generateSimplePrompt } from "../utils/promptGenerator";
 
 // Updated Answer type with separate summary and details fields and loading state
 export interface Answer {
@@ -128,19 +129,8 @@ export function useInvestmentMemo({
       return prompts[id];
     }
     
-    // Default prompts based on question ID
-    const question = questions.find(q => q.id === id);
-    if (!question) return '';
-    
-    return `Analyze the provided documents and answer the following question:
-${question.question}
-
-${question.description ? `Additional context: ${question.description}` : ''}
-
-Format your response as follows:
-Summary: A brief summary of the answer in 1-2 sentences.
-DETAILS: More comprehensive explanation with supporting evidence from the documents (3-5 paragraphs).
-`;
+    // Use the new prompt generator
+    return generatePromptForQuestion(id);
   };
 
   /**
@@ -199,23 +189,10 @@ DETAILS: More comprehensive explanation with supporting evidence from the docume
     }
 
     try {
-      // Create a detailed prompt for the AI based on the question
-      const prompt = `I need a thorough analysis of the documents regarding this specific question: 
-"${question.question}"
-
-${question.description ? `Additional context: ${question.description}` : ''}
-
-Please structure your response in TWO distinct parts as follows:
-
-1. SUMMARY: 
-A concise 1-2 sentence summary of the answer that directly addresses the question.
-Do NOT include the word "SUMMARY" in your response.
-
-2. DETAILS: 
-A comprehensive analysis with 3-5 paragraphs of findings, supporting evidence, and implications. Include specific data points from the documents where available.
-Do NOT include the word "DETAILS" in your response.
-
-Focus specifically on this question and provide the most accurate answer based solely on the uploaded documents.`;
+      // Use the custom prompt if available, otherwise use the prompt generator
+      const prompt = prompts[questionId] 
+        ? prompts[questionId] 
+        : generatePromptForQuestion(questionId);
 
       // Call the actual AI service
       const response = await chatService.sendMessage(prompt, files);

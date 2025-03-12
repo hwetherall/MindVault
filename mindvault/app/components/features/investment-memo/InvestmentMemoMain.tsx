@@ -6,7 +6,8 @@ import { useInvestmentMemo, InvestmentMemoQuestion } from './hooks/useInvestment
 import { exportToPDF } from './utils/pdfExport';
 import { ExportPDFDialog } from './ExportPDFDialog';
 
-import { INVESTMENT_MEMO_QUESTIONS } from './constants';
+// Import from the new data file instead of constants
+import { INVESTMENT_MEMO_QUESTIONS } from './data/questions';
 
 interface ExportOptions {
   includeTableOfContents: boolean;
