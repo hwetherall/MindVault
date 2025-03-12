@@ -6,10 +6,9 @@
 import React, { useState, useEffect } from 'react';
 import { notesService } from '../../services/notesService';
 import { filesService } from '../../services/filesService';
-import { Header, FileUploader, FileList } from './index';
 import { InvestmentMemoMain } from '../features/investment-memo';
 import ErrorBoundary from '../ErrorBoundary';
-import { FileText, FileSpreadsheet, X, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { FileText, FileSpreadsheet, X, ChevronLeft, ChevronRight, Plus, Database, Trash } from 'lucide-react';
 
 
 interface Note {
@@ -167,13 +166,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-white text-text-primary">
-        <Header
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          onClearRepository={handleClearRepository}
-          onGenerateInvestmentMemo={() => {}}
-        />
-
         <main className="container mx-auto px-4 py-6">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
             {/* Left Column - File Management */}
@@ -300,15 +292,40 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
 
               {/* Investment Memo Box */}
               <div className="mb-6 border-2 border-border-medium p-5 rounded-lg shadow-md bg-white">
-                <h2 className="font-medium text-lg mb-4 border-b-2 border-border-medium pb-2">Repository Actions</h2>
-                <div className="flex flex-col gap-4">  
-                  <button
-                    className="innovera-button-secondary w-full"
-                    onClick={handleClearRepository}
-                  >
-                    Clear Repository
-                  </button>
-                </div>
+                {isCollapsed ? (
+                  // Collapsed view with icons
+                  <div className="flex flex-col items-center gap-6 py-4">
+                    <div className="flex flex-col items-center focus:outline-none" title="Repository Actions">
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                        <Database size={24} className="text-blue-500" />
+                      </div>
+                      <span className="text-xs mt-1">Files</span>
+                    </div>
+                    <button
+                      onClick={handleClearRepository}
+                      className="flex flex-col items-center focus:outline-none"
+                      title="Clear Repository"
+                    >
+                      <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center hover:bg-red-200 transition-colors">
+                        <Trash size={24} className="text-red-500" />
+                      </div>
+                      <span className="text-xs mt-1">Clear</span>
+                    </button>
+                  </div>
+                ) : (
+                  // Expanded view with text
+                  <>
+                    <h2 className="font-medium text-lg mb-4 border-b-2 border-border-medium pb-2">Repository Actions</h2>
+                    <div className="flex flex-col gap-4">  
+                      <button
+                        className="innovera-button-secondary w-full"
+                        onClick={handleClearRepository}
+                      >
+                        Clear Repository
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
