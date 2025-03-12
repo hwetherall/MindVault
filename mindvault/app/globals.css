@@ -50,3 +50,30 @@ body {
     @apply bg-white rounded-lg shadow-elevated border-2 border-border-medium p-4;
   }
 }
+
+/* Animation delay utilities */
+@layer utilities {
+  .animation-delay-200 {
+    animation-delay: 0.2s;
+  }
+  
+  .animation-delay-400 {
+    animation-delay: 0.4s;
+  }
+  
+  .animation-delay-600 {
+    animation-delay: 0.6s;
+  }
+
+  .delay-150 {
+    animation-delay: 150ms;
+  }
+  
+  .delay-300 {
+    animation-delay: 300ms;
+  }
+  
+  .delay-450 {
+    animation-delay: 450ms;
+  }
+}

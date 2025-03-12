@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { chatService } from '../../../../services/chatService.js';
 
-// Updated Answer type with separate summary and details fields
+// Updated Answer type with separate summary and details fields and loading state
 export interface Answer {
   summary: string;
   details: string;
   isEdited: boolean;
+  isLoading?: boolean;
 }
 
 export interface InvestmentMemoQuestion {
@@ -39,6 +41,7 @@ interface UseInvestmentMemoReturn {
   handleEdit: (id: string) => void;
   handleSave: (id: string) => void;
   analyzeDocuments: () => Promise<void>;
+  analyzeSelectedQuestions: (questionIds: string[]) => Promise<void>;
   regenerateAnswer: (id: string) => Promise<void>;
   getPromptForQuestion: (id: string) => string;
   handleViewPrompt: (id: string) => void;
@@ -87,6 +90,7 @@ export function useInvestmentMemo({
     }
     
     setEditingId(id);
+    // Edit the summary part by default
     setEditedAnswer(answers[id]?.summary || '');
   };
 
@@ -98,7 +102,8 @@ export function useInvestmentMemo({
       const updatedAnswer = {
         summary: editedAnswer,
         details: answers[id]?.details || '',
-        isEdited: true
+        isEdited: true,
+        isLoading: false
       };
       
       setAnswers(prev => ({
@@ -107,7 +112,7 @@ export function useInvestmentMemo({
       }));
       
       if (onAnswerUpdate) {
-        onAnswerUpdate(id, editedAnswer, answers[id]?.details || '');
+        onAnswerUpdate(id, updatedAnswer.summary, updatedAnswer.details);
       }
     }
     
@@ -134,7 +139,7 @@ ${question.description ? `Additional context: ${question.description}` : ''}
 
 Format your response as follows:
 Summary: A brief summary of the answer in 1-2 sentences.
-DETAILS: More comprehensive explanation with supporting evidence from the documents.
+DETAILS: More comprehensive explanation with supporting evidence from the documents (3-5 paragraphs).
 `;
   };
 
@@ -173,31 +178,210 @@ DETAILS: More comprehensive explanation with supporting evidence from the docume
   };
 
   /**
+   * Analyzes a single question
+   */
+  const analyzeQuestion = async (questionId: string): Promise<Answer> => {
+    // Mark this question as loading
+    setAnswers(prev => ({
+      ...prev,
+      [questionId]: {
+        ...prev[questionId],
+        isLoading: true
+      }
+    }));
+
+    // Get the question details
+    const question = questions.find(q => q.id === questionId);
+    if (!question) {
+      console.error(`Question with id '${questionId}' not found in the available questions:`, 
+        questions.map(q => ({ id: q.id, question: q.question })));
+      throw new Error(`Question with id '${questionId}' not found. This might be due to a synchronization issue. Please try reselecting the question.`);
+    }
+
+    try {
+      // Create a detailed prompt for the AI based on the question
+      const prompt = `I need a thorough analysis of the documents regarding this specific question: 
+"${question.question}"
+
+${question.description ? `Additional context: ${question.description}` : ''}
+
+Please structure your response in TWO distinct parts as follows:
+
+1. SUMMARY: 
+A concise 1-2 sentence summary of the answer that directly addresses the question.
+Do NOT include the word "SUMMARY" in your response.
+
+2. DETAILS: 
+A comprehensive analysis with 3-5 paragraphs of findings, supporting evidence, and implications. Include specific data points from the documents where available.
+Do NOT include the word "DETAILS" in your response.
+
+Focus specifically on this question and provide the most accurate answer based solely on the uploaded documents.`;
+
+      // Call the actual AI service
+      const response = await chatService.sendMessage(prompt, files);
+      
+      // Parse the response text to extract summary and details
+      let responseText = '';
+      if (typeof response === 'string') {
+        responseText = response;
+      } else if (response && typeof response.text === 'string') {
+        responseText = response.text;
+      } else {
+        throw new Error('Invalid response format from AI service');
+      }
+      
+      // Split the response into summary and details
+      let summary = '';
+      let details = '';
+      
+      if (responseText.toLowerCase().includes('summary:')) {
+        // Split by "DETAILS:" or "DETAILS" or similar variations
+        const parts = responseText.split(/DETAILS:?/i);
+        if (parts.length > 1) {
+          // Extract summary from the first part (may have "SUMMARY:" prefix)
+          const summaryText = parts[0];
+          summary = summaryText.replace(/^[\s\S]*?SUMMARY:?/i, '').trim();
+          
+          // Extract details from the second part
+          details = parts[1].trim();
+        } else {
+          // If no clear division, make a reasonable split
+          const lines = responseText.split('\n');
+          const summaryEndIndex = Math.min(5, lines.length); // Take first few lines as summary
+          
+          summary = lines.slice(0, summaryEndIndex).join('\n').replace(/^[\s\S]*?SUMMARY:?/i, '').trim();
+          details = lines.slice(summaryEndIndex).join('\n').trim();
+        }
+      } else {
+        // If no clear structure, use first paragraph as summary and rest as details
+        const paragraphs = responseText.split('\n\n');
+        summary = paragraphs[0].trim();
+        details = paragraphs.slice(1).join('\n\n').trim();
+      }
+      
+      // Remove any redundant labels that might be in the content
+      summary = summary.replace(/^SUMMARY:?\s*/i, '').replace(/^SUMMARY\s*$/i, '').trim();
+      details = details.replace(/^DETAILS:?\s*/i, '').replace(/^DETAILS\s*$/i, '').trim();
+      
+      return {
+        summary,
+        details,
+        isEdited: false,
+        isLoading: false
+      };
+    } catch (error) {
+      console.error('Error analyzing question:', error);
+      
+      // Return an error response
+      return {
+        summary: 'Error analyzing documents',
+        details: `We encountered an error while analyzing the documents for this question. Error details: ${error.message || 'Unknown error'}`,
+        isEdited: false,
+        isLoading: false
+      };
+    }
+  };
+
+  /**
+   * Analyzes documents to generate answers for selected questions
+   */
+  const analyzeSelectedQuestions = async (questionIds: string[]) => {
+    setError(null);
+    
+    try {
+      // First verify all questions exist to avoid "Question not found" errors
+      const validQuestionIds: string[] = [];
+      const invalidQuestionIds: string[] = [];
+      
+      questionIds.forEach(id => {
+        const questionExists = questions.some(q => q.id === id);
+        if (questionExists) {
+          validQuestionIds.push(id);
+        } else {
+          invalidQuestionIds.push(id);
+        }
+      });
+      
+      // Log warning if some IDs weren't found
+      if (invalidQuestionIds.length > 0) {
+        console.warn(`Questions with ids [${invalidQuestionIds.join(', ')}] not found. Make sure the questions array is up to date.`);
+        setError(`Some questions could not be found. Please try reselecting them.`);
+        return;
+      }
+      
+      // If no valid questions, exit early
+      if (validQuestionIds.length === 0) {
+        setError('No valid questions to analyze. Please select questions and try again.');
+        return;
+      }
+      
+      // Setup initial loading state for all selected questions
+      const selectedQuestions = questions.filter(q => validQuestionIds.includes(q.id));
+      const initialLoadingState: Record<string, Answer> = {};
+      
+      // Create initial loading state for each question
+      selectedQuestions.forEach(q => {
+        initialLoadingState[q.id] = {
+          summary: '',
+          details: '',
+          isEdited: false,
+          isLoading: true
+        };
+      });
+      
+      // Update state to show loading
+      setAnswers(prev => ({
+        ...prev,
+        ...initialLoadingState
+      }));
+      
+      // Process each question
+      const answerPromises = validQuestionIds.map(id => analyzeQuestion(id));
+      const results = await Promise.all(answerPromises);
+      
+      // Update with real answers
+      const finalAnswers: Record<string, Answer> = {};
+      validQuestionIds.forEach((id, index) => {
+        finalAnswers[id] = results[index];
+        
+        // Update caller if needed
+        if (onAnswerUpdate) {
+          onAnswerUpdate(id, results[index].summary, results[index].details);
+        }
+      });
+      
+      // Merge answers
+      setAnswers(prev => ({
+        ...prev,
+        ...finalAnswers
+      }));
+      
+      // Auto-expand newly added questions
+      const newExpandedState: Record<string, boolean> = {};
+      validQuestionIds.forEach(id => {
+        newExpandedState[id] = true;
+      });
+      
+      setExpandedAnswers(prev => ({
+        ...prev,
+        ...newExpandedState
+      }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred while analyzing documents');
+    }
+  };
+
+  /**
    * Analyzes documents to generate answers for all questions
    */
   const analyzeDocuments = async () => {
-    // Implementation would connect to the actual chat service
     setIsAnalyzing(true);
     setError(null);
     
     try {
-      // Mock implementation for now - in a real app, would call chatService
-      const mockAnswers: Record<string, Answer> = {};
-      
-      for (const question of questions) {
-        // Would use file content and prompt to generate real answers
-        mockAnswers[question.id] = {
-          summary: `Summary: This is a placeholder answer for ${question.question}
-
-DETAILS: More detailed information would be generated by the actual AI service based on the document content.`,
-          details: `Summary: This is a placeholder answer for ${question.question}
-
-DETAILS: More detailed information would be generated by the actual AI service based on the document content.`,
-          isEdited: false
-        };
-      }
-      
-      setAnswers(mockAnswers);
+      // Get all question IDs and analyze them
+      const questionIds = questions.map(q => q.id);
+      await analyzeSelectedQuestions(questionIds);
       
       if (onComplete) {
         onComplete(true);
@@ -217,17 +401,19 @@ DETAILS: More detailed information would be generated by the actual AI service b
     if (!question) return;
     
     try {
-      // Mock implementation - would call chat service in a real app
-      const regeneratedAnswer = {
-        summary: `Summary: This is a regenerated answer for ${question.question}
-
-DETAILS: More detailed information would be regenerated by the actual AI service.`,
-        details: `Summary: This is a regenerated answer for ${question.question}
-
-DETAILS: More detailed information would be regenerated by the actual AI service.`,
-        isEdited: false
-      };
+      // Mark this answer as loading
+      setAnswers(prev => ({
+        ...prev,
+        [id]: {
+          ...prev[id],
+          isLoading: true
+        }
+      }));
       
+      // Generate a new answer
+      const regeneratedAnswer = await analyzeQuestion(id);
+      
+      // Update state with new answer
       setAnswers(prev => ({
         ...prev,
         [id]: regeneratedAnswer
@@ -238,6 +424,15 @@ DETAILS: More detailed information would be regenerated by the actual AI service
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred while regenerating the answer');
+      
+      // Reset loading state on error
+      setAnswers(prev => ({
+        ...prev,
+        [id]: {
+          ...prev[id],
+          isLoading: false
+        }
+      }));
     }
   };
 
@@ -257,6 +452,7 @@ DETAILS: More detailed information would be regenerated by the actual AI service
     handleEdit,
     handleSave,
     analyzeDocuments,
+    analyzeSelectedQuestions,
     regenerateAnswer,
     getPromptForQuestion,
     handleViewPrompt,

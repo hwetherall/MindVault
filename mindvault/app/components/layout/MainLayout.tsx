@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { notesService } from '../../services/notesService';
 import { filesService } from '../../services/filesService';
 import { Header, FileUploader, FileList } from './index';
-import InvestmentMemoMain from '../features/investment-memo';
+import { InvestmentMemoMain } from '../features/investment-memo';
 import ErrorBoundary from '../ErrorBoundary';
 
 interface Note {
@@ -86,44 +86,19 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
   };
 
   /**
-   * Starts the investment memo generation process
-   */
-  const handleGenerateInvestmentMemo = () => {
-    // No need to toggle state, Investment Memo is always visible
-    // Just notify the component to start analysis
-    if (files.length === 0) {
-      alert('Please upload at least one document to analyze.');
-      return;
-    }
-    
-    // Check if both PDF and Excel files are available
-    const pdfFiles = files.filter(file => 
-      file.name.toLowerCase().endsWith('.pdf')
-    );
-    
-    const excelFiles = files.filter(file => 
-      file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls')
-    );
-    
-    if (pdfFiles.length === 0) {
-      alert('Please upload at least one pitch deck (PDF) file.');
-      return;
-    }
-    
-    if (excelFiles.length === 0) {
-      alert('Please upload at least one financial data (Excel) file.');
-      return;
-    }
-    
-    // The analysis should be triggered in the InvestmentMemo component
-  };
-
-  /**
    * Handles the completion of an analysis
    */
   const handleAnalysisComplete = (passed: boolean) => {
     console.log('Analysis complete, passed:', passed);
     // Can handle any post-analysis tasks here
+  };
+
+  /**
+   * Handles answer updates from investment memo
+   */
+  const handleAnswerUpdate = (id: string, summary: string, details: string) => {
+    console.log(`Answer updated for ${id}:`, { summary, details });
+    // Handle answer updates as needed
   };
 
   // Filter notes based on search query
@@ -140,7 +115,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
         <Header
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          onGenerateInvestmentMemo={handleGenerateInvestmentMemo}
           onClearRepository={handleClearRepository}
         />
 
@@ -158,15 +132,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
               
               {/* Investment Memo Box */}
               <div className="mb-6 border-2 border-border-medium p-5 rounded-lg shadow-md bg-white">
-                <h2 className="font-medium text-lg mb-4 border-b-2 border-border-medium pb-2">Investment Memo</h2>
-                <div className="flex flex-col gap-4">
-                  <button
-                    className="innovera-button-primary w-full"
-                    onClick={handleGenerateInvestmentMemo}
-                  >
-                    Create Investment Memo
-                  </button>
-                  
+                <h2 className="font-medium text-lg mb-4 border-b-2 border-border-medium pb-2">Repository Actions</h2>
+                <div className="flex flex-col gap-4">  
                   <button
                     className="innovera-button-secondary w-full"
                     onClick={handleClearRepository}
@@ -183,6 +150,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
                 <InvestmentMemoMain 
                   files={files} 
                   onComplete={handleAnalysisComplete} 
+                  onAnswerUpdate={handleAnswerUpdate}
                 />
               </div>
             </div>
@@ -193,4 +161,4 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
   );
 };
 
-export default MainLayout; 
+export default MainLayout;

@@ -45,6 +45,25 @@ module.exports = {
           '2': '2px',
           '3': '3px',
           '4': '4px',
+        },
+        keyframes: {
+          bounce: {
+            '0%, 100%': { transform: 'translateY(0)' },
+            '50%': { transform: 'translateY(-5px)' }
+          },
+          pulse: {
+            '0%, 100%': { opacity: 1 },
+            '50%': { opacity: 0.5 }
+          },
+          spin: {
+            '0%': { transform: 'rotate(0deg)' },
+            '100%': { transform: 'rotate(360deg)' }
+          }
+        },
+        animation: {
+          bounce: 'bounce 1s ease-in-out infinite',
+          pulse: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          spin: 'spin 1s linear infinite'
         }
       },
     },
