@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer';
 import { marked } from 'marked';
-import { formatNumbersInText } from '../../utils/formatters';
+import { formatNumbersInText } from '../../utils/textFormatting';
 import fs from 'fs/promises';
 import path from 'path';
 

@@ -1,7 +1,7 @@
-import React from 'react';
-import { Edit2, RefreshCw } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChevronDown, ChevronUp, Edit2, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { formatNumbersInText } from '../../../utils/formatters';
+import { formatNumbersInText } from '../../../utils/textFormatting';
 
 // Define the Answer interface locally 
 interface Answer {
@@ -21,6 +21,14 @@ interface AnswerDisplayProps {
  * Component for displaying an answer with formatting
  */
 const AnswerDisplay: React.FC<AnswerDisplayProps> = ({ answer, onEdit, onRegenerate }) => {
+  // Add state to track if details are expanded
+  const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
+
+  // Toggle details expansion
+  const toggleDetails = () => {
+    setIsDetailsExpanded(!isDetailsExpanded);
+  };
+
   if (!answer) {
     return (
       <div className="text-center p-4">
@@ -91,6 +99,8 @@ const AnswerDisplay: React.FC<AnswerDisplayProps> = ({ answer, onEdit, onRegener
   const formattedSummary = formatNumbersInText(answer.summary);
   const formattedDetails = formatNumbersInText(answer.details);
 
+  // We're no longer using a preview, as we want to hide the entire details section
+
   return (
     <div className="space-y-6">
       {/* Summary Section */}
@@ -103,11 +113,33 @@ const AnswerDisplay: React.FC<AnswerDisplayProps> = ({ answer, onEdit, onRegener
 
       {/* Details Section (if available) */}
       {formattedDetails && (
-        <div className="p-4 rounded-lg border border-gray-200 shadow-sm">
-          <h4 className="text-sm font-semibold text-gray-700 mb-2">Details</h4>
-          <div className="text-base text-gray-800 prose prose-sm max-w-none">
-            <ReactMarkdown>{formattedDetails}</ReactMarkdown>
+        <div className="rounded-lg border border-gray-200 shadow-sm">
+          <div 
+            className="flex justify-between items-center cursor-pointer p-4" 
+            onClick={toggleDetails}
+          >
+            <h4 className="text-sm font-semibold text-gray-700">Details</h4>
+            <button className="text-blue-600 hover:text-blue-800 text-sm flex items-center">
+              {isDetailsExpanded ? (
+                <>
+                  <span>Hide details</span>
+                  <ChevronUp className="h-4 w-4 ml-1" />
+                </>
+              ) : (
+                <>
+                  <span>Show details</span>
+                  <ChevronDown className="h-4 w-4 ml-1" />
+                </>
+              )}
+            </button>
           </div>
+          
+          {/* Only render the content when expanded */}
+          {isDetailsExpanded && (
+            <div className="p-4 border-t border-gray-200 text-base text-gray-800 prose prose-sm max-w-none">
+              <ReactMarkdown>{formattedDetails}</ReactMarkdown>
+            </div>
+          )}
         </div>
       )}
       
@@ -132,4 +164,4 @@ const AnswerDisplay: React.FC<AnswerDisplayProps> = ({ answer, onEdit, onRegener
   );
 };
 
-export default AnswerDisplay; 
+export default AnswerDisplay;

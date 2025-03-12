@@ -40,17 +40,44 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
   const isAnswerLoading = answer && (answer as any).isLoading === true;
   const isAnswerGenerated = answer && !isAnswerLoading;
 
+  // Determine card elevation based on state
+  const cardClasses = `border rounded-lg overflow-hidden mb-6 transition-all duration-200 ${
+    isExpanded 
+      ? 'shadow-md border-blue-200' 
+      : 'shadow-sm hover:shadow-md border-gray-200'
+  }`;
+
+  // Get a preview of the answer summary for collapsed state
+  const getSummaryPreview = () => {
+    if (!answer || isAnswerLoading || !answer.summary) return '';
+    
+    const summary = answer.summary;
+    if (summary.length <= 80) return summary;
+    return summary.substring(0, 80) + '...';
+  };
+
   return (
-    <div className="border rounded-lg overflow-hidden mb-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div className={cardClasses}>
       {/* Question header */}
       <div 
-        className="p-4 bg-gradient-to-r from-gray-50 to-white cursor-pointer flex justify-between items-center"
+        className={`p-4 bg-gradient-to-r ${
+          isExpanded 
+            ? 'from-blue-50 to-white' 
+            : 'from-gray-50 to-white'
+        } cursor-pointer flex justify-between items-center`}
         onClick={() => onToggle(id)}
       >
         <div className="flex-1">
           <h3 className="text-lg font-medium text-gray-800">{question}</h3>
-          {description && (
+          {description && !isExpanded && (
             <p className="text-sm text-gray-500 mt-1">{description}</p>
+          )}
+          
+          {/* Preview of answer when collapsed */}
+          {!isExpanded && isAnswerGenerated && (
+            <p className="text-sm text-gray-600 mt-2 italic">
+              {getSummaryPreview()}
+            </p>
           )}
         </div>
         <div className="flex items-center space-x-3">
@@ -77,9 +104,16 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
         </div>
       </div>
       
+      {/* Description when expanded */}
+      {isExpanded && description && (
+        <div className="px-4 pt-1 pb-3 bg-gray-50 border-t border-b">
+          <p className="text-sm text-gray-600">{description}</p>
+        </div>
+      )}
+      
       {/* Answer section */}
       {isExpanded && (
-        <div className="p-5 bg-white border-t">
+        <div className="p-5 bg-white">
           {isEditing ? (
             <EditAnswer 
               value={editedAnswer}
@@ -100,4 +134,4 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
   );
 };
 
-export default QuestionItem; 
+export default QuestionItem;
