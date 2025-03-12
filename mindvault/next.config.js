@@ -25,6 +25,22 @@ const nextConfig = {
         canvas: false,
       }
     }
+
+    // Handle binary files and workers
+    config.module.rules.push(
+      {
+        test: /\.node$/,
+        loader: 'null-loader',
+      },
+      {
+        test: /pdf\.worker\.(min\.)?js/,
+        type: 'asset/resource',
+        generator: {
+          filename: 'static/chunks/[name].[hash][ext]'
+        }
+      }
+    );
+
     return config
   },
 };
