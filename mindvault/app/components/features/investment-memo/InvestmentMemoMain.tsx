@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { FileDown, PlusCircle } from 'lucide-react';
+import { FileDown, PlusCircle, Pencil, Check } from 'lucide-react';
 import QuestionItem from './QuestionItem';
 import QuestionSelectionModal from './QuestionSelectionModal';
 import { useInvestmentMemo, InvestmentMemoQuestion } from './hooks/useInvestmentMemo';
-// Mock implementation to fix the import error
-const exportToPDF = (questions: InvestmentMemoQuestion[], answers: any) => {
-  console.log('Mock exportToPDF called', { questions, answers });
-  // In a real implementation, this would generate and download a PDF
-  alert('PDF export functionality is not available in this version.');
-};
+import { exportToPDF } from './utils/pdfExport';
+import { ExportPDFDialog } from './ExportPDFDialog';
+
 import { INVESTMENT_MEMO_QUESTIONS } from './constants';
+
+interface ExportOptions {
+  includeTableOfContents: boolean;
+  includeAppendices: boolean;
+  language: 'en' | 'ja';
+  isDetailedView: boolean;
+}
 
 interface InvestmentMemoProps {
   files: any[];
@@ -27,10 +31,23 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
 }) => {
   // State for question selection modal
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [exportOptions, setExportOptions] = useState<ExportOptions>({
+    includeTableOfContents: true,
+    includeAppendices: true,
+    language: 'en',
+    isDetailedView: true
+  });
   // State for selected question IDs
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   // State to track IDs that should be analyzed immediately after selection
   const [pendingAnalysisIds, setPendingAnalysisIds] = useState<string[]>([]);
+  const [title, setTitle] = useState('Investment Memo');
+  const [description, setDescription] = useState('');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [tempTitle, setTempTitle] = useState(title);
+  const [tempDescription, setTempDescription] = useState(description);
   
   // Filtered questions based on selection
   const filteredQuestions = selectedQuestionIds.length > 0
@@ -97,9 +114,25 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     }
   };
 
-  const handleExportPDF = () => {
-    exportToPDF(filteredQuestions, answers);
+  const handleExportPDF = async () => {
+    setIsExportDialogOpen(true);
   };
+
+  const handleExportPDFPopup = async () => {
+    await exportToPDF(
+      filteredQuestions,
+      answers,
+      title,
+      description,
+      exportOptions
+    );
+    setIsExportDialogOpen(false);
+    if (onComplete) {
+      onComplete(true);
+    }
+  };
+
+  
 
   // Get the counts of answered, loading and total questions
   const getQuestionStatusCounts = () => {
@@ -140,19 +173,106 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
   const groupedQuestions = getQuestionsGroupedByCategory();
   const categories = Object.keys(groupedQuestions);
 
+  const handleTitleEdit = () => {
+    setTempTitle(title);
+    setIsEditingTitle(true);
+  };
+
+  const handleTitleSave = () => {
+    // Only update if tempTitle is not empty, otherwise keep the previous title
+    setTitle(tempTitle.trim() || title);
+    setIsEditingTitle(false);
+  };
+
+  const handleDescriptionEdit = () => {
+    setTempDescription(description);
+    setIsEditingDescription(true);
+  };
+
+  const handleDescriptionSave = () => {
+    setDescription(tempDescription);
+    setIsEditingDescription(false);
+  };
+
   return (
     <div className="w-full">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-[#1A1F2E]">Investment Memo</h2>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={handleExportPDF}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-800"
-            disabled={isAnalyzing || loading > 0 || total === 0}
-          >
-            <FileDown size={18} />
-            <span>Export PDF</span>
-          </button>
+      <div className="flex flex-col mb-6">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            {isEditingTitle ? (
+              <>
+                <input
+                  type="text"
+                  value={tempTitle}
+                  onChange={(e) => setTempTitle(e.target.value)}
+                  className="text-2xl font-semibold text-[#1A1F2E] bg-transparent border-b border-[#F15A29] outline-none pb-1"
+                  autoFocus
+                />
+                <button
+                  onClick={handleTitleSave}
+                  className="p-1 text-green-600 hover:text-green-700"
+                >
+                  <Check size={18} />
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-2xl font-semibold text-[#1A1F2E]">{title}</h2>
+                <button
+                  onClick={handleTitleEdit}
+                  className="p-1 text-[#F15A29] hover:text-[#D94315]"
+                >
+                  <Pencil size={16} />
+                </button>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleExportPDF}
+              className={`flex items-center gap-2 px-3 py-1 rounded transition-colors ${
+                isAnalyzing || loading > 0 || total === 0
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-gray-700 hover:bg-gray-50'
+              }`}
+              disabled={isAnalyzing || loading > 0 || total === 0}
+            >
+              <FileDown size={18} />
+              <span>Export PDF</span>
+            </button>
+          </div>
+        </div>
+        <div className="mt-2 flex items-start gap-2">
+          {isEditingDescription ? (
+            <>
+              <input
+                type="text"
+                value={tempDescription}
+                onChange={(e) => setTempDescription(e.target.value)}
+                placeholder="Add a description..."
+                className="flex-1 text-base text-gray-600 bg-transparent border-b border-[#F15A29] outline-none pb-1 italic font-normal"
+                autoFocus
+              />
+              <button
+                onClick={handleDescriptionSave}
+                className="p-1 text-green-600 hover:text-green-700"
+              >
+                <Check size={16} />
+              </button>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center">
+              <p className="text-base text-gray-600 italic font-normal">
+                {description || <span className="text-gray-400">Add a description...</span>}
+              </p>
+              <button
+                onClick={handleDescriptionEdit}
+                className="p-1 text-[#F15A29] hover:text-[#D94315] ml-1"
+              >
+                <Pencil size={14} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -182,8 +302,8 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
 
       {selectedQuestionIds.length === 0 ? (
         <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
-          <h3 className="text-xl font-medium text-gray-600 mb-2">No Questions Selected</h3>
-          <p className="text-gray-500 mb-4">
+          <h3 className="text-xl font-semibold text-gray-600 mb-2">No Questions Selected</h3>
+          <p className="text-base text-gray-500 mb-4">
             Start by selecting investment questions to analyze your documents
           </p>
           <button 
@@ -200,7 +320,7 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
             <div className="space-y-8">
               {categories.map(category => (
                 <div key={category}>
-                  <h3 className="text-lg font-semibold border-b pb-2 mb-4">{category}</h3>
+                  <h3 className="text-xl font-semibold border-b pb-2 mb-4">{category}</h3>
                   <div className="space-y-6">
                     {groupedQuestions[category].map(question => (
                       <QuestionItem
@@ -234,6 +354,16 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
         onSubmit={handleQuestionSelection}
         initialSelections={selectedQuestionIds}
       />
+
+      {/* Export PDF Dialog */}
+      {isExportDialogOpen && (
+        <ExportPDFDialog
+          onClose={() => setIsExportDialogOpen(false)}
+          onExport={handleExportPDFPopup}
+          options={exportOptions}
+          onOptionsChange={setExportOptions}
+        />
+      )}
     </div>
   );
 };

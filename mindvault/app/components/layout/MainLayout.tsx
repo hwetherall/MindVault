@@ -171,6 +171,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           onClearRepository={handleClearRepository}
+          onGenerateInvestmentMemo={() => {}}
         />
 
         <main className="container mx-auto px-4 py-6">
