@@ -332,16 +332,17 @@ export const clearFiles = async () => {
             console.warn(`Error deleting file ${file.file_path} from storage:`, deleteError);
             // Continue with other files
           } else {
-            console.log(`Deleted file ${file.file_path} from storage`);
+            console.log(`Deleted file ${file.file_path} from storage bucket: ${bucket}`);
           }
         }
       }
     }
     
-    // Delete all file records from the database
+    // Delete all file records from the database with a WHERE clause that works with UUIDs
     const { error: deleteError } = await supabase
       .from('documents')
-      .delete();
+      .delete()
+      .not('id', 'is', null); // This will match all records since no record will have a null id
       
     if (deleteError) {
       console.error('Error deleting file records:', deleteError);
