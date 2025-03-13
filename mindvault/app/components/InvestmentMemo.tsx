@@ -167,8 +167,8 @@ const InvestmentMemo = forwardRef<{
         console.log(`Toggle answer for ${id}: current state = ${expandedAnswers[id] || false}`);
         setExpandedAnswers(prev => {
             const newState = {
-                ...prev,
-                [id]: !prev[id]
+            ...prev,
+            [id]: !prev[id]
             };
             console.log(`New state for ${id} = ${newState[id]}`);
             return newState;
@@ -451,7 +451,7 @@ const InvestmentMemo = forwardRef<{
                     stringResponse = 'Error processing response';
                 }
             }
-            
+
             // Process the response
             const { tldr, details } = splitAnswerContent(stringResponse);
             
@@ -464,7 +464,7 @@ const InvestmentMemo = forwardRef<{
                     isEdited: false
                 }
             }));
-            
+
             // Reset details expansion state when regenerating
             setExpandedAnswers(prev => ({
                 ...prev,
@@ -633,11 +633,11 @@ const InvestmentMemo = forwardRef<{
                                                                 <div className="mt-3 pt-3 border-t border-gray-200">
                                                                     <div className="text-sm font-medium text-gray-500 mb-2">Details</div>
                                                                     <div className="prose max-w-none text-sm">
-                                                                        {typeof formattedDetails === 'string' ? (
-                                                                            <ReactMarkdown>{formattedDetails}</ReactMarkdown>
-                                                                        ) : (
-                                                                            <ReactMarkdown>{String(formattedDetails)}</ReactMarkdown>
-                                                                        )}
+                                                                    {typeof formattedDetails === 'string' ? (
+                                                                        <ReactMarkdown>{formattedDetails}</ReactMarkdown>
+                                                                    ) : (
+                                                                        <ReactMarkdown>{String(formattedDetails)}</ReactMarkdown>
+                                                                    )}
                                                                     </div>
                                                                 </div>
                                                             )}

@@ -1,4 +1,16 @@
 /**
+ * @typedef {Object} FileService
+ * @property {(file: File) => Promise<Object>} uploadDocument
+ * @property {(file: File) => Promise<Object>} uploadSpreadsheet
+ * @property {() => Promise<Array>} getFiles
+ * @property {(fileId: string) => Promise<void>} deleteFile
+ * @property {(file: File) => Promise<string>} extractTextFromPDF
+ * @property {(file: File) => Promise<string>} extractTextFromExcel
+ * @property {(file: File) => Promise<boolean>} verifyFileContent
+ * @property {() => Promise<void>} clearFiles
+ */
+
+/**
  * Service for handling file operations with Supabase
  */
 import { supabase } from '../lib/supabase';
@@ -283,15 +295,13 @@ const extractTextFromExcel = async (file) => {
   }
 };
 
-
 /**
- * Clear all files from the application state and optionally from storage
- * @param {boolean} deleteFromStorage - Whether to also delete files from Supabase storage
+ * Clears all files from the repository
  * @returns {Promise<void>}
  */
-const clearFiles = async (deleteFromStorage = false) => {
+export const clearFiles = async () => {
   try {
-    console.log(`Clearing all files${deleteFromStorage ? ' and deleting from storage' : ''}`);
+    console.log('Clearing all files and deleting from storage');
     
     // Get the current user
     const { data: { user } } = await supabase.auth.getUser();
@@ -303,7 +313,7 @@ const clearFiles = async (deleteFromStorage = false) => {
 
     // Get all files for the current user
     const { data: files, error: fetchError } = await supabase
-      .from('files')
+      .from('documents')
       .select('*')
       .eq('user_id', user.id);
       
@@ -314,25 +324,24 @@ const clearFiles = async (deleteFromStorage = false) => {
     
     console.log(`Found ${files?.length || 0} files to clear`);
     
-    // If we also need to delete from storage
-    if (deleteFromStorage && files && files.length > 0) {
+    // Delete each file from storage
+    if (files && files.length > 0) {
       // Delete each file from storage
       for (const file of files) {
-        if (file.storage_path) {
-          // Extract filename from storage path if needed
-          const filename = file.storage_path.split('/').pop();
+        if (file.file_path) {
+          // Determine the storage bucket based on file type
+          const bucket = file.file_type?.includes('spreadsheet') ? 'spreadsheets' : 'documents';
           
           // Delete from storage
-          const { error: deleteError } = await supabase
-            .storage
-            .from('documents')
-            .remove([filename]);
+          const { error: deleteError } = await supabase.storage
+            .from(bucket)
+            .remove([file.file_path]);
             
           if (deleteError) {
-            console.warn(`Error deleting file ${filename} from storage:`, deleteError);
+            console.warn(`Error deleting file ${file.file_path} from storage:`, deleteError);
             // Continue with other files
           } else {
-            console.log(`Deleted file ${filename} from storage`);
+            console.log(`Deleted file ${file.file_path} from storage`);
           }
         }
       }
@@ -340,7 +349,7 @@ const clearFiles = async (deleteFromStorage = false) => {
     
     // Delete all file records from the database
     const { error: deleteError } = await supabase
-      .from('files')
+      .from('documents')
       .delete()
       .eq('user_id', user.id);
       
@@ -356,8 +365,6 @@ const clearFiles = async (deleteFromStorage = false) => {
   }
 };
 
-// Export the function
-export { clearFiles };
 /**
  * Uploads a document to Supabase storage and database
  */
@@ -601,9 +608,19 @@ const uploadSpreadsheet = async (file) => {
 const getFiles = async () => {
   try {
     console.log('Fetching all files from database');
+
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      console.warn('No authenticated user found when trying to fetch files');
+      return [];
+    }
+
     const { data, error } = await supabase
       .from('documents')
       .select('*')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -739,5 +756,6 @@ export const filesService = {
   deleteFile,
   extractTextFromPDF,
   extractTextFromExcel,
-  verifyFileContent
+  verifyFileContent,
+  clearFiles
 }; 

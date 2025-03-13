@@ -8,8 +8,62 @@ import { notesService } from '../../services/notesService';
 import { filesService } from '../../services/filesService';
 import { InvestmentMemoMain } from '../features/investment-memo';
 import ErrorBoundary from '../ErrorBoundary';
-import { FileText, FileSpreadsheet, X, ChevronLeft, ChevronRight, Plus, Database, Trash } from 'lucide-react';
+import { FileText, FileSpreadsheet, X, ChevronLeft, ChevronRight, Plus, Database, Trash, CheckCircle, AlertCircle } from 'lucide-react';
 
+// Add type definition for filesService
+interface FilesService {
+  uploadDocument: (file: File) => Promise<any>;
+  uploadSpreadsheet: (file: File) => Promise<any>;
+  getFiles: () => Promise<any[]>;
+  deleteFile: (fileId: string) => Promise<void>;
+  extractTextFromPDF: (file: File) => Promise<string>;
+  extractTextFromExcel: (file: File) => Promise<string>;
+  verifyFileContent: (fileId: string) => Promise<any>;
+  clearFiles: () => Promise<void>;
+}
+
+// Add Toast component
+const Toast = ({ message, type, onClose }) => {
+  const bgColor = type === 'success' ? 'bg-green-50' : 'bg-red-50';
+  const textColor = type === 'success' ? 'text-green-800' : 'text-red-800';
+  const borderColor = type === 'success' ? 'border-green-200' : 'border-red-200';
+  const Icon = type === 'success' ? CheckCircle : AlertCircle;
+
+  return (
+    <div className={`fixed bottom-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg border ${borderColor} ${bgColor} shadow-lg`}>
+      <Icon className={`w-5 h-5 ${textColor}`} />
+      <span className={textColor}>{message}</span>
+    </div>
+  );
+};
+
+// Add Confirmation Dialog component
+const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, message }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-lg">
+        <h3 className="text-lg font-semibold mb-2 text-gray-800">{title}</h3>
+        <p className="text-gray-600 mb-6">{message}</p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface Note {
   id: string;
@@ -28,6 +82,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
   const [files, setFiles] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [confirmationDialog, setConfirmationDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   // Load initial data
   useEffect(() => {
@@ -42,26 +103,56 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
         setFiles(loadedFiles);
       } catch (error) {
         console.error('Error loading content:', error);
+        showToast('Failed to load content', 'error');
       }
     };
 
     loadAllContent();
   }, []);
 
+  // Show toast helper
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
   /**
    * Clears all repository content
    */
   const handleClearRepository = async () => {
-    try {
-      // Clear all files
-      await filesService.clearFiles();
-      
-      // Reload files
-      const loadedFiles = await filesService.getFiles();
-      setFiles(loadedFiles);
-    } catch (error) {
-      console.error('Error clearing repository:', error);
-    }
+    setConfirmationDialog({
+      isOpen: true,
+      title: 'Clear Repository',
+      message: 'Are you sure you want to clear all files from the repository? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          console.log('Starting clear repository process...');
+          
+          // Clear all files
+          console.log('Calling filesService.clearFiles()...');
+          await filesService.clearFiles();
+          console.log('filesService.clearFiles() completed successfully');
+          
+          // Verify files are cleared by fetching again
+          const remainingFiles = await filesService.getFiles();
+          console.log(`Remaining files after clear: ${remainingFiles.length}`);
+          
+          // Only set files to empty if we verify the clear was successful
+          if (remainingFiles.length === 0) {
+            setFiles([]);
+            console.log('Clear repository process completed successfully');
+            showToast('Repository cleared successfully', 'success');
+          } else {
+            throw new Error('Failed to clear all files from the repository');
+          }
+        } catch (error) {
+          console.error('Error in handleClearRepository:', error);
+          showToast('Failed to clear repository. Please try again.', 'error');
+        } finally {
+          setConfirmationDialog(null);
+        }
+      }
+    });
   };
 
   /**
@@ -206,10 +297,35 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
                     {/* Upload Button */}
                     <button 
                       onClick={() => document.getElementById('combinedUpload')?.click()}
-                      className="w-12 h-12 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center transition-colors"
+                      className="flex flex-col items-center focus:outline-none"
                       title="Upload Document"
                     >
-                      <Plus size={24} className="text-blue-500" />
+                      <div className="w-12 h-12 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center transition-colors">
+                        <Plus size={24} className="text-blue-500" />
+                      </div>
+                      <span className="text-xs mt-1">Upload</span>
+                    </button>
+
+                    {/* Hidden Combined File Input */}
+                    <input
+                      id="combinedUpload"
+                      type="file"
+                      accept=".pdf,.xlsx,.xls"
+                      multiple
+                      className="hidden"
+                      onChange={handleFileInput}
+                    />
+
+                    {/* Clear Repository Button */}
+                    <button
+                      onClick={handleClearRepository}
+                      className="flex flex-col items-center focus:outline-none"
+                      title="Clear Repository"
+                    >
+                      <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center hover:bg-red-200 transition-colors">
+                        <Trash size={24} className="text-red-500" />
+                      </div>
+                      <span className="text-xs mt-1">Clear</span>
                     </button>
                   </div>
                 ) : (
@@ -285,65 +401,56 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
                           </p>
                         )}
                       </div>
-                    </div>
-                  </div>
-                )}
-              </div>
 
-              {/* Investment Memo Box */}
-              <div className="mb-6 border-2 border-border-medium p-5 rounded-lg shadow-md bg-white">
-                {isCollapsed ? (
-                  // Collapsed view with icons
-                  <div className="flex flex-col items-center gap-6 py-4">
-                    <div className="flex flex-col items-center focus:outline-none" title="Repository Actions">
-                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                        <Database size={24} className="text-blue-500" />
-                      </div>
-                      <span className="text-xs mt-1">Files</span>
-                    </div>
-                    <button
-                      onClick={handleClearRepository}
-                      className="flex flex-col items-center focus:outline-none"
-                      title="Clear Repository"
-                    >
-                      <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center hover:bg-red-200 transition-colors">
-                        <Trash size={24} className="text-red-500" />
-                      </div>
-                      <span className="text-xs mt-1">Clear</span>
-                    </button>
-                  </div>
-                ) : (
-                  // Expanded view with text
-                  <>
-                    <h2 className="font-medium text-lg mb-4 border-b-2 border-border-medium pb-2">Repository Actions</h2>
-                    <div className="flex flex-col gap-4">  
+                      {/* Clear Repository Button */}
                       <button
-                        className="innovera-button-secondary w-full"
                         onClick={handleClearRepository}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
                       >
+                        <Trash size={16} />
                         Clear Repository
                       </button>
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
 
             {/* Right Column - Investment Memo Content */}
-            <div className="md:col-span-8">
-              <div className="innovera-card shadow-elevated">
-                <InvestmentMemoMain 
-                  files={files} 
-                  onComplete={handleAnalysisComplete} 
-                  onAnswerUpdate={handleAnswerUpdate}
-                />
-              </div>
+            <div className={`transition-all duration-300 ease-in-out ${isCollapsed ? 'md:col-span-11' : 'md:col-span-8'}`}>
+                <div className="innovera-card shadow-elevated">
+                  <InvestmentMemoMain 
+                    files={files} 
+                    onComplete={handleAnalysisComplete} 
+                    onAnswerUpdate={handleAnswerUpdate}
+                  />
+                </div>
             </div>
           </div>
         </main>
+
+        {/* Add Toast */}
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+          />
+        )}
+
+        {/* Add Confirmation Dialog */}
+        {confirmationDialog && (
+          <ConfirmationDialog
+            isOpen={confirmationDialog.isOpen}
+            onClose={() => setConfirmationDialog(null)}
+            onConfirm={confirmationDialog.onConfirm}
+            title={confirmationDialog.title}
+            message={confirmationDialog.message}
+          />
+        )}
       </div>
     </ErrorBoundary>
   );
 };
 
-export default MainLayout;
+export default MainLayout; 
