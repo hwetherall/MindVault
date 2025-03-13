@@ -1,24 +1,26 @@
 /* eslint-disable no-undef */
-import { OpenAI } from 'openai';
+// Remove direct OpenAI import as we'll use our API endpoint
+// import { OpenAI } from 'openai';
 import { getSuggestedQuestions } from './excelAIService';
 
-const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-const OPENAI_PROJECT_ID = process.env.NEXT_PUBLIC_OPENAI_PROJECT_ID;
+// Remove direct API key usage
+// const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+// const OPENAI_PROJECT_ID = process.env.NEXT_PUBLIC_OPENAI_PROJECT_ID;
 
-if (!OPENAI_API_KEY) {
-  throw new Error('OpenAI API key is required');
-}
+// if (!OPENAI_API_KEY) {
+//   throw new Error('OpenAI API key is required');
+// }
 
-if (!OPENAI_PROJECT_ID) {
-  throw new Error('OpenAI Project ID is required');
-}
+// if (!OPENAI_PROJECT_ID) {
+//   throw new Error('OpenAI Project ID is required');
+// }
 
-// Create the OpenAI client with the appropriate configuration
-const openai = new OpenAI({
-  apiKey: OPENAI_API_KEY,
-  projectId: OPENAI_PROJECT_ID,
-  dangerouslyAllowBrowser: true
-});
+// No longer create OpenAI client directly
+// const openai = new OpenAI({
+//   apiKey: OPENAI_API_KEY,
+//   projectId: OPENAI_PROJECT_ID,
+//   dangerouslyAllowBrowser: true
+// });
 
 // Keywords that might indicate an Excel-related question
 const EXCEL_KEYWORDS = [
@@ -28,6 +30,34 @@ const EXCEL_KEYWORDS = [
   'sheet', 'income', 'statement', 'ratio', 'metric',
   'trend', 'projection', 'quarterly', 'annual'
 ];
+
+// Helper function to call our secure API endpoint
+async function callOpenAI(messages, model = "o3-mini", temperature = 1, max_tokens = 40000) {
+  try {
+    const response = await fetch('/api/ai', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages,
+        model,
+        temperature,
+        max_tokens
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`API error: ${errorData.details || response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error calling AI API:', error);
+    throw error;
+  }
+}
 
 export const answerService = {
   async sendMessage(message, files = []) {
@@ -229,24 +259,19 @@ export const answerService = {
         const model = "o3-mini";
         console.log(`Using model: ${model}`);
         
-        const response = await openai.chat.completions.create({
-          model: model,
-          messages: [
-            { 
-              role: "user", 
-              content: "You are an expert financial analyst with deep experience reviewing investment documents like pitch decks and financial spreadsheets. Your job is to THOROUGHLY examine the provided documents for SPECIFIC information.\n\n" + 
-              "CRITICAL REQUIREMENTS:\n" +
-              "1. NEVER say information is missing until you've searched the ENTIRE document\n" +
-              "2. For Excel data: pay close attention to ALL column headers and row labels\n" +
-              "3. For PDFs: check EVERY page, including sections near the end about team members\n" +
-              "4. When information seems missing, try alternative terms and look in different sections\n" +
-              "5. ONLY use information from the provided documents - don't make assumptions\n\n" +
-              fullMessage 
-            }
-          ],
-          temperature: 1,
-          max_completion_tokens: 40000
-        });
+        const response = await callOpenAI([
+          { 
+            role: "user", 
+            content: "You are an expert financial analyst with deep experience reviewing investment documents like pitch decks and financial spreadsheets. Your job is to THOROUGHLY examine the provided documents for SPECIFIC information.\n\n" + 
+            "CRITICAL REQUIREMENTS:\n" +
+            "1. NEVER say information is missing until you've searched the ENTIRE document\n" +
+            "2. For Excel data: pay close attention to ALL column headers and row labels\n" +
+            "3. For PDFs: check EVERY page, including sections near the end about team members\n" +
+            "4. When information seems missing, try alternative terms and look in different sections\n" +
+            "5. ONLY use information from the provided documents - don't make assumptions\n\n" +
+            fullMessage 
+          }
+        ], model, 1, 40000);
 
         if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
           throw new Error('Received invalid response structure from OpenAI API');

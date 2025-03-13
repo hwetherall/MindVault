@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
-// Check for API key
+// Check for API key - using server-side environment variable
 const apiKey = process.env.OPENAI_API_KEY;
 if (!apiKey) {
   throw new Error('OPENAI_API_KEY is not set in environment variables');
