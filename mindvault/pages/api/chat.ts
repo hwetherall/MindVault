@@ -30,12 +30,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 .join('\n\n')
             : '';
 
-        // Combine system instructions with user message for o1-mini
+        // Combine system instructions with user message for o3-mini
         const systemInstructions = "You are a helpful assistant analyzing investment documents. Provide clear, concise answers based on the available information.";
         const userMessage = `${systemInstructions}\n\nContext:\n${context}\n\nQuestion: ${message}`;
 
         const completion = await openai.chat.completions.create({
-            model: "o1-mini",
+            model: "o3-mini",
             messages: [
                 { 
                     role: "user", // Only using user role

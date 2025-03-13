@@ -227,7 +227,7 @@ export const chatService = {
       console.log("Sending request to OpenAI...");
       
       try {
-        const model = "o1-mini";
+        const model = "o3-mini";
         console.log(`Using model: ${model}`);
         
         const response = await openai.chat.completions.create({
