@@ -4,9 +4,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { notesService } from '../../services/notesService';
 import { filesService } from '../../services/filesService';
-import { InvestmentMemoMain } from '../features/investment-memo';
+import InvestmentMemoMain from '../features/investment-memo/InvestmentMemoMain';
 import ErrorBoundary from '../ErrorBoundary';
 import { FileText, FileSpreadsheet, X, ChevronLeft, ChevronRight, Plus, Database, Trash, CheckCircle, AlertCircle } from 'lucide-react';
 
@@ -65,22 +64,11 @@ const ConfirmationDialog = ({ isOpen, onClose, onConfirm, title, message }) => {
   );
 };
 
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  createdAt: Date;
-}
+interface MainLayoutProps {}
 
-interface MainLayoutProps {
-  initialNotes?: Note[];
-}
-
-const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
+const MainLayout: React.FC<MainLayoutProps> = () => {
   // State
-  const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [files, setFiles] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [confirmationDialog, setConfirmationDialog] = useState<{
@@ -94,10 +82,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
   useEffect(() => {
     const loadAllContent = async () => {
       try {
-        // Load notes
-        const loadedNotes = await notesService.getNotes();
-        setNotes(loadedNotes);
-
         // Load files
         const loadedFiles = await filesService.getFiles();
         setFiles(loadedFiles);
@@ -221,14 +205,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ initialNotes = [] }) => {
     console.log(`Answer updated for ${id}:`, { summary, details });
     // Handle answer updates as needed
   };
-
-  // Filter notes based on search query
-  const filteredNotes = searchQuery
-    ? notes.filter(note =>
-        note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        note.content.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : notes;
 
   /**
    * Handles file input changes

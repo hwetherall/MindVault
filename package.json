@@ -1,7 +1,0 @@
-{
-  "dependencies": {
-    "openai": "^4.87.3",
-    "pdfjs-dist": "^3.11.174",
-    "postinstall": "^0.7.5"
-  }
-}

@@ -609,18 +609,18 @@ const getFiles = async () => {
   try {
     console.log('Fetching all files from database');
 
-    // Get the current user
-    const { data: { user } } = await supabase.auth.getUser();
+    // Get the current user - FIX THIS
+    //const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) {
-      console.warn('No authenticated user found when trying to fetch files');
-      return [];
-    }
+    //if (!user) {
+    //  console.warn('No authenticated user found when trying to fetch files');
+    //  return [];
+    //}
 
     const { data, error } = await supabase
       .from('documents')
       .select('*')
-      .eq('user_id', user.id)
+    // .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) {

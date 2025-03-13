@@ -1,6 +1,4 @@
 import './globals.css';
-import { NotesProvider } from './context/NotesContext';
-import { AIProvider } from './context/AIContext';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import PropTypes from 'prop-types';
@@ -14,13 +12,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <NotesProvider>
-          <AIProvider>
-            {children}
-            <SpeedInsights />
-            <Analytics />
-          </AIProvider>
-        </NotesProvider>
+        {children}
+        <SpeedInsights />
+        <Analytics />
       </body>
     </html>
   );

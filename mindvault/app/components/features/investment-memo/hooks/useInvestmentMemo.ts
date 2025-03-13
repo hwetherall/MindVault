@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { chatService } from '../../../../services/chatService.js';
+import { answerService } from '../../../../services/answerService.js';
 import { generatePromptForQuestion, generateSimplePrompt } from "../utils/promptGenerator";
 
 // Updated Answer type with separate summary and details fields and loading state
@@ -195,7 +195,7 @@ export function useInvestmentMemo({
         : generatePromptForQuestion(questionId);
 
       // Call the actual AI service
-      const response = await chatService.sendMessage(prompt, files);
+      const response = await answerService.sendMessage(prompt, files);
       
       // Parse the response text to extract summary and details
       let responseText = '';
