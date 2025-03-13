@@ -303,19 +303,10 @@ export const clearFiles = async () => {
   try {
     console.log('Clearing all files and deleting from storage');
     
-    // Get the current user
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      console.warn('No authenticated user found when trying to clear files');
-      return;
-    }
-
-    // Get all files for the current user
+    // Get all files
     const { data: files, error: fetchError } = await supabase
       .from('documents')
-      .select('*')
-      .eq('user_id', user.id);
+      .select('*');
       
     if (fetchError) {
       console.error('Error fetching files to clear:', fetchError);
@@ -350,8 +341,7 @@ export const clearFiles = async () => {
     // Delete all file records from the database
     const { error: deleteError } = await supabase
       .from('documents')
-      .delete()
-      .eq('user_id', user.id);
+      .delete();
       
     if (deleteError) {
       console.error('Error deleting file records:', deleteError);
@@ -609,18 +599,9 @@ const getFiles = async () => {
   try {
     console.log('Fetching all files from database');
 
-    // Get the current user - FIX THIS
-    //const { data: { user } } = await supabase.auth.getUser();
-
-    //if (!user) {
-    //  console.warn('No authenticated user found when trying to fetch files');
-    //  return [];
-    //}
-
     const { data, error } = await supabase
       .from('documents')
       .select('*')
-    // .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) {
