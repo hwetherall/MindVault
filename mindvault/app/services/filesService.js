@@ -83,22 +83,87 @@ const extractTextFromPDF = async (file) => {
 };
 
 /**
- * Extract data from Excel file
+ * Extract data from Excel file with multiple fallback methods
  */
 const extractTextFromExcel = async (file) => {
   try {
     console.log(`Starting Excel extraction for: ${file.name}, size: ${file.size} bytes`);
     
     // Import XLSX library dynamically
-    const { read } = await import('xlsx');
+    const { read, utils } = await import('xlsx');
     
-    // Get array buffer from the file
-    const arrayBuffer = await file.arrayBuffer();
+    // Try multiple approaches to read the file
+    let workbook = null;
+    let error = null;
     
-    // Read the workbook
-    const workbook = read(arrayBuffer, { type: 'array' });
+    // Approach 1: Using Uint8Array with type 'array'
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      workbook = read(uint8Array, { type: 'array' });
+      console.log("SUCCESS: Excel read with Uint8Array approach");
+    } catch (err) {
+      console.warn("Excel read approach 1 failed:", err);
+      error = err;
+    }
     
+    // Approach 2: Using ArrayBuffer with type 'arraybuffer'
+    if (!workbook) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        workbook = read(arrayBuffer, { type: 'arraybuffer' });
+        console.log("SUCCESS: Excel read with ArrayBuffer approach");
+      } catch (err) {
+        console.warn("Excel read approach 2 failed:", err);
+        error = err;
+      }
+    }
+    
+    // Approach 3: Using binary string with type 'binary'
+    if (!workbook) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const data = new Uint8Array(arrayBuffer);
+        let binary = '';
+        for (let i = 0; i < data.length; i++) {
+          binary += String.fromCharCode(data[i]);
+        }
+        workbook = read(binary, { type: 'binary' });
+        console.log("SUCCESS: Excel read with Binary String approach");
+      } catch (err) {
+        console.warn("Excel read approach 3 failed:", err);
+        error = err;
+      }
+    }
+    
+    // Approach 4: Using Blob with FileReader
+    if (!workbook) {
+      try {
+        const blob = new Blob([await file.arrayBuffer()]);
+        const result = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = reject;
+          reader.readAsBinaryString(blob);
+        });
+        workbook = read(result, { type: 'binary' });
+        console.log("SUCCESS: Excel read with FileReader approach");
+      } catch (err) {
+        console.warn("Excel read approach 4 failed:", err);
+        error = err;
+      }
+    }
+    
+    // If all approaches failed, throw the last error
+    if (!workbook) {
+      throw new Error(`All Excel reading approaches failed. Last error: ${error?.message || 'Unknown error'}`);
+    }
+    
+    // Process the workbook
     let fullText = '';
+    
+    // Log workbook details for debugging
+    console.log(`Workbook loaded with ${workbook.SheetNames.length} sheets:`, workbook.SheetNames);
     
     // Process each sheet in the workbook
     workbook.SheetNames.forEach(sheetName => {
@@ -107,37 +172,44 @@ const extractTextFromExcel = async (file) => {
       
       const sheet = workbook.Sheets[sheetName];
       
-      // Convert sheet to JSON with headers
-      const jsonData = read(sheet, { header: 1, defval: null });
-      
-      // Calculate column widths for better formatting
-      const columnWidths = [];
-      jsonData.forEach(row => {
-        row.forEach((cell, j) => {
-          const cellValue = String(cell || '');
-          if (!columnWidths[j] || cellValue.length > columnWidths[j]) {
-            columnWidths[j] = Math.min(cellValue.length, 30); // Limit width to 30 chars
+      try {
+        // Convert sheet to JSON with headers using utils.sheet_to_json
+        const jsonData = utils.sheet_to_json(sheet, { header: 1, defval: null });
+        
+        // Calculate column widths for better formatting
+        const columnWidths = [];
+        jsonData.forEach(row => {
+          if (!row) return; // Skip undefined rows
+          row.forEach((cell, j) => {
+            const cellValue = String(cell || '');
+            if (!columnWidths[j] || cellValue.length > columnWidths[j]) {
+              columnWidths[j] = Math.min(cellValue.length, 30); // Limit width to 30 chars
+            }
+          });
+        });
+        
+        // Convert JSON data to formatted text
+        jsonData.forEach((row, rowIndex) => {
+          if (!row) return; // Skip undefined rows
+          if (row.length > 0 && row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '')) {
+            // Format each row with consistent spacing
+            const formattedRow = row.map((cell, colIndex) => {
+              const cellValue = String(cell || '');
+              return cellValue.padEnd(columnWidths[colIndex] + 3 || 3);
+            }).join('');
+            
+            fullText += formattedRow + '\n';
+            
+            // Add a separator after header row
+            if (rowIndex === 0) {
+              fullText += '-'.repeat(Math.min(formattedRow.length, 100)) + '\n';
+            }
           }
         });
-      });
-      
-      // Convert JSON data to formatted text
-      jsonData.forEach((row, rowIndex) => {
-        if (row.length > 0 && row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '')) {
-          // Format each row with consistent spacing
-          const formattedRow = row.map((cell, colIndex) => {
-            const cellValue = String(cell || '');
-            return cellValue.padEnd(columnWidths[colIndex] + 3);
-          }).join('');
-          
-          fullText += formattedRow + '\n';
-          
-          // Add a separator after header row
-          if (rowIndex === 0) {
-            fullText += '-'.repeat(formattedRow.length) + '\n';
-          }
-        }
-      });
+      } catch (sheetError) {
+        console.warn(`Error processing sheet ${sheetName}:`, sheetError);
+        fullText += `Error processing sheet: ${sheetError.message}\n`;
+      }
       
       fullText += '\n\n';
     });

@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "openai": "^4.87.3",
+    "postinstall": "^0.7.5"
+  }
+}
