@@ -16,38 +16,35 @@ const formatFileSize = (bytes) => {
 };
 
 /**
- * Extract text from PDF file
+ * Extract text from a PDF file using pure PDF.js approach
+ * This version addresses the worker loading issue
  */
 const extractTextFromPDF = async (file) => {
   try {
-    // Only import PDF.js in browser environment
-    if (typeof window === 'undefined') {
-      console.log('PDF extraction skipped in server environment');
-      return 'PDF content extraction not available in server environment';
-    }
-
-    // Import the PDF.js library dynamically
-    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf');
-    
-    // Configure the worker source
-    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-      const worker = await import('pdfjs-dist/legacy/build/pdf.worker.entry');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = worker.default;
-    }
-    
-    const arrayBuffer = await file.arrayBuffer();
-    
     console.log(`Starting PDF extraction for: ${file.name}, size: ${file.size} bytes`);
     
+    // Import PDF.js dynamically
+    const pdfjs = await import('pdfjs-dist');
+    
+    // This is the critical fix - properly set the worker path as a string, not as an object
+    pdfjs.GlobalWorkerOptions.workerSrc = '//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    
+    // Read the file as an ArrayBuffer
+    const arrayBuffer = await file.arrayBuffer();
+    
+    // Load the PDF document
+    const loadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) });
+    
     try {
-      // Load the PDF document
-      const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
-      console.log(`PDF loaded successfully with ${pdf.numPages} pages`);
+      const pdf = await loadingTask.promise;
+      console.log(`PDF loaded with ${pdf.numPages} pages`);
       
+      // Extract text from each page
       let fullText = '';
-
-      // Process each page
-      for (let i = 1; i <= pdf.numPages; i++) {
+      let numPagesProcessed = 0;
+      const maxPagesToProcess = 100; // Increased from 50 to capture more content
+      
+      for (let i = 1; i <= Math.min(pdf.numPages, maxPagesToProcess); i++) {
         try {
           const page = await pdf.getPage(i);
           const textContent = await page.getTextContent();
@@ -55,32 +52,96 @@ const extractTextFromPDF = async (file) => {
             .map(item => item.str)
             .join(' ');
           
-          console.log(`Extracted ${pageText.length} characters from page ${i}`);
-          fullText += `--- Page ${i} ---\n${pageText}\n\n`;
+          fullText += pageText + '\n\n';
+          numPagesProcessed++;
+          
+          // Log progress every 5 pages
+          if (i % 5 === 0 || i === pdf.numPages) {
+            console.log(`Processed ${i} of ${pdf.numPages} pages...`);
+          }
         } catch (pageError) {
-          console.error(`Error extracting page ${i}:`, pageError);
-          fullText += `--- Page ${i} ---\n[Error extracting content]\n\n`;
+          console.warn(`Error extracting text from page ${i}:`, pageError);
+          // Continue with next page
         }
       }
-
-      console.log(`Total extracted text length: ${fullText.length} characters`);
       
-      // If text extraction appears to have failed
-      if (fullText.trim().length < 100) {
-        console.warn("Very little text extracted from PDF. The file may be scanned or image-based.");
-        fullText += "\n[Note: This PDF appears to contain mostly images or scanned content that couldn't be extracted as text.]";
+      if (numPagesProcessed < pdf.numPages) {
+        console.log(`Note: Only processed ${numPagesProcessed} of ${pdf.numPages} pages due to size limits`);
+        fullText += `\n[Document truncated - ${numPagesProcessed} of ${pdf.numPages} pages processed]\n`;
       }
       
+      console.log(`PDF extraction complete, extracted ${fullText.length} characters`);
       return fullText;
     } catch (pdfError) {
-      console.error('PDF parsing error:', pdfError);
-      return `Error extracting text from PDF: ${pdfError.message}`;
+      console.error('PDF loading error:', pdfError);
+      throw pdfError;
     }
   } catch (error) {
-    console.error('PDF extraction error:', error);
-    return `Error processing PDF: ${error.message}`;
+    console.error('PDF parsing error:', error);
+    // Return a minimal fallback text to prevent complete failure
+    return `[Unable to extract text from PDF: ${file.name}. Error: ${error.message}]`;
   }
 };
+
+// Alternative version using pdf.js from CDN if needed
+const extractTextFromPDFAlternative = async (file) => {
+  try {
+    console.log(`Starting alternative PDF extraction for: ${file.name}, size: ${file.size} bytes`);
+    
+    // Import PDF.js dynamically
+    const pdfjs = await import('pdfjs-dist');
+    
+    // Set the worker path to use a CDN version - important fix!
+    pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    
+    // Read the file as an ArrayBuffer
+    const arrayBuffer = await file.arrayBuffer();
+    
+    // Create a new PDF Document - using a more explicit object configuration
+    const loadingTask = pdfjs.getDocument({
+      data: new Uint8Array(arrayBuffer),
+      cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+      cMapPacked: true,
+      standardFontDataUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/'
+    });
+    
+    const pdf = await loadingTask.promise;
+    console.log(`PDF loaded with ${pdf.numPages} pages`);
+    
+    // The rest of the function is the same as above
+    let fullText = '';
+    let numPagesProcessed = 0;
+    const maxPagesToProcess = 100;
+    
+    for (let i = 1; i <= Math.min(pdf.numPages, maxPagesToProcess); i++) {
+      try {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map(item => item.str)
+          .join(' ');
+        
+        fullText += pageText + '\n\n';
+        numPagesProcessed++;
+        
+        if (i % 5 === 0 || i === pdf.numPages) {
+          console.log(`Processed ${i} of ${pdf.numPages} pages...`);
+        }
+      } catch (pageError) {
+        console.warn(`Error extracting text from page ${i}:`, pageError);
+      }
+    }
+    
+    console.log(`PDF extraction complete, extracted ${fullText.length} characters`);
+    return fullText;
+  } catch (error) {
+    console.error('PDF parsing error:', error);
+    return `[Unable to extract text from PDF: ${file.name}. Error: ${error.message}]`;
+  }
+};
+
+// Export the function
+export { extractTextFromPDF, extractTextFromPDFAlternative };
 
 /**
  * Extract data from Excel file with multiple fallback methods
@@ -222,6 +283,81 @@ const extractTextFromExcel = async (file) => {
   }
 };
 
+
+/**
+ * Clear all files from the application state and optionally from storage
+ * @param {boolean} deleteFromStorage - Whether to also delete files from Supabase storage
+ * @returns {Promise<void>}
+ */
+const clearFiles = async (deleteFromStorage = false) => {
+  try {
+    console.log(`Clearing all files${deleteFromStorage ? ' and deleting from storage' : ''}`);
+    
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      console.warn('No authenticated user found when trying to clear files');
+      return;
+    }
+
+    // Get all files for the current user
+    const { data: files, error: fetchError } = await supabase
+      .from('files')
+      .select('*')
+      .eq('user_id', user.id);
+      
+    if (fetchError) {
+      console.error('Error fetching files to clear:', fetchError);
+      throw fetchError;
+    }
+    
+    console.log(`Found ${files?.length || 0} files to clear`);
+    
+    // If we also need to delete from storage
+    if (deleteFromStorage && files && files.length > 0) {
+      // Delete each file from storage
+      for (const file of files) {
+        if (file.storage_path) {
+          // Extract filename from storage path if needed
+          const filename = file.storage_path.split('/').pop();
+          
+          // Delete from storage
+          const { error: deleteError } = await supabase
+            .storage
+            .from('documents')
+            .remove([filename]);
+            
+          if (deleteError) {
+            console.warn(`Error deleting file ${filename} from storage:`, deleteError);
+            // Continue with other files
+          } else {
+            console.log(`Deleted file ${filename} from storage`);
+          }
+        }
+      }
+    }
+    
+    // Delete all file records from the database
+    const { error: deleteError } = await supabase
+      .from('files')
+      .delete()
+      .eq('user_id', user.id);
+      
+    if (deleteError) {
+      console.error('Error deleting file records:', deleteError);
+      throw deleteError;
+    }
+    
+    console.log('All files cleared successfully');
+  } catch (error) {
+    console.error('Error clearing files:', error);
+    throw new Error(`Failed to clear files: ${error.message}`);
+  }
+};
+
+// Export the function
+export { clearFiles };
 /**
  * Uploads a document to Supabase storage and database
  */
