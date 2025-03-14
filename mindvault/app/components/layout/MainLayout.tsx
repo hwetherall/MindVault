@@ -109,12 +109,12 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
       title: 'Clear Repository',
       message: 'Are you sure you want to clear all files from the repository? This action cannot be undone.',
       onConfirm: async () => {
-        try {
+    try {
           console.log('Starting clear repository process...');
           
-          // Clear all files
+      // Clear all files
           console.log('Calling filesService.clearFiles()...');
-          await filesService.clearFiles();
+      await filesService.clearFiles();
           console.log('filesService.clearFiles() completed successfully');
           
           // Verify files are cleared by fetching again
@@ -129,7 +129,7 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
           } else {
             throw new Error('Failed to clear all files from the repository');
           }
-        } catch (error) {
+    } catch (error) {
           console.error('Error in handleClearRepository:', error);
           showToast('Failed to clear repository. Please try again.', 'error');
         } finally {
@@ -238,7 +238,7 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
             {/* Left Column - File Management */}
             <div className={`transition-all duration-300 ease-in-out ${isCollapsed ? 'md:col-span-1' : 'md:col-span-4'}`}>
               {/* Document Repository Section */}
-              <div className="mb-6 p-4 border border-gray-300 rounded-lg bg-white shadow-sm relative">
+              <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-all duration-200 relative">
                 {/* Collapse Toggle Button */}
                 <button
                   onClick={() => setIsCollapsed(!isCollapsed)}
@@ -268,8 +268,8 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
                         <FileSpreadsheet size={24} className="text-green-500" />
                       </div>
                       <span className="text-xs mt-1">Excel</span>
-                    </div>
-                    
+              </div>
+              
                     {/* Upload Button */}
                     <button 
                       onClick={() => document.getElementById('combinedUpload')?.click()}
@@ -329,8 +329,8 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
                           <span className="text-green-600 text-sm">Spreadsheets</span>
                           <span className="text-xs text-green-400">(Excel)</span>
                         </button>
-                      </div>
-
+              </div>
+              
                       {/* Hidden File Inputs */}
                       <input
                         id="pdfUpload"
@@ -348,26 +348,26 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
                       />
 
                       {/* Files List */}
-                      <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+                      <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 shadow-sm hover:shadow-md transition-all duration-200">
                         <h4 className="text-sm font-medium text-gray-700 mb-2">Uploaded Documents</h4>
                         {files.length > 0 ? (
                           <ul className="space-y-1">
                             {files.map((file) => (
-                              <li key={file.id || `file-${file.name}`} className="flex justify-between items-center p-2 hover:bg-gray-100 rounded">
-                                <div className="flex items-center gap-2">
+                              <li key={file.id || `file-${file.name}`} className="flex justify-between items-start p-2 hover:bg-gray-100 rounded">
+                                <div className="flex items-start gap-2 min-w-0 flex-1">
                                   {file.name?.toLowerCase().endsWith('.pdf') ? (
-                                    <FileText size={16} className="text-red-500" />
+                                    <FileText size={16} className="text-red-500 flex-shrink-0 mt-1" />
                                   ) : (
-                                    <FileSpreadsheet size={16} className="text-green-500" />
+                                    <FileSpreadsheet size={16} className="text-green-500 flex-shrink-0 mt-1" />
                                   )}
-                                  <span className="truncate">{file.name}</span>
+                                  <span className="break-words text-sm">{file.name}</span>
                                 </div>
-                                <button
+                  <button
                                   onClick={() => handleDeleteFile(file.id, file.type)}
-                                  className="text-gray-500 hover:text-red-500"
-                                >
+                                  className="text-gray-500 hover:text-red-500 flex-shrink-0 ml-2 mt-1"
+                  >
                                   <X size={16} />
-                                </button>
+                  </button>
                               </li>
                             ))}
                           </ul>
@@ -379,14 +379,14 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
                       </div>
 
                       {/* Clear Repository Button */}
-                      <button
-                        onClick={handleClearRepository}
+                  <button
+                    onClick={handleClearRepository}
                         className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
-                      >
+                  >
                         <Trash size={16} />
-                        Clear Repository
-                      </button>
-                    </div>
+                    Clear Repository
+                  </button>
+                </div>
                   </div>
                 )}
               </div>
@@ -394,7 +394,7 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
 
             {/* Right Column - Investment Memo Content */}
             <div className={`transition-all duration-300 ease-in-out ${isCollapsed ? 'md:col-span-11' : 'md:col-span-8'}`}>
-                <div className="innovera-card shadow-elevated">
+                <div className="border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-all duration-200 p-6">
                   <InvestmentMemoMain 
                     files={files} 
                     onComplete={handleAnalysisComplete} 

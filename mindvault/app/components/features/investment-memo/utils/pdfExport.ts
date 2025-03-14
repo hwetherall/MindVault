@@ -16,7 +16,7 @@ export interface InvestmentMemoQuestion {
 export interface Answer {
   summary: string;
   details: string;
-  isEdited: boolean;
+  isEdited?: boolean;
 }
 
 /**
@@ -75,7 +75,6 @@ export const exportToPDF = async (
   },
   logo?: string 
 ): Promise<void> => {
-  console.log('exportToPDF called with:', { title, description }); // Debug log
   
   let downloadUrl: string | null = null;
 

@@ -22,6 +22,22 @@ interface InvestmentMemoProps {
   onAnswerUpdate?: (id: string, summary: string, details: string) => void;
 }
 
+interface TranslatedContent {
+  title: string;
+  description: string;
+  questions: Array<{
+    id: string;
+    question: string;
+    description: string;
+  }>;
+  answers: {
+    [key: string]: {
+      summary: string;
+      details: string;
+    };
+  };
+}
+
 /**
  * Main component for the Investment Memo feature
  */
@@ -33,6 +49,14 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
   // State for question selection modal
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translatedContent, setTranslatedContent] = useState<TranslatedContent | null>(null);
+  const [originalContent, setOriginalContent] = useState<{
+    title: string;
+    description: string;
+    questions: InvestmentMemoQuestion[];
+  } | null>(null);
+
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
     includeTableOfContents: true,
     includeAppendices: true,
@@ -119,12 +143,105 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     setIsExportDialogOpen(true);
   };
 
-  const handleExportPDFPopup = async () => {
-    await exportToPDF(
-      filteredQuestions,
-      answers,
+  // Store original content when questions are selected
+  useEffect(() => {
+    if (filteredQuestions.length > 0 && !originalContent) {
+      setOriginalContent({
+        title,
+        description,
+        questions: filteredQuestions
+      });
+    }
+  }, [filteredQuestions, title, description]);
+
+  const handleLanguageChange = async (newLanguage: 'en' | 'ja') => {
+    if (newLanguage === 'ja' && !translatedContent) {
+      setIsTranslating(true);
+      try {
+        const response = await fetch('/api/translate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            content: {
+              title,
+              description,
+              questions: filteredQuestions.map(q => ({
+                id: q.id,
+                question: q.question,
+                description: q.description,
+                category: q.category
+              })),
+              answers: Object.entries(answers).map(([id, answer]) => ({
+                id,
+                summary: answer.summary,
+                details: answer.details,
+                isEdited: answer.isEdited
+              }))
+            },
+            targetLanguage: 'ja'
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Translation failed');
+        }
+
+        const translatedData = await response.json();
+        setTranslatedContent(translatedData);
+      } catch (error) {
+        console.error('Translation error:', error);
+        // Handle error appropriately
+      } finally {
+        setIsTranslating(false);
+      }
+    } else if (newLanguage === 'en') {
+      setTranslatedContent(null);
+    }
+    setExportOptions(prev => ({ ...prev, language: newLanguage }));
+  };
+
+  // Get the current content based on language
+  const getCurrentContent = () => {
+    if (exportOptions.language === 'ja' && translatedContent) {
+      return {
+        title: translatedContent.title,
+        description: translatedContent.description,
+        questions: translatedContent.questions,
+        answers: translatedContent.answers
+      };
+    }
+    return {
       title,
       description,
+      questions: filteredQuestions,
+      answers
+    };
+  };
+
+  const currentContent = getCurrentContent();
+
+  const handleExportPDFPopup = async () => {
+    const contentToExport = exportOptions.language === 'ja' && translatedContent
+      ? {
+          questions: translatedContent.questions,
+          answers: translatedContent.answers,
+          title: translatedContent.title,
+          description: translatedContent.description
+        }
+      : {
+          questions: filteredQuestions,
+          answers,
+          title,
+          description
+        };
+
+    await exportToPDF(
+      contentToExport.questions,
+      contentToExport.answers,
+      contentToExport.title,
+      contentToExport.description,
       exportOptions
     );
     setIsExportDialogOpen(false);
@@ -132,8 +249,6 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
       onComplete(true);
     }
   };
-
-  
 
   // Get the counts of answered, loading and total questions
   const getQuestionStatusCounts = () => {
@@ -218,7 +333,7 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
               </>
             ) : (
               <>
-                <h2 className="text-2xl font-semibold text-[#1A1F2E]">{title}</h2>
+                <h2 className="text-2xl font-semibold text-[#1A1F2E]">{currentContent.title}</h2>
                 <button
                   onClick={handleTitleEdit}
                   className="p-1 text-[#F15A29] hover:text-[#D94315]"
@@ -264,7 +379,7 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
           ) : (
             <div className="flex-1 flex items-center">
               <p className="text-base text-gray-600 italic font-normal">
-                {description || <span className="text-gray-400">Add a description...</span>}
+                {currentContent.description || <span className="text-gray-400">Add a description...</span>}
               </p>
               <button
                 onClick={handleDescriptionEdit}
@@ -323,13 +438,13 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
                 <div key={category}>
                   <h3 className="text-xl font-semibold border-b pb-2 mb-4">{category}</h3>
                   <div className="space-y-6">
-                    {groupedQuestions[category].map(question => (
+                    {currentContent.questions.map(question => (
                       <QuestionItem
                         key={question.id}
                         id={question.id}
                         question={question.question}
                         description={question.description}
-                        answer={answers[question.id]}
+                        answer={currentContent.answers[question.id]}
                         isExpanded={expandedAnswers[question.id] || false}
                         isEditing={editingId === question.id}
                         editedAnswer={editingId === question.id ? editedAnswer : ''}
@@ -363,6 +478,8 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
           onExport={handleExportPDFPopup}
           options={exportOptions}
           onOptionsChange={setExportOptions}
+          onLanguageChange={handleLanguageChange}
+          isTranslating={isTranslating}
         />
       )}
     </div>

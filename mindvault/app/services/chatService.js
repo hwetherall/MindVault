@@ -37,12 +37,12 @@ async function callOpenAI(messages, model = "o3-mini", temperature = 1, max_comp
     }
 
     return await response.json();
-  } catch (error) {
+    } catch (error) {
     console.error('Error calling AI API:', error);
-    throw error;
-  }
+      throw error;
+    }
 }
 
 export const chatService = {
   // ... existing code ...
-}; 
+};

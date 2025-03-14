@@ -7,14 +7,6 @@ if (!apiKey) {
   throw new Error('OPENAI_API_KEY is not set in environment variables');
 }
 
-// Extract project ID from the API key if it's a project-based key
-// Project-based keys start with "sk-proj-"
-if (apiKey.startsWith('sk-proj-')) {
-  // The project ID is embedded in the key
-  // We don't need to extract it, the OpenAI client will handle it
-  console.log('Using project-based API key');
-}
-
 // Initialize OpenAI client
 const openai = new OpenAI({
   apiKey
@@ -44,15 +36,16 @@ export async function POST(request: Request) {
       ...content.answers.map((a: any) => ({
         type: 'answer',
         id: a.id,
-        text: a.content
+        summary: a.summary,
+        details: a.details
       }))
     ];
 
     // Create a single prompt for batch translation
     const prompt = `
       Translate the following content from English to Japanese. 
-      Maintain the same formatting, including markdown syntax and special sections like "TL;DR:" and "DETAILS:".
-      You MUST NOT translate any numbers, currency, technical terms, company names, file names, or any other specific information. Keep quotation marks as is.
+      Maintain the same formatting, including markdown syntax.
+      You MUST NOT translate any numbers, currency, technical terms, company names, file names, or any other specific information. Keep quotation marks and double quotes as is, including their content. 
       Return the translations in JSON format with the following structure:
       {
         "title": "translated title",
@@ -67,7 +60,8 @@ export async function POST(request: Request) {
         "answers": [
           {
             "id": "original id",
-            "text": "translated content"
+            "summary": "translated summary",
+            "details": "translated details"
           }
         ]
       }
@@ -102,16 +96,21 @@ export async function POST(request: Request) {
         return {
           id: q.id,
           question: translated?.text || q.question,
-          description: translated?.description || q.description
+          description: translated?.description || q.description,
+          category: q.category // Modify if a translated category title is desired
         };
-      }),
-      answers: content.answers.map((a: any) => {
+      }), // Creates a new array with the translated questions in the same order as the original questions
+      answers: content.answers.reduce((acc: any, a: any) => {
         const translated = translatedContent.answers?.find((ta: any) => ta.id === a.id);
         return {
-          id: a.id,
-          content: translated?.text || a.content
+          ...acc,
+          [a.id]: {
+            summary: translated?.summary || a.summary,
+            details: translated?.details || a.details,
+            isEdited: a.isEdited
+          }
         };
-      })
+      }, {}) // Creates an object with question IDs as keys (expected format)
     };
 
     return NextResponse.json(result);
