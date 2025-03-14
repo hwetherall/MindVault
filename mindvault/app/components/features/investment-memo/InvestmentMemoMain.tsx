@@ -5,9 +5,42 @@ import QuestionSelectionModal from './QuestionSelectionModal';
 import { useInvestmentMemo, InvestmentMemoQuestion } from './hooks/useInvestmentMemo';
 import { exportToPDF, Answer } from './utils/pdfExport';
 import { ExportPDFDialog } from './ExportPDFDialog';
+import { answerService } from '../../../services/answerService';
 
 // Import from the new data file instead of constants
 import { INVESTMENT_MEMO_QUESTIONS } from './data/questions';
+
+// Local FastModeToggle component to avoid import issues
+interface FastModeToggleProps {
+  fastMode: boolean;
+  setFastMode: (mode: boolean) => void;
+}
+
+const FastModeToggle: React.FC<FastModeToggleProps> = ({ fastMode, setFastMode }) => {
+  return (
+    <div className="flex items-center gap-2 my-2">
+      <button
+        onClick={() => setFastMode(!fastMode)}
+        className={`flex items-center px-3 py-1.5 rounded-md text-sm transition-colors ${
+          fastMode 
+            ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-300' 
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
+        }`}
+        aria-pressed={fastMode}
+        title={fastMode ? "Fast mode: Quick answers but less thorough" : "Normal mode: More detailed and thorough analysis"}
+      >
+        <span>{fastMode ? 'Fast Mode' : 'Normal Mode'}</span>
+      </button>
+      
+      <div className="text-xs text-gray-500">
+        {fastMode 
+          ? 'Quicker responses, may be less thorough'
+          : 'More detailed analysis, may take longer'
+        }
+      </div>
+    </div>
+  );
+};
 
 interface ExportOptions {
   includeTableOfContents: boolean;
@@ -38,6 +71,11 @@ interface TranslatedContent {
   };
 }
 
+// Extend Answer type to include model information
+interface AnswerWithModel extends Answer {
+  modelUsed?: string;
+}
+
 /**
  * Main component for the Investment Memo feature
  */
@@ -56,6 +94,46 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     description: string;
     questions: InvestmentMemoQuestion[];
   } | null>(null);
+
+  // Add fast mode state with default value (false)
+  const [fastMode, setFastMode] = useState(false);
+  
+  // Use useEffect to safely access localStorage after component mounts
+  useEffect(() => {
+    // Check if localStorage is available (client-side only)
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('fastMode');
+      if (saved === 'true') {
+        setFastMode(true);
+      }
+    }
+  }, []);
+  
+  // Update localStorage when the mode changes
+  const handleSetFastMode = (value: boolean) => {
+    setFastMode(value);
+    // Check if localStorage is available
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('fastMode', value.toString());
+    }
+  };
+  
+  // Model information
+  const modelInfo = {
+    normal: {
+      id: "deepseek-r1-distill-llama-70b",
+      description: "More detailed analysis",
+      displayName: "The Innovera Tortoise is methodically examining every detail in your documents."
+    },
+    fast: {
+      id: "llama-3.1-8b-instant",
+      description: "Faster responses",
+      displayName: "The Innovera Hare is racing through your documents to find quick answers."
+    }
+  };
+  
+  // Get current model based on mode
+  const getCurrentModel = () => fastMode ? modelInfo.fast.id : modelInfo.normal.id;
 
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
     includeTableOfContents: true,
@@ -98,14 +176,82 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     handleEdit,
     handleSave,
     analyzeDocuments,
-    analyzeSelectedQuestions,
-    regenerateAnswer
+    analyzeSelectedQuestions: originalAnalyzeSelectedQuestions,
+    regenerateAnswer: originalRegenerateAnswer
   } = useInvestmentMemo({
     files,
     questions: filteredQuestions, 
     onComplete,
     onAnswerUpdate: handleAnswerUpdate
   });
+
+  // Get loading status from answers
+  const getLoadingQuestions = () => {
+    return Object.entries(answers).filter(([_, answer]) => 
+      (answer as any).isLoading === true
+    ).length;
+  };
+  
+  const loading = getLoadingQuestions();
+  
+  // Get total number of questions
+  const total = filteredQuestions.length;
+  
+  // Get category list
+  const categories = Array.from(new Set(filteredQuestions.map(q => q.category || 'General')));
+  
+  // Wrap the analyzeSelectedQuestions to include fastMode
+  const analyzeSelectedQuestions = async (questionIds: string[]) => {
+    // Modify the useInvestmentMemo hook calls to pass fastMode
+    // Since we can't directly modify the hook, we'll override the answerService.sendMessage method
+    const originalSendMessage = answerService.sendMessage;
+    
+    try {
+      // Override the sendMessage to include fastMode
+      // We need to use any type here because the third parameter isn't in the type definition
+      const modifiedSendMessage = async (message: string, files: any[] = []) => {
+        return (originalSendMessage as any)(message, files, fastMode);
+      };
+      answerService.sendMessage = modifiedSendMessage;
+      
+      // Call the original method
+      await originalAnalyzeSelectedQuestions(questionIds);
+      
+      // Store the model used for each answer - this is just for UI display
+      // We can't directly update the answers state as it's controlled by the hook
+      const currentModel = getCurrentModel();
+      questionIds.forEach(id => {
+        if (answers[id]) {
+          // We need to use any type here because modelUsed isn't in the Answer type
+          (answers[id] as any).modelUsed = currentModel;
+        }
+      });
+    } finally {
+      // Restore the original method
+      answerService.sendMessage = originalSendMessage;
+    }
+  };
+  
+  // Wrap regenerateAnswer to include fastMode
+  const regenerateAnswer = async (id: string) => {
+    // Similar approach as above
+    const originalSendMessage = answerService.sendMessage;
+    
+    try {
+      // Override the sendMessage to include fastMode
+      // We need to use any type here because the third parameter isn't in the type definition
+      const modifiedSendMessage = async (message: string, files: any[] = []) => {
+        return (originalSendMessage as any)(message, files, fastMode);
+      };
+      answerService.sendMessage = modifiedSendMessage;
+      
+      // Call the original method
+      await originalRegenerateAnswer(id);
+    } finally {
+      // Restore the original method
+      answerService.sendMessage = originalSendMessage;
+    }
+  };
   
   // Effect to handle analyzing questions after state updates have completed
   useEffect(() => {
@@ -143,6 +289,41 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     setIsExportDialogOpen(true);
   };
 
+  // Function to handle PDF export from dialog
+  const handleExportPDFPopup = async () => {
+    const contentToExport = exportOptions.language === 'ja' && translatedContent
+      ? {
+          questions: translatedContent.questions,
+          answers: Object.entries(translatedContent.answers).reduce((acc, [id, answer]) => {
+            acc[id] = {
+              ...answer,
+              isEdited: answers[id]?.isEdited || false
+            };
+            return acc;
+          }, {} as Record<string, Answer>),
+          title: translatedContent.title,
+          description: translatedContent.description
+        }
+      : {
+          questions: filteredQuestions,
+          answers,
+          title,
+          description
+        };
+
+    await exportToPDF(
+      contentToExport.questions,
+      contentToExport.answers,
+      contentToExport.title,
+      contentToExport.description,
+      exportOptions
+    );
+    setIsExportDialogOpen(false);
+    if (onComplete) {
+      onComplete(true);
+    }
+  };
+
   // Store original content when questions are selected
   useEffect(() => {
     if (filteredQuestions.length > 0 && !originalContent) {
@@ -152,7 +333,7 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
         questions: filteredQuestions
       });
     }
-  }, [filteredQuestions, title, description]);
+  }, [filteredQuestions, title, description, originalContent]);
 
   const handleLanguageChange = async (newLanguage: 'en' | 'ja') => {
     if (newLanguage === 'ja' && !translatedContent) {
@@ -228,95 +409,21 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
 
   const currentContent = getCurrentContent();
 
-  const handleExportPDFPopup = async () => {
-    const contentToExport = exportOptions.language === 'ja' && translatedContent
-      ? {
-          questions: translatedContent.questions,
-          answers: Object.entries(translatedContent.answers).reduce((acc, [id, answer]) => {
-            acc[id] = {
-              ...answer,
-              isEdited: answers[id]?.isEdited || false
-            };
-            return acc;
-          }, {} as Record<string, Answer>),
-          title: translatedContent.title,
-          description: translatedContent.description
-        }
-      : {
-          questions: filteredQuestions,
-          answers,
-          title,
-          description
-        };
-
-    await exportToPDF(
-      contentToExport.questions,
-      contentToExport.answers,
-      contentToExport.title,
-      contentToExport.description,
-      exportOptions
-    );
-    setIsExportDialogOpen(false);
-    if (onComplete) {
-      onComplete(true);
-    }
-  };
-
-  // Get the counts of answered, loading and total questions
-  const getQuestionStatusCounts = () => {
-    let answered = 0;
-    let loading = 0;
-    const total = filteredQuestions.length;
-    
-    filteredQuestions.forEach(q => {
-      if (answers[q.id]) {
-        if (answers[q.id].isLoading) {
-          loading++;
-        } else {
-          answered++;
-        }
-      }
-    });
-    
-    return { answered, loading, total };
-  };
-
-  const { answered, loading, total } = getQuestionStatusCounts();
-
-  // Get questions grouped by category
-  const getQuestionsGroupedByCategory = () => {
-    const grouped: { [key: string]: InvestmentMemoQuestion[] } = {};
-    
-    filteredQuestions.forEach(question => {
-      const category = question.category || 'General';
-      if (!grouped[category]) {
-        grouped[category] = [];
-      }
-      grouped[category].push(question);
-    });
-    
-    return grouped;
-  };
-
-  const groupedQuestions = getQuestionsGroupedByCategory();
-  const categories = Object.keys(groupedQuestions);
-
   const handleTitleEdit = () => {
     setTempTitle(title);
     setIsEditingTitle(true);
   };
-
+  
   const handleTitleSave = () => {
-    // Only update if tempTitle is not empty, otherwise keep the previous title
-    setTitle(tempTitle.trim() || title);
+    setTitle(tempTitle);
     setIsEditingTitle(false);
   };
-
+  
   const handleDescriptionEdit = () => {
     setTempDescription(description);
     setIsEditingDescription(true);
   };
-
+  
   const handleDescriptionSave = () => {
     setDescription(tempDescription);
     setIsEditingDescription(false);
@@ -356,6 +463,9 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
             )}
           </div>
           <div className="flex items-center gap-4">
+            {/* Fast Mode Toggle */}
+            <FastModeToggle fastMode={fastMode} setFastMode={handleSetFastMode} />
+            
             <button
               onClick={handleExportPDF}
               className={`flex items-center gap-2 px-3 py-1 rounded transition-colors ${
@@ -450,23 +560,42 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
                 <div key={category}>
                   <h3 className="text-xl font-semibold border-b pb-2 mb-4">{category}</h3>
                   <div className="space-y-6">
-                    {currentContent.questions.map(question => (
-                      <QuestionItem
-                        key={question.id}
-                        id={question.id}
-                        question={question.question}
-                        description={question.description}
-                        answer={currentContent.answers[question.id]}
-                        isExpanded={expandedAnswers[question.id] || false}
-                        isEditing={editingId === question.id}
-                        editedAnswer={editingId === question.id ? editedAnswer : ''}
-                        setEditedAnswer={setEditedAnswer}
-                        onToggle={toggleAnswer}
-                        onEdit={handleEdit}
-                        onSave={(id, content) => handleSave(id)}
-                        onRegenerate={regenerateAnswer}
-                      />
-                    ))}
+                    {currentContent.questions.map(question => {
+                      const questionAnswer = currentContent.answers[question.id];
+                      const modelUsed = (questionAnswer as any)?.modelUsed || 
+                        (fastMode ? modelInfo.fast.id : modelInfo.normal.id);
+                      const isFastMode = modelUsed === modelInfo.fast.id;
+                      
+                      return (
+                        <QuestionItem
+                          key={question.id}
+                          id={question.id}
+                          question={question.question}
+                          description={question.description}
+                          answer={questionAnswer}
+                          isExpanded={expandedAnswers[question.id] || false}
+                          isEditing={editingId === question.id}
+                          editedAnswer={editingId === question.id ? editedAnswer : ''}
+                          setEditedAnswer={setEditedAnswer}
+                          onToggle={toggleAnswer}
+                          onEdit={handleEdit}
+                          onSave={(id, content) => handleSave(id)}
+                          onRegenerate={regenerateAnswer}
+                        >
+                          {/* Model indicator */}
+                          {questionAnswer && (
+                            <div className={`text-xs mb-2 ${
+                              isFastMode ? 'text-amber-600' : 'text-blue-600'
+                            }`}>
+                              {isFastMode 
+                                ? modelInfo.fast.displayName
+                                : modelInfo.normal.displayName
+                              }
+                            </div>
+                          )}
+                        </QuestionItem>
+                      );
+                    })}
                   </div>
                 </div>
               ))}

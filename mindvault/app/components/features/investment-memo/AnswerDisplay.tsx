@@ -18,6 +18,14 @@ interface AnswerDisplayProps {
 }
 
 /**
+ * Removes asterisks from text content
+ */
+const removeAsterisks = (text: string): string => {
+  if (!text) return '';
+  return text.replace(/^\*\*\s*/gm, '').replace(/\s*\*\*$/gm, '');
+};
+
+/**
  * Component for displaying an answer with formatting
  */
 const AnswerDisplay: React.FC<AnswerDisplayProps> = ({ answer, onEdit, onRegenerate }) => {
@@ -96,10 +104,13 @@ const AnswerDisplay: React.FC<AnswerDisplayProps> = ({ answer, onEdit, onRegener
     );
   }
 
-  const formattedSummary = formatNumbersInText(answer.summary);
-  const formattedDetails = formatNumbersInText(answer.details);
-
-  // We're no longer using a preview, as we want to hide the entire details section
+  // Clean the summary and details by removing asterisks first
+  const cleanSummary = removeAsterisks(answer.summary);
+  const cleanDetails = removeAsterisks(answer.details);
+  
+  // Then format the numbers
+  const formattedSummary = formatNumbersInText(cleanSummary);
+  const formattedDetails = formatNumbersInText(cleanDetails);
 
   return (
     <div className="space-y-6">

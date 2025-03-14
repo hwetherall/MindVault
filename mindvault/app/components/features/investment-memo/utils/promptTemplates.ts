@@ -17,9 +17,13 @@ When answering:
 3. Include the specific currency and time period with all financial figures
 4. If calculating metrics (e.g., growth rates), show your calculation method
 5. Cite specific tabs, cells, or sections where you found the information
+6. IMPORTANT: Format large numbers using million/billion suffixes for readability
+   - Example: Write "40.49m AUD" instead of "40,485,584.91 AUD"
+   - For millions: Use 2 decimal places followed by 'm' (e.g., 40.49m)
+   - For billions: Use 2 decimal places followed by 'b' (e.g., 1.25b)
 
 Your answer must include:
-- The most recent value for the requested metric
+- The most recent value for the requested metric (formatted with appropriate suffix)
 - The time period this value represents (e.g., Q1 2023, FY2022)
 - Any relevant trends if historical data is available
 - The source of the information (specific document, tab, section)

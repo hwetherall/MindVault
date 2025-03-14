@@ -17,6 +17,7 @@ interface QuestionItemProps {
   onRegenerate: (id: string) => void;
   editedAnswer: string;
   setEditedAnswer: (content: string) => void;
+  children?: React.ReactNode;
 }
 
 /**
@@ -34,7 +35,8 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
   onSave,
   onRegenerate,
   editedAnswer,
-  setEditedAnswer
+  setEditedAnswer,
+  children
 }) => {
   // Helper functions to check loading state safely
   const isAnswerLoading = answer && (answer as any).isLoading === true;
@@ -49,89 +51,91 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
 
   // Get a preview of the answer summary for collapsed state
   const getSummaryPreview = () => {
-    if (!answer || isAnswerLoading || !answer.summary) return '';
-    
-    const summary = answer.summary;
-    if (summary.length <= 80) return summary;
-    return summary.substring(0, 80) + '...';
+    if (!answer || !answer.summary) return 'No answer generated yet';
+    const summaryText = answer.summary;
+    if (summaryText.length <= 100) return summaryText;
+    return summaryText.slice(0, 100) + '...';
   };
 
   return (
     <div className={cardClasses}>
-      {/* Question header */}
+      {/* Question Header */}
       <div 
-        className={`p-4 bg-gradient-to-r ${
-          isExpanded 
-            ? 'from-blue-50 to-white' 
-            : 'from-gray-50 to-white'
-        } cursor-pointer flex justify-between items-center`}
         onClick={() => onToggle(id)}
+        className="p-4 bg-white flex justify-between items-center cursor-pointer"
       >
-        <div className="flex-1">
-          <h3 className="text-lg font-medium text-gray-800">{question}</h3>
-          {description && !isExpanded && (
-            <p className="text-sm text-gray-500 mt-1">{description}</p>
-          )}
-          
-          {/* Preview of answer when collapsed */}
-          {!isExpanded && isAnswerGenerated && (
-            <p className="text-sm text-gray-600 mt-2 italic">
-              {getSummaryPreview()}
-            </p>
-          )}
+        <div>
+          <h4 className="text-lg font-medium text-gray-900">{question}</h4>
+          <p className="text-sm text-gray-600 mt-1">{description}</p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center">
           {isAnswerGenerated && (
-            <span className={`text-xs px-2 py-1 rounded-full ${
-              answer.isEdited 
-                ? 'bg-purple-100 text-purple-700' 
-                : 'bg-blue-100 text-blue-700'
-            }`}>
-              {answer.isEdited ? 'Edited' : 'AI Generated'}
-            </span>
+            <>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(id);
+                }}
+                className="p-1 text-blue-600 hover:text-blue-800 mr-2"
+                title="Edit answer"
+              >
+                <Edit2 size={18} />
+              </button>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRegenerate(id);
+                }}
+                className="p-1 text-blue-600 hover:text-blue-800 mr-2"
+                title="Regenerate answer"
+                disabled={isAnswerLoading}
+              >
+                <RefreshCw size={18} className={isAnswerLoading ? "animate-spin" : ""} />
+              </button>
+            </>
           )}
-          {isAnswerLoading && (
-            <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full flex items-center">
-              <div className="animate-spin h-3 w-3 border-2 border-yellow-500 border-t-transparent rounded-full mr-1"></div>
-              Processing
-            </span>
-          )}
-          {isExpanded ? (
-            <ChevronUp className="h-5 w-5 text-gray-400" />
-          ) : (
-            <ChevronDown className="h-5 w-5 text-gray-400" />
-          )}
+          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
         </div>
       </div>
-      
-      {/* Description when expanded */}
-      {isExpanded && description && (
-        <div className="px-4 pt-1 pb-3 bg-gray-50 border-t border-b">
-          <p className="text-sm text-gray-600">{description}</p>
-        </div>
-      )}
-      
-      {/* Answer section */}
+
+      {/* Answer Content */}
       {isExpanded && (
-        <div className="p-5 bg-white">
-          {isEditing ? (
+        <div className="p-4 bg-gray-50 border-t border-gray-200">
+          {/* Display model indicator if provided */}
+          {children}
+          
+          {isAnswerLoading ? (
+            <div className="flex items-center gap-2 text-blue-600">
+              <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+              <span>Generating answer...</span>
+            </div>
+          ) : isEditing ? (
             <EditAnswer 
               value={editedAnswer}
               onChange={setEditedAnswer}
               onSave={() => onSave(id, editedAnswer)}
               onCancel={() => onEdit('')}
             />
-          ) : (
+          ) : isAnswerGenerated ? (
             <AnswerDisplay 
               answer={answer}
-              onEdit={() => onEdit(id)}
+              onEdit={() => onEdit(id)} 
               onRegenerate={() => onRegenerate(id)}
             />
+          ) : (
+            <div>
+              <button
+                onClick={() => onRegenerate(id)}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+              >
+                Generate Answer
+              </button>
+            </div>
           )}
         </div>
       )}
     </div>
   );
-};
+}
 
 export default QuestionItem;

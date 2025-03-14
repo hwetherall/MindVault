@@ -12,7 +12,7 @@ const groq = new Groq({
   apiKey
 });
 
-export const maxDuration = 60; // Set maximum duration to 5 minutes
+export const maxDuration = 300; // Set maximum duration to 5 minutes
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
       messages: [
         {
           role: "system",
-          content: "You are a professional translator specializing in business and technical content translation between English and Japanese."
+          content: "You are a professional translator specializing in business and technical content translation between English and Japanese. You must always return valid JSON format."
         },
         {
           role: "user",
@@ -86,7 +86,18 @@ export async function POST(request: Request) {
       max_tokens: 120000 // Staying within Groq's model limits
     });
 
-    const translatedContent = JSON.parse(completion.choices[0].message.content || '{}');
+    let translatedContent;
+    try {
+      const content = completion.choices[0].message.content || '{}';
+      // Try to extract JSON if the response contains it
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      const jsonString = jsonMatch ? jsonMatch[0] : content;
+      translatedContent = JSON.parse(jsonString);
+    } catch (parseError) {
+      console.error('JSON parsing error:', parseError);
+      console.log('Raw response content:', completion.choices[0].message.content);
+      throw new Error('Failed to parse translation response');
+    }
 
     // Process and structure the translated content
     const result = {
