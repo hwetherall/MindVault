@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import Groq from 'groq-sdk';
 
 // Check for API key - using server-side environment variable
-const apiKey = process.env.OPENAI_API_KEY;
+const apiKey = process.env.GROQ_API_KEY;
 if (!apiKey) {
-  throw new Error('OPENAI_API_KEY is not set in environment variables');
+  throw new Error('GROQ_API_KEY is not set in environment variables');
 }
 
-// Initialize OpenAI client
-const openai = new OpenAI({
+// Initialize Groq client
+const groq = new Groq({
   apiKey
 });
 
@@ -70,8 +70,8 @@ export async function POST(request: Request) {
       ${JSON.stringify(textToTranslate, null, 2)}
     `;
 
-    const completion = await openai.chat.completions.create({
-      model: "o3-mini",
+    const completion = await groq.chat.completions.create({
+      model: "deepseek-r1-distill-llama-70b",
       messages: [
         {
           role: "system",
@@ -82,7 +82,8 @@ export async function POST(request: Request) {
           content: prompt
         }
       ],
-      response_format: { type: "json_object" }
+      temperature: 0.2,
+      max_tokens: 120000 // Staying within Groq's model limits
     });
 
     const translatedContent = JSON.parse(completion.choices[0].message.content || '{}');
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
           description: translated?.description || q.description,
           category: q.category // Modify if a translated category title is desired
         };
-      }), // Creates a new array with the translated questions in the same order as the original questions
+      }), 
       answers: content.answers.reduce((acc: any, a: any) => {
         const translated = translatedContent.answers?.find((ta: any) => ta.id === a.id);
         return {
@@ -110,7 +111,7 @@ export async function POST(request: Request) {
             isEdited: a.isEdited
           }
         };
-      }, {}) // Creates an object with question IDs as keys (expected format)
+      }, {})
     };
 
     return NextResponse.json(result);
@@ -121,4 +122,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-} 
+}

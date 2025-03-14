@@ -3,25 +3,6 @@
 // import { OpenAI } from 'openai';
 import { getSuggestedQuestions } from './excelAIService';
 
-// Remove direct API key usage
-// const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-// const OPENAI_PROJECT_ID = process.env.NEXT_PUBLIC_OPENAI_PROJECT_ID;
-
-// if (!OPENAI_API_KEY) {
-//   throw new Error('OpenAI API key is required');
-// }
-
-// if (!OPENAI_PROJECT_ID) {
-//   throw new Error('OpenAI Project ID is required');
-// }
-
-// No longer create OpenAI client directly
-// const openai = new OpenAI({
-//   apiKey: OPENAI_API_KEY,
-//   projectId: OPENAI_PROJECT_ID,
-//   dangerouslyAllowBrowser: true
-// });
-
 // Keywords that might indicate an Excel-related question
 const EXCEL_KEYWORDS = [
   'excel', 'spreadsheet', 'financial', 'financials', 'finance',
@@ -31,9 +12,40 @@ const EXCEL_KEYWORDS = [
   'trend', 'projection', 'quarterly', 'annual'
 ];
 
+// Helper function to clean thinking tags from responses
+function removeThinkingContent(text) {
+  // Remove <think>...</think> blocks completely
+  let cleanedText = text.replace(/<think>[\s\S]*?<\/think>/g, '');
+  
+  // Remove just <think> tags if they don't have a closing tag
+  cleanedText = cleanedText.replace(/<think>/g, '');
+  
+  // Remove lookahead/thinking phrases
+  const thinkingPhrases = [
+    'I need to analyze', 'let me check', 'let me examine', 'I should look for',
+    'First, I\'ll', 'Now I need to', 'I\'ll search for', 'I need to figure out',
+    'Let\'s start by', 'I\'ll begin by', 'Let me start by', 'I should analyze',
+    'Alright, I need to', 'Looking at the documents', 'I need to search for'
+  ];
+  
+  // Remove paragraphs that start with thinking phrases
+  for (const phrase of thinkingPhrases) {
+    const regex = new RegExp(`(^|\\n)${phrase}[^\\n]*\\n`, 'gi');
+    cleanedText = cleanedText.replace(regex, '\n');
+  }
+  
+  // Clean up any excessive newlines
+  cleanedText = cleanedText.replace(/\n{3,}/g, '\n\n');
+  
+  return cleanedText.trim();
+}
+
 // Helper function to call our secure API endpoint
-async function callOpenAI(messages, model = "o3-mini", temperature = 1, max_completion_tokens = 40000) {
+async function callOpenAI(messages, model = "deepseek-r1-distill-llama-70b", temperature = 1, max_completion_tokens = 100000) {
   try {
+    // Ensure we don't exceed model's max token limit
+    const safe_max_tokens = Math.min(max_completion_tokens, 120000);
+    
     const response = await fetch('/api/ai', {
       method: 'POST',
       headers: {
@@ -43,13 +55,13 @@ async function callOpenAI(messages, model = "o3-mini", temperature = 1, max_comp
         messages,
         model,
         temperature,
-        max_completion_tokens
+        max_completion_tokens: safe_max_tokens
       }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`API error: ${errorData.details || response.statusText}`);
+      throw new Error(`API error: ${response.status} ${JSON.stringify(errorData)}`);
     }
 
     return await response.json();
@@ -95,72 +107,67 @@ export const answerService = {
           contextMessage += `\nExcel Files: ${excelFiles.map(f => f.name).join(', ')}\n`;
         }
 
-        // Add selected file content for context (limiting to avoid token usage)
+        // Add selected file content for context (with expanded limits for DeepSeek model)
         let fileContentAdded = 0;
         
-        // Add content from PDF files first
+        // Add content from PDF files first - increased to process up to 5 files
         for (const file of pdfFiles) {
-          if (file.content && file.content.length > 0 && fileContentAdded < 3) {
-            // Smart PDF content extraction
+          if (file.content && file.content.length > 0 && fileContentAdded < 5) {
+            // Smart PDF content extraction with increased chunk sizes
             let pdfContent = file.content;
             const contentLength = pdfContent.length;
             
             // Log the total size of the PDF content
             console.log(`PDF ${file.name} content length: ${contentLength} characters`);
             
-            // If PDF is very large, implement smarter extraction
-            if (contentLength > 30000) {
-              // Define key sections we want to extract
-              const keyPhrases = [
-                "management team", "leadership team", "executive team", "founders", 
-                "annual recurring revenue", "arr", "burn rate", "runway",
-                "financials", "financial summary", "metrics", "kpi", "key performance",
-                "problem", "solution", "value proposition", "market opportunity"
-              ];
+            // Define key sections we want to extract
+            const keyPhrases = [
+              "management team", "leadership team", "executive team", "founders", 
+              "annual recurring revenue", "arr", "burn rate", "runway",
+              "financials", "financial summary", "metrics", "kpi", "key performance",
+              "problem", "solution", "value proposition", "market opportunity"
+            ];
+            
+            // Initialize extracted content
+            let extractedContent = "";
+            const chunkSize = 15000; // Increased chunk size for DeepSeek model
+            
+            // Add beginning of document (increased to capture more content)
+            extractedContent += pdfContent.substring(0, 15000) + "\n...\n";
+            
+            // Process the document in chunks to find key sections
+            for (let i = 15000; i < contentLength; i += chunkSize) {
+              const chunk = pdfContent.substring(i, Math.min(i + chunkSize, contentLength));
               
-              // Initialize extracted content
-              let extractedContent = "";
-              const chunkSize = 10000; // Size of each chunk to process
+              // Check if this chunk contains any key phrases
+              const containsKeyPhrase = keyPhrases.some(phrase => 
+                chunk.toLowerCase().includes(phrase.toLowerCase())
+              );
               
-              // Add beginning of document (always important)
-              extractedContent += pdfContent.substring(0, 8000) + "\n...\n";
-              
-              // Process the document in chunks to find key sections
-              for (let i = 8000; i < contentLength; i += chunkSize) {
-                const chunk = pdfContent.substring(i, Math.min(i + chunkSize, contentLength));
-                
-                // Check if this chunk contains any key phrases
-                const containsKeyPhrase = keyPhrases.some(phrase => 
-                  chunk.toLowerCase().includes(phrase.toLowerCase())
-                );
-                
-                if (containsKeyPhrase) {
-                  extractedContent += chunk + "\n...\n";
-                }
+              if (containsKeyPhrase) {
+                extractedContent += chunk + "\n...\n";
               }
-              
-              // Always include the end of the document (where team info often appears)
-              const endSection = pdfContent.substring(Math.max(0, contentLength - 10000));
-              if (!extractedContent.includes(endSection)) {
-                extractedContent += "\n...\n" + endSection;
-              }
-              
-              pdfContent = extractedContent;
-              console.log(`Extracted ${pdfContent.length} characters of key sections from PDF`);
-            } else {
-              // For smaller PDFs, just use all the content
-              pdfContent = pdfContent.substring(0, 30000);
             }
+            
+            // Always include the end of the document (where team info often appears)
+            // Increased size to capture more content
+            const endSection = pdfContent.substring(Math.max(0, contentLength - 15000));
+            if (!extractedContent.includes(endSection)) {
+              extractedContent += "\n...\n" + endSection;
+            }
+            
+            pdfContent = extractedContent;
+            console.log(`Extracted ${pdfContent.length} characters of key sections from PDF`);
             
             contextMessage += `\n--- Content from PDF: ${file.name} ---\n${pdfContent}\n--- End of PDF excerpt ---\n\n`;
             fileContentAdded++;
           }
         }
         
-        // Add content from Excel files next
+        // Add content from Excel files next - keeping at 5 files
         for (const file of excelFiles) {
-          if (file.content && file.content.length > 0 && fileContentAdded < 5) {
-            // Smart Excel content extraction
+          if (file.content && file.content.length > 0 && fileContentAdded < 6) {
+            // Smart Excel content extraction with larger extraction sizes
             let excelContent = file.content;
             const contentLength = excelContent.length;
             
@@ -184,7 +191,7 @@ export const answerService = {
               // Extract content by finding and prioritizing important sheets
               let extractedContent = "";
               
-              // First pass: extract high-priority sheets
+              // First pass: extract high-priority sheets with increased character limits
               for (let i = 0; i < sheetMatches.length; i++) {
                 const sheetNameMatch = sheetMatches[i];
                 const sheetName = sheetNameMatch[1].toLowerCase();
@@ -204,18 +211,18 @@ export const answerService = {
                     ? nextSheetMatch.index
                     : contentLength;
                   
-                  // Extract the sheet content (up to 15000 chars per priority sheet)
-                  const sheetContent = excelContent.substring(sheetStart, Math.min(sheetStart + 15000, sheetEnd));
+                  // Extract the sheet content with increased character limit
+                  const sheetContent = excelContent.substring(sheetStart, Math.min(sheetStart + 20000, sheetEnd));
                   extractedContent += sheetContent + "\n\n";
                 }
               }
               
               // If we didn't get much from priority sheets, add content from all sheets
-              if (extractedContent.length < 10000) {
+              if (extractedContent.length < 30000) { // Increased threshold
                 extractedContent = ""; // Reset and try a different approach
                 
-                // Take the first 5000 chars from each sheet, up to 8 sheets
-                for (let i = 0; i < Math.min(sheetMatches.length, 8); i++) {
+                // Take more content from each sheet, and include more sheets
+                for (let i = 0; i < Math.min(sheetMatches.length, 8); i++) { // Increased to 8 sheets
                   const sheetNameMatch = sheetMatches[i];
                   const sheetName = sheetNameMatch[1];
                   
@@ -228,8 +235,8 @@ export const answerService = {
                     ? nextSheetMatch.index
                     : contentLength;
                   
-                  // Extract the sheet content and include sheet name in the output
-                  const sheetContent = `Sheet ${sheetName}:\n${excelContent.substring(sheetStart, Math.min(sheetStart + 5000, sheetEnd))}`;
+                  // Extract the sheet content with increased size
+                  const sheetContent = `Sheet ${sheetName}:\n${excelContent.substring(sheetStart, Math.min(sheetStart + 10000, sheetEnd))}`;
                   extractedContent += sheetContent + "\n\n";
                 }
               }
@@ -237,8 +244,8 @@ export const answerService = {
               excelContent = extractedContent;
               console.log(`Extracted ${excelContent.length} characters from Excel sheets`);
             } else {
-              // If no sheet separators, just take a larger chunk
-              excelContent = excelContent.substring(0, 30000);
+              // If no sheet separators, take a larger chunk
+              excelContent = excelContent.substring(0, 50000); // Increased to 50k characters
             }
             
             contextMessage += `\n--- Content from Excel: ${file.name} ---\n${excelContent}\n--- End of Excel excerpt ---\n\n`;
@@ -253,17 +260,20 @@ export const answerService = {
         : message;
 
       console.log("Context message length:", contextMessage.length);
-      console.log("Sending request to OpenAI...");
+      console.log("Sending request to DeepSeek API...");
       
       try {
-        const model = "o3-mini";
+        const model = "deepseek-r1-distill-llama-70b";
         console.log(`Using model: ${model}`);
         
         const response = await callOpenAI([
           { 
+            role: "system", 
+            content: "You are an expert financial analyst with deep experience reviewing investment documents like pitch decks and financial spreadsheets. Your job is to THOROUGHLY examine the provided documents for SPECIFIC information. NEVER include your thinking process in your answers or use phrases like 'Let me analyze' or 'I need to check'. Just provide direct, clear responses with the information requested."
+          },
+          { 
             role: "user", 
-            content: "You are an expert financial analyst with deep experience reviewing investment documents like pitch decks and financial spreadsheets. Your job is to THOROUGHLY examine the provided documents for SPECIFIC information.\n\n" + 
-            "CRITICAL REQUIREMENTS:\n" +
+            content: "CRITICAL REQUIREMENTS:\n" +
             "1. NEVER say information is missing until you've searched the ENTIRE document\n" +
             "2. For Excel data: pay close attention to ALL column headers and row labels\n" +
             "3. For PDFs: check EVERY page, including sections near the end about team members\n" +
@@ -271,27 +281,41 @@ export const answerService = {
             "5. ONLY use information from the provided documents - don't make assumptions\n\n" +
             fullMessage 
           }
-        ], model, 1, 40000);
+        ], model, 0.7, 100000); // Reduced temperature for more focused responses
 
         if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
-          throw new Error('Received invalid response structure from OpenAI API');
+          throw new Error('Received invalid response structure from DeepSeek API');
         }
 
-        const text = response.choices[0].message.content;
+        // Get the raw response text
+        let responseText = response.choices[0].message.content;
+        
+        // Clean the response to remove thinking content
+        responseText = removeThinkingContent(responseText);
         
         // Check if this is an investment memo question
         if (message.includes('Investment Memo') || message.includes('investment memo')) {
-          return text;
+          return responseText;
         }
         
-        return { text, suggestedQuestions: [] };
+        return { text: responseText, suggestedQuestions: [] };
       } catch (apiError) {
-        console.error('OpenAI API Error:', apiError);
-        throw apiError;
+        console.error('DeepSeek API Error:', apiError);
+        
+        // Return a more user-friendly error message
+        return {
+          text: "I apologize, but I encountered an issue while analyzing your documents. This could be due to the complexity or size of the files. You might try asking about a more specific aspect of the documents.",
+          error: apiError.message
+        };
       }
     } catch (error) {
       console.error('Error in AI chat:', error);
-      throw error;
+      
+      // Return user-friendly error
+      return {
+        text: "I'm sorry, but I encountered a technical issue while processing your request. Please try again or ask a more specific question about your documents.",
+        error: error.message
+      };
     }
   },
   
@@ -317,8 +341,8 @@ export const answerService = {
       
       // Get the context for this file
       const contextData = { 
-        sheets: latestExcelFile.excelData.metadata?.sheets || [],
-        metadata: latestExcelFile.excelData.metadata
+        sheets: latestExcelFile.excelData?.metadata?.sheets || [],
+        metadata: latestExcelFile.excelData?.metadata
       };
       
       return getSuggestedQuestions(contextData);
@@ -326,29 +350,5 @@ export const answerService = {
       console.error('Error generating Excel questions:', error);
       return [];
     }
-  },
-
-  getMockResponse(message, files = []) {
-    // Check if any files are available
-    if (!files || files.length === 0) {
-      return {
-        text: "I don't see any uploaded documents to analyze. Please upload a pitch deck (PDF) and financial document (Excel) first."
-      };
-    }
-    
-    // Create a mock response based on the question type
-    //const fileNames = files.map(f => f.name).join(", ");
-    
-    // Check if this is an investment memo question
-    //if (message.includes("Annual Recurring Revenue")) {
-      //return {
-        //text: "Based on the financial data provided, the company's current Annual Recurring Revenue (ARR) is $40.49 million AUD (US$31.23 million). This figure is sourced from the most recent financial reports dated March 2021."
-      //};
-    //}
-    
-    // Default response for other questions
-    //return {
-      //text: `This is a development mode response. In production, this would call the OpenAI API to analyze your documents (${fileNames}) and answer your question about: "${message}".`
-    //};
   }
 };
