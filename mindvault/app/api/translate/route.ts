@@ -7,6 +7,7 @@ if (!apiKey) {
   throw new Error('OPENAI_API_KEY is not set in environment variables');
 }
 
+// Initialize OpenAI client without project parameter
 const openai = new OpenAI({
   apiKey
 });

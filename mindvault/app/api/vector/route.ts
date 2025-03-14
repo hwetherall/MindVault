@@ -3,19 +3,17 @@ import OpenAI from 'openai';
 
 // Check for API key - server-side only, not exposed to client
 const apiKey = process.env.OPENAI_API_KEY;
+// The project ID might be causing issues - let's make it optional
 const projectId = process.env.OPENAI_PROJECT_ID;
 
 if (!apiKey) {
   throw new Error('OPENAI_API_KEY is not set in environment variables');
 }
 
-if (!projectId) {
-  throw new Error('OPENAI_PROJECT_ID is not set in environment variables');
-}
-
+// Initialize OpenAI client - try without the project parameter
 const openai = new OpenAI({
-  apiKey,
-  project: projectId
+  apiKey
+  // Remove the project parameter to see if that resolves the issue
 });
 
 export const maxDuration = 60; // Set maximum duration to 60 seconds (Vercel hobby plan limit)
