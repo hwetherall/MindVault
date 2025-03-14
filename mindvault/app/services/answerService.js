@@ -32,7 +32,7 @@ const EXCEL_KEYWORDS = [
 ];
 
 // Helper function to call our secure API endpoint
-async function callOpenAI(messages, model = "o3-mini", temperature = 1, max_tokens = 40000) {
+async function callOpenAI(messages, model = "o3-mini", temperature = 1, max_completion_tokens = 40000) {
   try {
     const response = await fetch('/api/ai', {
       method: 'POST',
@@ -43,7 +43,7 @@ async function callOpenAI(messages, model = "o3-mini", temperature = 1, max_toke
         messages,
         model,
         temperature,
-        max_tokens
+        max_completion_tokens
       }),
     });
 

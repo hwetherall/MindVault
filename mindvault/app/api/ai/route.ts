@@ -27,13 +27,13 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    const { messages, model = "o3-mini", temperature = 1, max_tokens = 40000 } = await request.json();
+    const { messages, model = "o3-mini", temperature = 1, max_completion_tokens = 40000 } = await request.json();
 
     const response = await openai.chat.completions.create({
       model,
       messages,
       temperature,
-      max_tokens
+      max_completion_tokens: max_completion_tokens
     });
 
     return NextResponse.json(response);
