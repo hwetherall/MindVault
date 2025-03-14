@@ -13,7 +13,7 @@ const groq = new Groq({
   apiKey
 });
 
-export const maxDuration = 120; // Increased to 2 minutes for larger responses
+export const maxDuration = 60; // Increased to 2 minutes for larger responses
 export const dynamic = 'force-dynamic';
 
 // Model-specific token limits
