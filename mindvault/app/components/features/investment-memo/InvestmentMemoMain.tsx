@@ -3,7 +3,7 @@ import { FileDown, PlusCircle, Pencil, Check } from 'lucide-react';
 import QuestionItem from './QuestionItem';
 import QuestionSelectionModal from './QuestionSelectionModal';
 import { useInvestmentMemo, InvestmentMemoQuestion } from './hooks/useInvestmentMemo';
-import { exportToPDF } from './utils/pdfExport';
+import { exportToPDF, Answer } from './utils/pdfExport';
 import { ExportPDFDialog } from './ExportPDFDialog';
 
 // Import from the new data file instead of constants
@@ -209,7 +209,13 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
         title: translatedContent.title,
         description: translatedContent.description,
         questions: translatedContent.questions,
-        answers: translatedContent.answers
+        answers: Object.entries(translatedContent.answers).reduce((acc, [id, answer]) => {
+          acc[id] = {
+            ...answer,
+            isEdited: answers[id]?.isEdited || false
+          };
+          return acc;
+        }, {} as Record<string, Answer>)
       };
     }
     return {
@@ -226,7 +232,13 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     const contentToExport = exportOptions.language === 'ja' && translatedContent
       ? {
           questions: translatedContent.questions,
-          answers: translatedContent.answers,
+          answers: Object.entries(translatedContent.answers).reduce((acc, [id, answer]) => {
+            acc[id] = {
+              ...answer,
+              isEdited: answers[id]?.isEdited || false
+            };
+            return acc;
+          }, {} as Record<string, Answer>),
           title: translatedContent.title,
           description: translatedContent.description
         }
