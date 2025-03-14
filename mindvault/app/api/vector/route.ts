@@ -3,20 +3,25 @@ import OpenAI from 'openai';
 
 // Check for API key - server-side only, not exposed to client
 const apiKey = process.env.OPENAI_API_KEY;
-// The project ID might be causing issues - let's make it optional
-const projectId = process.env.OPENAI_PROJECT_ID;
 
 if (!apiKey) {
   throw new Error('OPENAI_API_KEY is not set in environment variables');
 }
 
-// Initialize OpenAI client - try without the project parameter
+// Extract project ID from the API key if it's a project-based key
+// Project-based keys start with "sk-proj-"
+if (apiKey.startsWith('sk-proj-')) {
+  // The project ID is embedded in the key
+  // We don't need to extract it, the OpenAI client will handle it
+  console.log('Using project-based API key');
+}
+
+// Initialize OpenAI client
 const openai = new OpenAI({
   apiKey
-  // Remove the project parameter to see if that resolves the issue
 });
 
-export const maxDuration = 60; // Set maximum duration to 60 seconds (Vercel hobby plan limit)
+export const maxDuration = 300; // Set maximum duration to 5 minutes
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
