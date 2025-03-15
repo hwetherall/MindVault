@@ -223,7 +223,23 @@ const generateChartData = (question, files) => {
         question.toLowerCase().includes('yoy') ||
         question.toLowerCase().includes('year over year') ||
         question.toLowerCase().includes('year-over-year')) {
-      // Look for growth rate data in all Excel files
+      // First try to find the Historical Metric file for YoY growth data
+      const historicalMetricFile = excelFiles.find(file => 
+        file.name.toLowerCase().includes('historical') && 
+        file.name.toLowerCase().includes('metric')
+      );
+      
+      if (historicalMetricFile) {
+        console.log(`Chart generation: Found dedicated Historical Metric file for YoY growth data: ${historicalMetricFile.name}`);
+        const growthChartData = extractTimeSeriesForChart(historicalMetricFile.content, 'growth rate');
+        
+        if (growthChartData && growthChartData.title && growthChartData.title.toLowerCase().includes('growth rate')) {
+          console.log(`Chart generation: Successfully extracted YoY growth data from Historical Metric file`);
+          return growthChartData;
+        }
+      }
+      
+      // If no Historical Metric file found or extraction failed, try with any Excel file
       for (const file of excelFiles) {
         console.log(`Chart generation: Checking ${file.name} for growth rate data`);
         const growthChartData = extractTimeSeriesForChart(file.content, 'growth rate');
