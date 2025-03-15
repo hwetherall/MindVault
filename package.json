@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "groq-sdk": "^0.16.0"
+    "groq-sdk": "^0.16.0",
+    "recharts": "^2.15.1"
   }
 }

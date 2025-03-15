@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Edit2, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { formatNumbersInText } from '../../../utils/textFormatting';
+import ChartComponent, { ChartData } from '../../ChartComponent';
 
 // Define the Answer interface locally 
 interface Answer {
@@ -9,6 +10,7 @@ interface Answer {
   details: string;
   isEdited: boolean;
   isLoading?: boolean;
+  chartData?: ChartData;
 }
 
 interface AnswerDisplayProps {
@@ -31,6 +33,13 @@ const removeAsterisks = (text: string): string => {
 const AnswerDisplay: React.FC<AnswerDisplayProps> = ({ answer, onEdit, onRegenerate }) => {
   // Add state to track if details are expanded
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
+
+  // Add debug logging for chart data
+  React.useEffect(() => {
+    if (answer?.chartData) {
+      console.log("AnswerDisplay received chart data:", JSON.stringify(answer.chartData, null, 2));
+    }
+  }, [answer?.chartData]);
 
   // Toggle details expansion
   const toggleDetails = () => {
@@ -112,6 +121,18 @@ const AnswerDisplay: React.FC<AnswerDisplayProps> = ({ answer, onEdit, onRegener
   const formattedSummary = formatNumbersInText(cleanSummary);
   const formattedDetails = formatNumbersInText(cleanDetails);
 
+  // Debug log for chart data rendering
+  if (answer.chartData) {
+    console.log("Rendering chart component with data:", 
+      JSON.stringify({
+        type: answer.chartData.type,
+        title: answer.chartData.title,
+        dataPoints: answer.chartData.data.datasets[0].data.length,
+        labels: answer.chartData.data.labels
+      }, null, 2)
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Summary Section */}
@@ -121,6 +142,11 @@ const AnswerDisplay: React.FC<AnswerDisplayProps> = ({ answer, onEdit, onRegener
           <ReactMarkdown>{formattedSummary}</ReactMarkdown>
         </div>
       </div>
+      
+      {/* Chart visualization if available */}
+      {answer.chartData && (
+        <ChartComponent chartData={answer.chartData} height={350} />
+      )}
 
       {/* Details Section (if available) */}
       {formattedDetails && (

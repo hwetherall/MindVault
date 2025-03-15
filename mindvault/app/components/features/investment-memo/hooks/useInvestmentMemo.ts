@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { answerService } from '../../../../services/answerService.js';
 import { generatePromptForQuestion, generateSimplePrompt } from "../utils/promptGenerator";
+import { ChartData } from '../../../ChartComponent';
 
-// Updated Answer type with separate summary and details fields and loading state
+// Updated Answer type with separate summary and details fields, loading state, and chart data
 export interface Answer {
   summary: string;
   details: string;
   isEdited: boolean;
   isLoading?: boolean;
+  chartData?: ChartData;
 }
 
 export interface InvestmentMemoQuestion {
@@ -48,6 +50,14 @@ interface UseInvestmentMemoReturn {
   handleViewPrompt: (id: string) => void;
   handleSavePrompt: () => void;
   closePromptModal: () => void;
+}
+
+// Add type definition for the API response
+interface AnswerServiceResponse {
+  text: string;
+  suggestedQuestions?: string[];
+  chartData?: ChartData;
+  error?: string;
 }
 
 /**
@@ -104,7 +114,9 @@ export function useInvestmentMemo({
         summary: editedAnswer,
         details: answers[id]?.details || '',
         isEdited: true,
-        isLoading: false
+        isLoading: false,
+        // Preserve chart data if it exists
+        chartData: answers[id]?.chartData
       };
       
       setAnswers(prev => ({
@@ -197,12 +209,21 @@ export function useInvestmentMemo({
       // Call the actual AI service
       const response = await answerService.sendMessage(prompt, files);
       
+      console.log(`Response for question ${questionId}:`, response);
+      
       // Parse the response text to extract summary and details
       let responseText = '';
+      let chartData: ChartData | undefined = undefined;
+      
       if (typeof response === 'string') {
         responseText = response;
-      } else if (response && typeof response.text === 'string') {
+      } else if (response && typeof response === 'object' && 'text' in response) {
         responseText = response.text;
+        // Extract chart data if available
+        if ('chartData' in response && response.chartData) {
+          console.log(`Found chart data for question ${questionId}:`, response.chartData);
+          chartData = response.chartData as ChartData;
+        }
       } else {
         throw new Error('Invalid response format from AI service');
       }
@@ -244,7 +265,8 @@ export function useInvestmentMemo({
         summary,
         details,
         isEdited: false,
-        isLoading: false
+        isLoading: false,
+        chartData
       };
     } catch (error) {
       console.error('Error analyzing question:', error);

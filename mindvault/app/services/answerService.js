@@ -2,6 +2,7 @@
 // Remove direct OpenAI import as we'll use our API endpoint
 // import { OpenAI } from 'openai';
 import { getSuggestedQuestions } from './excelAIService';
+import { extractTimeSeriesForChart, extractMultipleMetricsForChart, detectChartType, extractARRFromQuarterlyData } from './excelChartService';
 
 // Keywords that might indicate an Excel-related question
 const EXCEL_KEYWORDS = [
@@ -77,6 +78,183 @@ async function callOpenAI(messages, model = "deepseek-r1-distill-llama-70b", tem
     throw error;
   }
 }
+
+/**
+ * Extracts financial metrics mentioned in a question
+ * @param {string} question - The user's question
+ * @returns {Array<string>} Array of mentioned metrics
+ */
+const extractMentionedMetrics = (question) => {
+  if (!question) return [];
+  
+  const questionLower = question.toLowerCase();
+  const metrics = [];
+  
+  // Common financial metrics to check for
+  const metricKeywords = {
+    'arr': ['arr', 'annual recurring revenue', 'recurring revenue'],
+    'revenue': ['revenue', 'sales', 'income'],
+    'growth rate': ['growth rate', 'growth', 'cagr', 'yoy', 'year over year', 'year-over-year'],
+    'burn rate': ['burn rate', 'burn', 'cash burn'],
+    'margin': ['margin', 'gross margin', 'profit margin'],
+    'mrr': ['mrr', 'monthly recurring revenue'],
+    'runway': ['runway', 'cash runway'],
+    'ltv': ['ltv', 'lifetime value', 'customer lifetime value', 'clv'],
+    'cac': ['cac', 'customer acquisition cost', 'acquisition cost'],
+    'churn': ['churn', 'churn rate', 'attrition'],
+    'arpu': ['arpu', 'average revenue per user']
+  };
+  
+  // Check for each metric
+  Object.entries(metricKeywords).forEach(([metric, keywords]) => {
+    if (keywords.some(keyword => questionLower.includes(keyword))) {
+      metrics.push(metric);
+    }
+  });
+  
+  console.log(`Extracted metrics from question: ${metrics.join(', ')}`);
+  return metrics;
+};
+
+/**
+ * Generates chart data based on the question and available files
+ * @param {string} question - The user's question
+ * @param {Array} files - Array of file objects
+ * @returns {Object|null} Chart data object or null if no suitable data found
+ */
+const generateChartData = (question, files) => {
+  // Skip chart generation if no files are available
+  if (!files || files.length === 0) {
+    console.log("Chart generation: No files available for chart data");
+    return null;
+  }
+  
+  // Look for certain keywords in the question to identify the metric
+  const mentionedMetrics = [];
+  
+  // Check for ARR
+  if (question.toLowerCase().includes('arr') || 
+      question.toLowerCase().includes('annual recurring revenue')) {
+    mentionedMetrics.push('arr');
+  }
+  
+  // Check for Burn Rate
+  if (question.toLowerCase().includes('burn rate') || 
+      question.toLowerCase().includes('monthly burn') ||
+      question.toLowerCase().includes('cash burn') ||
+      question.toLowerCase().includes('burn')) {
+    mentionedMetrics.push('burn rate');
+  }
+  
+  // Check for Growth Rate - only add if ARR is not mentioned
+  if ((question.toLowerCase().includes('growth rate') || 
+      question.toLowerCase().includes('growth') ||
+      question.toLowerCase().includes('cagr')) && 
+      !question.toLowerCase().includes('arr') &&
+      !question.toLowerCase().includes('annual recurring revenue')) {
+    mentionedMetrics.push('growth rate');
+  }
+  
+  // And so on for other metrics...
+  
+  console.log(`Chart generation: Detected metrics in question: ${mentionedMetrics.join(', ')}`);
+  
+  // If we identified a metric, try to generate a chart
+  if (mentionedMetrics.length > 0) {
+    // Filter to just Excel files
+    const excelFiles = files.filter(file => 
+      file.name.toLowerCase().endsWith('.xlsx') || 
+      file.name.toLowerCase().endsWith('.xls') || 
+      file.name.toLowerCase().includes('excel')
+    );
+    
+    console.log(`Chart generation: Found ${excelFiles.length} Excel files`);
+    
+    // Special handling for ARR questions: Check if there's detailed ARR data in any of the files
+    if (mentionedMetrics.includes('arr') || question.toLowerCase().includes('arr') || question.toLowerCase().includes('annual recurring revenue')) {
+      // Try to find the Historical Metric file for ARR data
+      const historicalMetricFile = excelFiles.find(file => 
+        file.name.toLowerCase().includes('historical') && 
+        file.name.toLowerCase().includes('metric')
+      );
+      
+      if (historicalMetricFile) {
+        console.log(`Chart generation: Found dedicated Historical Metric file: ${historicalMetricFile.name}`);
+        const chartData = extractTimeSeriesForChart(historicalMetricFile.content, 'arr');
+        
+        if (chartData && chartData.title && chartData.title.toLowerCase().includes('recurring revenue')) {
+          console.log("Chart generation: Successfully extracted ARR data from Historical Metric file");
+          return chartData;
+        }
+      }
+      
+      // If Historical Metric file didn't work, try all Excel files
+      for (const file of excelFiles) {
+        console.log(`Chart generation: Checking ${file.name} for ARR data`);
+        const arrChartData = extractTimeSeriesForChart(file.content, 'arr');
+        
+        if (arrChartData && arrChartData.title && arrChartData.title.toLowerCase().includes('recurring revenue')) {
+          console.log(`Chart generation: Successfully extracted ARR data from ${file.name}`);
+          return arrChartData;
+        }
+      }
+    }
+    
+    // Special handling for Burn Rate questions
+    if (mentionedMetrics.includes('burn rate') || 
+        question.toLowerCase().includes('burn rate') || 
+        question.toLowerCase().includes('monthly burn') ||
+        question.toLowerCase().includes('cash burn')) {
+      // Look for burn rate data in all Excel files
+      for (const file of excelFiles) {
+        console.log(`Chart generation: Checking ${file.name} for burn rate data`);
+        const burnChartData = extractTimeSeriesForChart(file.content, 'burn rate');
+        
+        if (burnChartData) {
+          console.log(`Chart generation: Successfully extracted burn rate data from ${file.name}`);
+          return burnChartData;
+        }
+      }
+    }
+    
+    // Special handling for Growth Rate questions
+    if (mentionedMetrics.includes('growth rate') || 
+        question.toLowerCase().includes('growth rate') || 
+        question.toLowerCase().includes('yoy') ||
+        question.toLowerCase().includes('year over year') ||
+        question.toLowerCase().includes('year-over-year')) {
+      // Look for growth rate data in all Excel files
+      for (const file of excelFiles) {
+        console.log(`Chart generation: Checking ${file.name} for growth rate data`);
+        const growthChartData = extractTimeSeriesForChart(file.content, 'growth rate');
+        
+        if (growthChartData) {
+          console.log(`Chart generation: Successfully extracted growth rate data from ${file.name}`);
+          return growthChartData;
+        }
+      }
+    }
+    
+    // If no specialized extraction worked, try with any Excel file
+    if (excelFiles.length > 0) {
+      console.log(`Chart generation: Trying general extraction with ${excelFiles.length} Excel files`);
+      
+      // Try each Excel file for the first mentioned metric
+      for (const file of excelFiles) {
+        console.log(`Chart generation: Checking ${file.name} for ${mentionedMetrics[0]} data`);
+        const chartData = extractTimeSeriesForChart(file.content, mentionedMetrics[0]);
+        
+        if (chartData) {
+          console.log(`Chart generation: Successfully extracted ${mentionedMetrics[0]} data from ${file.name}`);
+          return chartData;
+        }
+      }
+    }
+  }
+  
+  console.log("Chart generation: Could not generate chart data");
+  return null;
+};
 
 export const answerService = {
   async sendMessage(message, files = [], fastMode = false) {
@@ -365,7 +543,39 @@ export const answerService = {
           return responseText;
         }
         
-        return { text: responseText, suggestedQuestions: [] };
+        // Try to generate chart data if appropriate
+        console.log("Generating chart data for the question:", message);
+        
+        // First check if the response text contains quarterly ARR data
+        let chartData = null;
+        
+        if (message.toLowerCase().includes("arr") || 
+            message.toLowerCase().includes("annual recurring revenue")) {
+          console.log("Chart data: Checking for quarterly ARR data in response text");
+          chartData = extractARRFromQuarterlyData(responseText);
+          
+          if (chartData) {
+            console.log("Chart data: Created chart from quarterly ARR data in response text");
+          } else {
+            // Try standard chart data extraction from Excel files
+            chartData = generateChartData(message, files);
+          }
+        } else {
+          // For other metrics, use standard extraction
+          chartData = generateChartData(message, files);
+        }
+        
+        console.log("Chart data generation result:", chartData ? "Chart created" : "No chart data found");
+        
+        // Ensure we return the chartData with the response
+        const responseObject = { 
+          text: responseText, 
+          suggestedQuestions: [],
+          chartData: chartData
+        };
+        
+        console.log("Final response object has chartData:", !!responseObject.chartData);
+        return responseObject;
       } catch (apiError) {
         console.error('DeepSeek API Error:', apiError);
         
