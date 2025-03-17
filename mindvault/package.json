@@ -25,6 +25,7 @@
     "currency.js": "^2.0.4",
     "eslint-plugin-react-refresh": "^0.4.19",
     "gpt-tokenizer": "^2.8.1",
+    "groq-sdk": "^0.16.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.0",
     "katex": "^0.16.21",

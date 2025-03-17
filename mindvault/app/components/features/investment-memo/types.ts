@@ -17,7 +17,7 @@ export interface InvestmentMemoQuestion {
 export interface Answer {
   summary: string;
   details: string;
-  isEdited?: boolean;
+  isEdited: boolean;
   isLoading?: boolean;
 }
 
