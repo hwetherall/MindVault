@@ -7,7 +7,7 @@ import { formatNumbersInText } from '../../../utils/textFormatting';
 interface Answer {
   summary: string;
   details: string;
-  isEdited: boolean;
+  isEdited?: boolean;
   isLoading?: boolean;
 }
 
