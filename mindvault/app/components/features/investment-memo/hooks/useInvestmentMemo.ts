@@ -189,11 +189,14 @@ export function useInvestmentMemo({
     }
 
     try {
+      console.log(`Prompt saved in prompts: ${prompts[questionId]}`);
+      console.log(`questionId: ${questionId}`);
       // Use the custom prompt if available, otherwise use the prompt generator
       const prompt = prompts[questionId] 
         ? prompts[questionId] 
         : generatePromptForQuestion(questionId);
 
+      console.log(`Prompt passed to AI service: ${prompt}`);
       // Call the actual AI service
       const response = await answerService.sendMessage(prompt, files);
       

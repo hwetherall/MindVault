@@ -62,6 +62,7 @@ interface TranslatedContent {
     id: string;
     question: string;
     description: string;
+    category: string;
   }>;
   answers: {
     [key: string]: {
@@ -560,7 +561,9 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
                 <div key={category}>
                   <h3 className="text-xl font-semibold border-b pb-2 mb-4">{category}</h3>
                   <div className="space-y-6">
-                    {currentContent.questions.map(question => {
+                    {currentContent.questions
+                      .filter(question => question.category === category)
+                      .map(question => {
                       const questionAnswer = currentContent.answers[question.id];
                       const modelUsed = (questionAnswer as any)?.modelUsed || 
                         (fastMode ? modelInfo.fast.id : modelInfo.normal.id);
