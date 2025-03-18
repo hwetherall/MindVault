@@ -52,8 +52,7 @@ export const QUESTION_DOCUMENT_MAPPING_BY_SUBCATEGORY: Record<string, DocumentPr
    'Key Customers': { primary: 'pdf', secondary: 'excel' },
    'Competitive Advantages': { primary: 'pdf', secondary: 'excel' },
    'Competitive Risks': { primary: 'both', secondary: 'both' },
- };
- 
+};
 
 /**
  * Complete list of investment memo questions with detailed definitions
@@ -995,11 +994,11 @@ export const INVESTMENT_MEMO_QUESTIONS: InvestmentMemoQuestion[] = [
 
 /**
  * Helper function to get the document priority for a specific question
- * @param questionId The ID of the question
+ * @param question The question object
  * @returns The document priority mapping for the question, or a default if not found
  */
-export function getDocumentPriorityForQuestion(questionId: string): DocumentPriority {
-  return QUESTION_DOCUMENT_MAPPING[questionId] || { primary: 'both', secondary: 'both' };
+export function getDocumentPriorityForQuestion(question: InvestmentMemoQuestion): DocumentPriority {
+  return QUESTION_DOCUMENT_MAPPING_BY_SUBCATEGORY[question.subcategory || ''] || { primary: 'both', secondary: 'both' };
 }
 
 /**
