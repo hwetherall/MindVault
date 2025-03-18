@@ -6,14 +6,9 @@ import { getTemplateForCategory } from "./promptTemplates";
  * Generates a detailed AI prompt for a specific investment memo question
  * 
  * @param questionId The ID of the question to generate a prompt for
- * @param customPrompt Optional custom prompt to use instead of the default
  * @returns A detailed prompt string for the AI
  */
-export function generatePromptForQuestion(questionId: string, customPrompt?: string): string {
-  // If a custom prompt is provided, use that
-  if (customPrompt && customPrompt.trim()) {
-    return customPrompt;
-  }
+export function generatePromptForQuestion(questionId: string): string {
   
   // Get the question details
   const question = getQuestionById(questionId);

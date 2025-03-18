@@ -64,11 +64,28 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
         onClick={() => onToggle(id)}
         className="p-4 bg-white flex justify-between items-center cursor-pointer"
       >
-        <div>
-          <h4 className="text-lg font-medium text-gray-900">{question}</h4>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h4 className="text-lg font-medium text-gray-900">{question}</h4>
+            {/* Status indicator */}
+            {isAnswerLoading ? (
+              <div className="flex items-center gap-1.5 text-blue-600 text-xs ml-4 px-2.5 py-0.5 rounded-full border border-blue-200 bg-blue-50">
+                <div className="animate-spin h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                <span>Analyzing...</span>
+              </div>
+            ) : isAnswerGenerated ? (
+              <div className="text-green-600 text-xs flex items-center gap-1.5 ml-4 px-2.5 py-0.5 rounded-full border border-green-200 bg-green-50">
+                <div className="h-2.5 w-2.5 rounded-full bg-green-600"></div>
+                <span>Complete</span>
+              </div>
+            ) : null}
+          </div>
           <p className="text-sm text-gray-600 mt-1">{description}</p>
+          {!isExpanded && isAnswerGenerated && (
+            <p className="text-sm text-gray-700 mt-2 line-clamp-2">{getSummaryPreview()}</p>
+          )}
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center ml-4">
           {isAnswerGenerated && (
             <>
               <button 

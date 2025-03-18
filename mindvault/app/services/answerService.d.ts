@@ -15,7 +15,7 @@ interface Response {
 }
 
 export const answerService: {
-  sendMessage(message: string, files?: File[]): Promise<Response>;
+  sendMessage(message: string, files?: File[], fastMode?: boolean): Promise<Response>;
   isExcelRelatedQuestion(question: string): boolean;
   getSuggestedExcelQuestions(files: File[]): Promise<string[]>;
   getMockResponse(message: string, files?: File[]): Response;

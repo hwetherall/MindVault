@@ -26,6 +26,7 @@ interface UseInvestmentMemoProps {
   questions: InvestmentMemoQuestion[];
   onComplete?: (passed: boolean) => void;
   onAnswerUpdate?: (id: string, summary: string, details: string) => void;
+  fastMode?: boolean;
 }
 
 interface UseInvestmentMemoReturn {
@@ -35,21 +36,13 @@ interface UseInvestmentMemoReturn {
   expandedAnswers: Record<string, boolean>;
   editingId: string | null;
   editedAnswer: string;
-  promptModalVisible: boolean;
-  currentPrompt: string;
-  currentPromptId: string;
   setEditedAnswer: (answer: string) => void;
-  setCurrentPrompt: (prompt: string) => void;
   toggleAnswer: (id: string) => void;
   handleEdit: (id: string) => void;
   handleSave: (id: string) => void;
   analyzeDocuments: () => Promise<void>;
   analyzeSelectedQuestions: (questionIds: string[]) => Promise<void>;
   regenerateAnswer: (id: string) => Promise<void>;
-  getPromptForQuestion: (id: string) => string;
-  handleViewPrompt: (id: string) => void;
-  handleSavePrompt: () => void;
-  closePromptModal: () => void;
 }
 
 // Add type definition for the API response
@@ -67,7 +60,8 @@ export function useInvestmentMemo({
   files,
   questions,
   onComplete,
-  onAnswerUpdate
+  onAnswerUpdate,
+  fastMode = false
 }: UseInvestmentMemoProps): UseInvestmentMemoReturn {
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
@@ -75,10 +69,6 @@ export function useInvestmentMemo({
   const [expandedAnswers, setExpandedAnswers] = useState<Record<string, boolean>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedAnswer, setEditedAnswer] = useState<string>('');
-  const [promptModalVisible, setPromptModalVisible] = useState<boolean>(false);
-  const [currentPrompt, setCurrentPrompt] = useState<string>('');
-  const [currentPromptId, setCurrentPromptId] = useState<string>('');
-  const [prompts, setPrompts] = useState<Record<string, string>>({});
 
   /**
    * Toggles the expansion state of an answer
@@ -134,52 +124,6 @@ export function useInvestmentMemo({
   };
 
   /**
-   * Gets the prompt for a specific question
-   */
-  const getPromptForQuestion = (id: string): string => {
-    if (prompts[id]) {
-      return prompts[id];
-    }
-    
-    // Use the new prompt generator
-    return generatePromptForQuestion(id);
-  };
-
-  /**
-   * Opens the prompt modal for viewing/editing a question prompt
-   */
-  const handleViewPrompt = (id: string) => {
-    setCurrentPromptId(id);
-    setCurrentPrompt(getPromptForQuestion(id));
-    setPromptModalVisible(true);
-  };
-
-  /**
-   * Saves the edited prompt
-   */
-  const handleSavePrompt = () => {
-    if (currentPromptId && currentPrompt.trim()) {
-      setPrompts(prev => ({
-        ...prev,
-        [currentPromptId]: currentPrompt
-      }));
-    }
-    
-    setPromptModalVisible(false);
-    setCurrentPromptId('');
-    setCurrentPrompt('');
-  };
-
-  /**
-   * Closes the prompt modal
-   */
-  const closePromptModal = () => {
-    setPromptModalVisible(false);
-    setCurrentPromptId('');
-    setCurrentPrompt('');
-  };
-
-  /**
    * Analyzes a single question
    */
   const analyzeQuestion = async (questionId: string): Promise<Answer> => {
@@ -201,13 +145,13 @@ export function useInvestmentMemo({
     }
 
     try {
-      // Use the custom prompt if available, otherwise use the prompt generator
-      const prompt = prompts[questionId] 
-        ? prompts[questionId] 
-        : generatePromptForQuestion(questionId);
+      // Use the prompt generator
+      const prompt = generatePromptForQuestion(questionId);
 
-      // Call the actual AI service
-      const response = await answerService.sendMessage(prompt, files);
+      console.log(`Prompt passed to AI service: ${prompt}`);
+
+      // Call the actual AI service with fastMode
+      const response = await answerService.sendMessage(prompt, files, fastMode);
       
       console.log(`Response for question ${questionId}:`, response);
       
@@ -442,20 +386,12 @@ export function useInvestmentMemo({
     expandedAnswers,
     editingId,
     editedAnswer,
-    promptModalVisible,
-    currentPrompt,
-    currentPromptId,
     setEditedAnswer,
-    setCurrentPrompt,
     toggleAnswer,
     handleEdit,
     handleSave,
     analyzeDocuments,
     analyzeSelectedQuestions,
-    regenerateAnswer,
-    getPromptForQuestion,
-    handleViewPrompt,
-    handleSavePrompt,
-    closePromptModal
+    regenerateAnswer
   };
 } 
