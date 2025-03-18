@@ -20,12 +20,9 @@ export function generatePromptForQuestion(questionId: string): string {
   // Get document priority for this question
   const docPriority = getDocumentPriorityForQuestion(questionId);
   
-  // Get category-specific template if available
-  const categoryTemplate = getTemplateForCategory(question.category);
-  
   // Generate the prompt
   return `
-    Based on ALL the available documents, please answer this question:
+    Based on ALL the available document information in <documents>, please answer this question:
     ${question.question}
     
     IMPORTANT: You MUST use BOTH document types in your analysis:
@@ -34,18 +31,11 @@ export function generatePromptForQuestion(questionId: string): string {
         docPriority.primary === 'excel' ? 
             '- PRIMARY SOURCE: The Excel financial data is your main source for this question.\n- SECONDARY SOURCE: Also check the PDF pitch deck for any supporting information.' :
             '- Both document types are equally important for this question.'}
-    
-    For this specific question about "${question.question}", you MUST:
-    1. First thoroughly examine the ${docPriority.primary === 'pdf' ? 'PDF pitch deck' : 
-                                    docPriority.primary === 'excel' ? 'Excel financial data' : 
-                                    'PDF pitch deck AND Excel financial data'}
-    2. Then examine the ${docPriority.secondary === 'pdf' ? 'PDF pitch deck' : 
-                         docPriority.secondary === 'excel' ? 'Excel financial data' : 
-                         'remaining documents'} for supporting details
-    3. Integrate information from both sources into your answer
-    4. NEVER claim information is missing if you've only checked one document type
-    
-    ${categoryTemplate ? `CATEGORY-SPECIFIC GUIDANCE:\n${categoryTemplate}\n` : ''}
+
+    DOCUMENT USAGE REQUIREMENTS:
+    1. Integrate information from both sources into your answer, if available.
+    2. You must check ALL documents before concluding information is unavailable. NEVER claim information is missing if you've only checked one document type
+    3. In your answer, specify what information came from which document type
     
     Your answer MUST be structured in the following format:
 
@@ -53,17 +43,16 @@ export function generatePromptForQuestion(questionId: string): string {
     A concise 1-2 sentence summary that directly answers the question with key facts. This will always be shown to the user.
 
     DETAILS:
-    A more comprehensive explanation with supporting information, calculations, and specific data points from the documents. Include source references where appropriate. This section will be hidden by default and only shown when the user clicks "Show Details".
-    
+    A section to provide comprehensive explanation with supporting information, calculations, and specific data points from the documents. Opt for bullet points and lists to make the answer more readable. It should ALWAYS follow the structure:
+      - Source: Source of the information used to answer the question including the document(s) name(s) with page number for PDFs and sheet name for Excel files
+      - Thinking process: The answer in detail where the thought process to reach the answer is included. Calculations, considerations,	and any other supporting information should be included here. 
+      - Conclusion: The final answer to the question.
+    Source, Thinking process and Conclusion dividers MUST be present in the answer to separate the subsections of DETAILS.	
+
     ${question.instructions ? `Detailed instructions:\n${question.instructions}\n` : ''}
-    
-    DOCUMENT USAGE REQUIREMENTS:
-    1. For management team information: The PDF pitch deck will contain this information
-    2. For financial metrics: The Excel data will contain this information
-    3. You must check BOTH document types before concluding information is unavailable
-    4. In your answer, specify what information came from which document type
-    
+
     Format your response to be clear and readable, focusing only on answering this specific question using ALL available documents.
+
     Ensure there's a clear separation between the Summary and DETAILS sections.
   `;
 }
@@ -93,8 +82,12 @@ A concise 1-2 sentence summary of the answer that directly addresses the questio
 Do NOT include the word "SUMMARY" in your response.
 
 2. DETAILS: 
-A comprehensive analysis with 3-5 paragraphs of findings, supporting evidence, and implications. Include specific data points from the documents where available.
-Do NOT include the word "DETAILS" in your response.
+A section to provide comprehensive explanation with supporting information, calculations, and specific data points from the documents. Opt for bullet points and lists to make the answer more readable. It should ALWAYS follow the structure:
+  - Source: Source of the information used to answer the question including the document(s) name(s) with page number for PDFs and sheet name for Excel files
+  - Thinking process: The answer in detail where the thought process to reach the answer is included. Calculations, considerations,	and any other supporting information should be included here. 
+  - Conclusion: The final answer to the question.
+Source, Thinking process and Conclusion dividers MUST be present in the answer to separate the subsections of DETAILS.	
+
 
 Focus specifically on this question and provide the most accurate answer based solely on the uploaded documents.`;
 } 

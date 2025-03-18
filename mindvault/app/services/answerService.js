@@ -1,16 +1,6 @@
 /* eslint-disable no-undef */
 // Remove direct OpenAI import as we'll use our API endpoint
 // import { OpenAI } from 'openai';
-import { getSuggestedQuestions } from './excelAIService';
-
-// Keywords that might indicate an Excel-related question
-const EXCEL_KEYWORDS = [
-  'excel', 'spreadsheet', 'financial', 'financials', 'finance',
-  'revenue', 'profit', 'margin', 'budget', 'forecast',
-  'sales', 'growth', 'expense', 'cash', 'flow', 'balance',
-  'sheet', 'income', 'statement', 'ratio', 'metric',
-  'trend', 'projection', 'quarterly', 'annual'
-];
 
 // Helper function to clean thinking tags from responses
 function removeThinkingContent(text) {
@@ -48,7 +38,7 @@ function removeThinkingContent(text) {
 }
 
 // Helper function to call our secure API endpoint
-async function callOpenAI(messages, model = "deepseek-r1-distill-llama-70b", temperature = 1, max_completion_tokens = 100000) {
+async function callLlm(messages, model = "deepseek-r1-distill-llama-70b", temperature = 1, max_completion_tokens = 100000) {
   try {
     // Ensure we don't exceed model's max token limit
     const safe_max_tokens = Math.min(max_completion_tokens, 120000);
@@ -314,10 +304,11 @@ export const answerService = {
 
       // Combine the context and user message
       const fullMessage = contextMessage 
-        ? `I have the following documents in my repository:\n${contextMessage}\n\nBased on these documents, please respond to this request:\n\n${message}\n\nThe above instructions are VERY IMPORTANT and should be followed precisely when analyzing the documents.`
+        ? `I have the following documents in my repository:<documents>\n${contextMessage}\n</documents>\nBased on these documents, please respond to this request:\n\n${message}\n\nThe above instructions are VERY IMPORTANT and should be followed precisely when analyzing the documents.`
         : message;
 
       console.log("Context message length:", contextMessage.length);
+      console.log("Full message length:", fullMessage.length);
       console.log("Sending request to AI API...");
       
       try {
@@ -325,7 +316,7 @@ export const answerService = {
         const model = fastMode ? "llama-3.1-8b-instant" : "deepseek-r1-distill-llama-70b";
         console.log(`Using model: ${model}`);
         
-        const response = await callOpenAI([
+        const response = await callLlm([
           { 
             role: "system", 
             content: "You are an expert financial analyst with deep experience reviewing investment documents like pitch decks and financial spreadsheets. Your job is to THOROUGHLY examine the provided documents for SPECIFIC information. NEVER include your thinking process in your answers or use phrases like 'Let me analyze' or 'I need to check'. Just provide direct, clear responses with the information requested.\n\n" +
@@ -385,37 +376,4 @@ export const answerService = {
       };
     }
   },
-  
-  isExcelRelatedQuestion(question) {
-    const lowerQuestion = question.toLowerCase();
-    return EXCEL_KEYWORDS.some(keyword => lowerQuestion.includes(keyword.toLowerCase()));
-  },
-  
-  async getSuggestedExcelQuestions(files) {
-    try {
-      // Filter for Excel files only
-      const excelFiles = files.filter(file => 
-        file.type !== 'note' && 
-        (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls'))
-      );
-      
-      if (excelFiles.length === 0) {
-        return [];
-      }
-      
-      // Get the most recently uploaded Excel file
-      const latestExcelFile = excelFiles[0];
-      
-      // Get the context for this file
-      const contextData = { 
-        sheets: latestExcelFile.excelData?.metadata?.sheets || [],
-        metadata: latestExcelFile.excelData?.metadata
-      };
-      
-      return getSuggestedQuestions(contextData);
-    } catch (error) {
-      console.error('Error generating Excel questions:', error);
-      return [];
-    }
-  }
 };

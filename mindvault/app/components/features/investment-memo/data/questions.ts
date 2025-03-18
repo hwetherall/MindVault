@@ -29,6 +29,32 @@ export const QUESTION_DOCUMENT_MAPPING: Record<string, DocumentPriority> = {
   'problem': { primary: 'pdf', secondary: 'excel' }
 };
 
+export const QUESTION_DOCUMENT_MAPPING_BY_CATEGORY: Record<string, DocumentPriority> = {
+   'Financial': { primary: 'excel', secondary: 'pdf' },
+   'Business': { primary: 'pdf', secondary: 'excel' },
+   'Market': { primary: 'pdf', secondary: 'excel' },
+   'Team': { primary: 'pdf', secondary: 'excel' },
+   'Risk': { primary: 'both', secondary: 'both' },
+   'Funding': { primary: 'pdf', secondary: 'excel' },
+ };
+
+export const QUESTION_DOCUMENT_MAPPING_BY_SUBCATEGORY: Record<string, DocumentPriority> = {
+   'ARR': { primary: 'excel', secondary: 'pdf' },
+   'Burn Rate & Runway': { primary: 'excel', secondary: 'pdf' },
+   'Cap Table': { primary: 'pdf', secondary: 'excel' },
+   'Current Funding Ask': { primary: 'pdf', secondary: 'excel' },
+   'Profitability': { primary: 'excel', secondary: 'pdf' },
+   'YoY Revenue Growth': { primary: 'excel', secondary: 'pdf' },
+   'Key Management Team': { primary: 'pdf', secondary: 'excel' },
+   'Competitors': { primary: 'pdf', secondary: 'excel' },
+   'Company Operations': { primary: 'pdf', secondary: 'excel' },
+   'Product Offerings': { primary: 'pdf', secondary: 'excel' },
+   'Key Customers': { primary: 'pdf', secondary: 'excel' },
+   'Competitive Advantages': { primary: 'pdf', secondary: 'excel' },
+   'Competitive Risks': { primary: 'both', secondary: 'both' },
+ };
+ 
+
 /**
  * Complete list of investment memo questions with detailed definitions
  * Each question includes:
@@ -46,6 +72,7 @@ export const INVESTMENT_MEMO_QUESTIONS: InvestmentMemoQuestion[] = [
     question: 'What is the current Annual Recurring Revenue (ARR) of the company?',
     description: 'Find the most recent ARR figure with currency.',
     category: 'Financial',
+    subcategory: 'ARR',
     complexity: 'medium',
     recommended: ['excel'],
     instructions: `You are tasked with finding the company's current Annual Recurring Revenue (ARR). Remember: Any financial figure extracted must be accompanied by the currency as listed in the source. Follow these steps:
@@ -99,6 +126,7 @@ export const INVESTMENT_MEMO_QUESTIONS: InvestmentMemoQuestion[] = [
     question: 'What is the Year-over-Year (YoY) growth rate?',
     description: 'Calculate the YoY growth percentage from the latest financial data.',
     category: 'Financial',
+    subcategory: 'YoY Revenue Growth',
     complexity: 'medium',
     recommended: ['excel'],
     instructions: `You are tasked with determining the company's Year-over-Year (YoY) growth rate. Remember: Any financial figure extracted must be accompanied by the percentage sign and time period. Follow these steps:
@@ -159,6 +187,7 @@ export const INVESTMENT_MEMO_QUESTIONS: InvestmentMemoQuestion[] = [
     question: 'What is the target valuation for the company?',
     description: 'Identify the valuation the company is seeking in this funding round.',
     category: 'Financial',
+    subcategory: 'Cap Table',
     complexity: 'medium',
     recommended: ['pdf'],
     instructions: `You are tasked with identifying the target valuation for the company in its current or upcoming funding round. Remember: Any financial figure extracted must be accompanied by the currency as listed in the source. Follow these steps:
@@ -233,6 +262,7 @@ export const INVESTMENT_MEMO_QUESTIONS: InvestmentMemoQuestion[] = [
     question: 'What is the current monthly cash burn rate?',
     description: 'Calculate the average monthly cash outflow from the financial statements.',
     category: 'Financial',
+    subcategory: 'Burn Rate & Runway',
     complexity: 'medium',
     recommended: ['excel'],
     instructions: `You are tasked with finding the current burn rate for the company. Remember: Any financial figure extracted must be accompanied by the currency as listed in the source. Follow these steps:
@@ -303,6 +333,7 @@ export const INVESTMENT_MEMO_QUESTIONS: InvestmentMemoQuestion[] = [
     question: 'How much runway does the company have?',
     description: 'Determine how many months of operations the company can fund with current cash reserves at the current burn rate.',
     category: 'Financial',
+    subcategory: 'Burn Rate & Runway',
     complexity: 'medium',
     recommended: ['excel'],
     instructions: `You are tasked with calculating the company's runway at the current expense level. Remember: Any financial figure extracted must be accompanied by the currency as listed in the source. Follow these steps:
@@ -388,6 +419,7 @@ export const INVESTMENT_MEMO_QUESTIONS: InvestmentMemoQuestion[] = [
     question: 'What is the company\'s business model?',
     description: 'Summarize how the company generates revenue and its pricing structure.',
     category: 'Business',
+    subcategory: 'Company Operations',
     complexity: 'low',
     recommended: ['pdf'],
     instructions: `You are tasked with identifying and explaining the company's business model. Follow these steps:
@@ -486,6 +518,7 @@ export const INVESTMENT_MEMO_QUESTIONS: InvestmentMemoQuestion[] = [
     question: 'Who are the company\'s key customers?',
     description: 'Identify major customers and customer segments.',
     category: 'Market',
+    subcategory: 'Key Customers',
     complexity: 'low',
     recommended: ['pdf'],
     instructions: `You are tasked with identifying the company's key customers and customer segments. Remember: Focus on actual current customers, not prospective or target customers. Follow these steps:
@@ -560,6 +593,7 @@ export const INVESTMENT_MEMO_QUESTIONS: InvestmentMemoQuestion[] = [
     question: 'Who are the main competitors?',
     description: 'List direct and indirect competitors and their market positions.',
     category: 'Market',
+    subcategory: 'Competitors',
     complexity: 'medium',
     recommended: ['pdf'],
     instructions: `You are tasked with identifying the company's main competitors and their market positions. Follow these steps:
@@ -626,6 +660,7 @@ export const INVESTMENT_MEMO_QUESTIONS: InvestmentMemoQuestion[] = [
     question: 'What is the company\'s key differentiation?',
     description: 'Identify unique selling propositions and competitive advantages.',
     category: 'Business',
+    subcategory: 'Competitive Advantages',
     complexity: 'medium',
     recommended: ['pdf'],
     instructions: `You are tasked with identifying the company's key differentiation and unique selling propositions. Follow these steps:
@@ -693,6 +728,7 @@ export const INVESTMENT_MEMO_QUESTIONS: InvestmentMemoQuestion[] = [
     question: 'Who are the key members of the management team and what are their backgrounds?',
     description: 'Identify key executives and their relevant experience.',
     category: 'Team',
+    subcategory: 'Key Management Team',
     complexity: 'low',
     recommended: ['pdf'],
     instructions: `You are tasked with identifying the key members of the management team and their backgrounds. Remember: Any personnel information extracted must include their titles and roles as listed in the source documents. Follow these steps:
@@ -758,6 +794,7 @@ export const INVESTMENT_MEMO_QUESTIONS: InvestmentMemoQuestion[] = [
     question: 'What are the key risks to consider?',
     description: 'Identify business, market, financial, and regulatory risks.',
     category: 'Risk',
+    subcategory: 'Competitive Risks',
     complexity: 'high',
     recommended: ['pdf', 'excel'],
     instructions: `You are tasked with identifying the key risks associated with the company that investors should consider. Remember: Focus on material risks that could significantly impact the business. Follow these steps:
@@ -835,6 +872,7 @@ export const INVESTMENT_MEMO_QUESTIONS: InvestmentMemoQuestion[] = [
     question: 'What is the company\'s funding history?',
     description: 'List previous funding rounds, investors, and amounts raised.',
     category: 'Financial',
+    subcategory: 'Cap Table',
     complexity: 'low',
     recommended: ['pdf'],
     instructions: `You are tasked with identifying the company's funding history. Follow these steps:
@@ -904,6 +942,7 @@ export const INVESTMENT_MEMO_QUESTIONS: InvestmentMemoQuestion[] = [
     question: 'What problem is this company trying to solve?',
     description: 'Identify the core customer problem the company addresses.',
     category: 'Business',
+    subcategory: 'Company Operations',
     complexity: 'low',
     recommended: ['pdf'],
     instructions: `You are tasked with identifying the core problem that the company is trying to solve. Remember: Focus on the actual customer problem, not just the company's solution. Follow these steps:
