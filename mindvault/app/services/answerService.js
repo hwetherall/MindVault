@@ -129,141 +129,103 @@ const generateChartData = (question, files) => {
     return null;
   }
   
-  // Look for certain keywords in the question to identify the metric
-  const mentionedMetrics = [];
+  // Define the EXACT questions that should have charts (from questions.ts)
+  const ARR_QUESTION = "What is the current Annual Recurring Revenue (ARR) of the company?";
+  const BURN_RATE_QUESTION = "What is the current monthly cash burn rate?";
   
-  // Check for ARR
-  if (question.toLowerCase().includes('arr') || 
-      question.toLowerCase().includes('annual recurring revenue')) {
-    mentionedMetrics.push('arr');
+  // Normalize questions by removing extra spaces, punctuation and converting to lowercase
+  const normalizeText = (text) => {
+    return text.toLowerCase().replace(/[.,?!;:]/g, '').replace(/\s+/g, ' ').trim();
+  };
+  
+  const normalizedQuestion = normalizeText(question);
+  const normalizedArrQuestion = normalizeText(ARR_QUESTION);
+  const normalizedBurnRateQuestion = normalizeText(BURN_RATE_QUESTION);
+  
+  // Check for question match (allowing for minor differences and contextual text)
+  const isArrQuestion = normalizedQuestion.includes(normalizedArrQuestion);
+  const isBurnRateQuestion = normalizedQuestion.includes(normalizedBurnRateQuestion);
+  
+  console.log("Normalized user question:", normalizedQuestion);
+  console.log("Normalized ARR question:", normalizedArrQuestion);
+  console.log("Normalized Burn Rate question:", normalizedBurnRateQuestion);
+  console.log("ARR question match:", isArrQuestion);
+  console.log("Burn Rate question match:", isBurnRateQuestion);
+  
+  // Only proceed with chart generation for these specific questions
+  if (!isArrQuestion && !isBurnRateQuestion) {
+    console.log("Chart generation: Question does not match the ARR or Burn Rate questions");
+    return null;
   }
   
-  // Check for Burn Rate
-  if (question.toLowerCase().includes('burn rate') || 
-      question.toLowerCase().includes('monthly burn') ||
-      question.toLowerCase().includes('cash burn') ||
-      question.toLowerCase().includes('burn')) {
-    mentionedMetrics.push('burn rate');
+  // Detect which specific chart to show
+  let chartType = '';
+  if (isArrQuestion) {
+    chartType = 'arr';
+    console.log("Chart generation: ARR chart requested");
+  } else if (isBurnRateQuestion) {
+    chartType = 'burn rate';
+    console.log("Chart generation: Burn Rate chart requested");
   }
   
-  // Check for Growth Rate - only add if ARR is not mentioned
-  if ((question.toLowerCase().includes('growth rate') || 
-      question.toLowerCase().includes('growth') ||
-      question.toLowerCase().includes('cagr')) && 
-      !question.toLowerCase().includes('arr') &&
-      !question.toLowerCase().includes('annual recurring revenue')) {
-    mentionedMetrics.push('growth rate');
-  }
+  // Filter to just Excel files
+  const excelFiles = files.filter(file => 
+    file.name.toLowerCase().endsWith('.xlsx') || 
+    file.name.toLowerCase().endsWith('.xls') || 
+    file.name.toLowerCase().includes('excel')
+  );
   
-  // And so on for other metrics...
+  console.log(`Chart generation: Found ${excelFiles.length} Excel files`);
   
-  console.log(`Chart generation: Detected metrics in question: ${mentionedMetrics.join(', ')}`);
-  
-  // If we identified a metric, try to generate a chart
-  if (mentionedMetrics.length > 0) {
-    // Filter to just Excel files
-    const excelFiles = files.filter(file => 
-      file.name.toLowerCase().endsWith('.xlsx') || 
-      file.name.toLowerCase().endsWith('.xls') || 
-      file.name.toLowerCase().includes('excel')
+  // Special handling for ARR questions
+  if (chartType === 'arr') {
+    // Try to find the Historical Metric file for ARR data
+    const historicalMetricFile = excelFiles.find(file => 
+      file.name.toLowerCase().includes('historical') && 
+      file.name.toLowerCase().includes('metric')
     );
     
-    console.log(`Chart generation: Found ${excelFiles.length} Excel files`);
-    
-    // Special handling for ARR questions: Check if there's detailed ARR data in any of the files
-    if (mentionedMetrics.includes('arr') || question.toLowerCase().includes('arr') || question.toLowerCase().includes('annual recurring revenue')) {
-      // Try to find the Historical Metric file for ARR data
-      const historicalMetricFile = excelFiles.find(file => 
-        file.name.toLowerCase().includes('historical') && 
-        file.name.toLowerCase().includes('metric')
-      );
+    if (historicalMetricFile) {
+      console.log(`Chart generation: Found dedicated Historical Metric file: ${historicalMetricFile.name}`);
+      const chartData = extractTimeSeriesForChart(historicalMetricFile.content, 'arr');
       
-      if (historicalMetricFile) {
-        console.log(`Chart generation: Found dedicated Historical Metric file: ${historicalMetricFile.name}`);
-        const chartData = extractTimeSeriesForChart(historicalMetricFile.content, 'arr');
-        
-        if (chartData && chartData.title && chartData.title.toLowerCase().includes('recurring revenue')) {
-          console.log("Chart generation: Successfully extracted ARR data from Historical Metric file");
-          return chartData;
-        }
-      }
-      
-      // If Historical Metric file didn't work, try all Excel files
-      for (const file of excelFiles) {
-        console.log(`Chart generation: Checking ${file.name} for ARR data`);
-        const arrChartData = extractTimeSeriesForChart(file.content, 'arr');
-        
-        if (arrChartData && arrChartData.title && arrChartData.title.toLowerCase().includes('recurring revenue')) {
-          console.log(`Chart generation: Successfully extracted ARR data from ${file.name}`);
-          return arrChartData;
-        }
+      if (chartData && chartData.title && chartData.title.toLowerCase().includes('recurring revenue')) {
+        console.log("Chart generation: Successfully extracted ARR data from Historical Metric file");
+        console.log("Chart data structure:", chartData.type, chartData.title, 
+                   "datasets:", chartData.data.datasets.length, 
+                   "points:", chartData.data.datasets[0]?.data.length);
+        return chartData;
       }
     }
     
-    // Special handling for Burn Rate questions
-    if (mentionedMetrics.includes('burn rate') || 
-        question.toLowerCase().includes('burn rate') || 
-        question.toLowerCase().includes('monthly burn') ||
-        question.toLowerCase().includes('cash burn')) {
-      // Look for burn rate data in all Excel files
-      for (const file of excelFiles) {
-        console.log(`Chart generation: Checking ${file.name} for burn rate data`);
-        const burnChartData = extractTimeSeriesForChart(file.content, 'burn rate');
-        
-        if (burnChartData) {
-          console.log(`Chart generation: Successfully extracted burn rate data from ${file.name}`);
-          return burnChartData;
-        }
+    // If Historical Metric file didn't work, try all Excel files
+    for (const file of excelFiles) {
+      console.log(`Chart generation: Checking ${file.name} for ARR data`);
+      const arrChartData = extractTimeSeriesForChart(file.content, 'arr');
+      
+      if (arrChartData && arrChartData.title && arrChartData.title.toLowerCase().includes('recurring revenue')) {
+        console.log(`Chart generation: Successfully extracted ARR data from ${file.name}`);
+        console.log("Chart data structure:", arrChartData.type, arrChartData.title, 
+                   "datasets:", arrChartData.data.datasets.length, 
+                   "points:", arrChartData.data.datasets[0]?.data.length);
+        return arrChartData;
       }
     }
-    
-    // Special handling for Growth Rate questions
-    if (mentionedMetrics.includes('growth rate') || 
-        question.toLowerCase().includes('growth rate') || 
-        question.toLowerCase().includes('yoy') ||
-        question.toLowerCase().includes('year over year') ||
-        question.toLowerCase().includes('year-over-year')) {
-      // First try to find the Historical Metric file for YoY growth data
-      const historicalMetricFile = excelFiles.find(file => 
-        file.name.toLowerCase().includes('historical') && 
-        file.name.toLowerCase().includes('metric')
-      );
+  }
+  
+  // Special handling for Burn Rate questions
+  if (chartType === 'burn rate') {
+    // Look for burn rate data in all Excel files
+    for (const file of excelFiles) {
+      console.log(`Chart generation: Checking ${file.name} for burn rate data`);
+      const burnChartData = extractTimeSeriesForChart(file.content, 'burn rate');
       
-      if (historicalMetricFile) {
-        console.log(`Chart generation: Found dedicated Historical Metric file for YoY growth data: ${historicalMetricFile.name}`);
-        const growthChartData = extractTimeSeriesForChart(historicalMetricFile.content, 'growth rate');
-        
-        if (growthChartData && growthChartData.title && growthChartData.title.toLowerCase().includes('growth rate')) {
-          console.log(`Chart generation: Successfully extracted YoY growth data from Historical Metric file`);
-          return growthChartData;
-        }
-      }
-      
-      // If no Historical Metric file found or extraction failed, try with any Excel file
-      for (const file of excelFiles) {
-        console.log(`Chart generation: Checking ${file.name} for growth rate data`);
-        const growthChartData = extractTimeSeriesForChart(file.content, 'growth rate');
-        
-        if (growthChartData) {
-          console.log(`Chart generation: Successfully extracted growth rate data from ${file.name}`);
-          return growthChartData;
-        }
-      }
-    }
-    
-    // If no specialized extraction worked, try with any Excel file
-    if (excelFiles.length > 0) {
-      console.log(`Chart generation: Trying general extraction with ${excelFiles.length} Excel files`);
-      
-      // Try each Excel file for the first mentioned metric
-      for (const file of excelFiles) {
-        console.log(`Chart generation: Checking ${file.name} for ${mentionedMetrics[0]} data`);
-        const chartData = extractTimeSeriesForChart(file.content, mentionedMetrics[0]);
-        
-        if (chartData) {
-          console.log(`Chart generation: Successfully extracted ${mentionedMetrics[0]} data from ${file.name}`);
-          return chartData;
-        }
+      if (burnChartData) {
+        console.log(`Chart generation: Successfully extracted burn rate data from ${file.name}`);
+        console.log("Chart data structure:", burnChartData.type, burnChartData.title, 
+                   "datasets:", burnChartData.data.datasets.length, 
+                   "points:", burnChartData.data.datasets[0]?.data.length);
+        return burnChartData;
       }
     }
   }
@@ -561,27 +523,63 @@ export const answerService = {
         
         // Try to generate chart data if appropriate
         console.log("Generating chart data for the question:", message);
-        
+
+        // Define the EXACT questions that should have charts (from questions.ts)
+        const ARR_QUESTION = "What is the current Annual Recurring Revenue (ARR) of the company?";
+        const BURN_RATE_QUESTION = "What is the current monthly cash burn rate?";
+
+        // Normalize questions by removing extra spaces, punctuation and converting to lowercase
+        const normalizeText = (text) => {
+          return text.toLowerCase().replace(/[.,?!;:]/g, '').replace(/\s+/g, ' ').trim();
+        };
+
+        const normalizedMessage = normalizeText(message);
+        const normalizedArrQuestion = normalizeText(ARR_QUESTION);
+        const normalizedBurnRateQuestion = normalizeText(BURN_RATE_QUESTION);
+
+        // Check for question match (allowing for minor differences and contextual text)
+        const isArrQuestion = normalizedMessage.includes(normalizedArrQuestion);
+        const isBurnRateQuestion = normalizedMessage.includes(normalizedBurnRateQuestion);
+
+        // Debug message matching
+        console.log("Normalized user message:", normalizedMessage);
+        console.log("Normalized ARR question:", normalizedArrQuestion);
+        console.log("Normalized Burn Rate question:", normalizedBurnRateQuestion);
+        console.log("ARR question match:", isArrQuestion);
+        console.log("Burn Rate question match:", isBurnRateQuestion);
+
         // First check if the response text contains quarterly ARR data
         let chartData = null;
         
-        if (message.toLowerCase().includes("arr") || 
-            message.toLowerCase().includes("annual recurring revenue")) {
-          console.log("Chart data: Checking for quarterly ARR data in response text");
+        if (isArrQuestion) {
+          console.log("Chart data: Checking for quarterly ARR data in response text for ARR question");
           chartData = extractARRFromQuarterlyData(responseText);
           
           if (chartData) {
             console.log("Chart data: Created chart from quarterly ARR data in response text");
           } else {
             // Try standard chart data extraction from Excel files
+            console.log("Chart data: Extracting from Excel files for ARR question");
             chartData = generateChartData(message, files);
           }
-        } else {
-          // For other metrics, use standard extraction
+        } else if (isBurnRateQuestion) {
+          // For burn rate question, use standard extraction
+          console.log("Chart data: Extracting burn rate data from Excel files");
           chartData = generateChartData(message, files);
+        } else {
+          // No charts for other questions
+          console.log("Chart data: No matching question for chart generation");
+          chartData = null;
         }
         
         console.log("Chart data generation result:", chartData ? "Chart created" : "No chart data found");
+        if (chartData) {
+          console.log("Chart data details:", 
+                     "type:", chartData.type, 
+                     "title:", chartData.title, 
+                     "datasets:", chartData.data.datasets.length, 
+                     "points:", chartData.data.datasets[0]?.data.length);
+        }
         
         // Ensure we return the chartData with the response
         const responseObject = { 
