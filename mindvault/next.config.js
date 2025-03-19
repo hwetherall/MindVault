@@ -14,6 +14,8 @@ const nextConfig = {
   images: {
     domains: ['zxgjzlwzukjkhcoyqedd.supabase.co'],
   },
+  // Specify page extensions for App Router
+  pageExtensions: ['js', 'jsx', 'ts', 'tsx'],
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Don't resolve 'fs' module on the client to prevent this error

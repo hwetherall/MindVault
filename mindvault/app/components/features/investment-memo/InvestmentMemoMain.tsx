@@ -18,25 +18,27 @@ interface FastModeToggleProps {
 
 const FastModeToggle: React.FC<FastModeToggleProps> = ({ fastMode, setFastMode }) => {
   return (
-    <div className="flex items-center gap-2 my-2">
-      <button
-        onClick={() => setFastMode(!fastMode)}
-        className={`flex items-center px-3 py-1.5 rounded-md text-sm transition-colors ${
-          fastMode 
-            ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-300' 
-            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
-        }`}
-        aria-pressed={fastMode}
-        title={fastMode ? "Fast mode: Quick answers but less thorough" : "Normal mode: More detailed and thorough analysis"}
-      >
-        <span>{fastMode ? 'Fast Mode' : 'Normal Mode'}</span>
-      </button>
-      
-      <div className="text-xs text-gray-500">
-        {fastMode 
-          ? 'Quicker responses, may be less thorough'
-          : 'More detailed analysis, may take longer'
-        }
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
+        <button
+          onClick={() => setFastMode(!fastMode)}
+          className={`flex items-center px-3 py-1 rounded-md text-sm font-medium transition-all ${
+            fastMode 
+              ? 'bg-amber-100 text-amber-700 shadow-sm border border-amber-200' 
+              : 'bg-blue-50 text-blue-700 shadow-sm border border-blue-200'
+          }`}
+          aria-pressed={fastMode}
+          title={fastMode ? "Fast mode: Quick answers but less thorough" : "Normal mode: More detailed and thorough analysis"}
+        >
+          <span>{fastMode ? 'Fast Mode' : 'Normal Mode'}</span>
+        </button>
+        
+        <span className="text-xs text-gray-600">
+          {fastMode 
+            ? 'Quick analysis'
+            : 'Detailed analysis'
+          }
+        </span>
       </div>
     </div>
   );
@@ -62,6 +64,7 @@ interface TranslatedContent {
     id: string;
     question: string;
     description: string;
+    category: string;
   }>;
   answers: {
     [key: string]: {
@@ -152,9 +155,12 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
   const [tempTitle, setTempTitle] = useState(title);
   const [tempDescription, setTempDescription] = useState(description);
   
-  // Filtered questions based on selection
+  // Add state for custom questions
+  const [customQuestions, setCustomQuestions] = useState<InvestmentMemoQuestion[]>([]);
+  
+  // Modify the filteredQuestions to include custom questions
   const filteredQuestions = selectedQuestionIds.length > 0
-    ? INVESTMENT_MEMO_QUESTIONS.filter(q => selectedQuestionIds.includes(q.id))
+    ? [...INVESTMENT_MEMO_QUESTIONS, ...customQuestions].filter(q => selectedQuestionIds.includes(q.id))
     : [];
   
   // Custom wrapper for onAnswerUpdate to handle both summary and details
@@ -182,7 +188,8 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     files,
     questions: filteredQuestions, 
     onComplete,
-    onAnswerUpdate: handleAnswerUpdate
+    onAnswerUpdate: handleAnswerUpdate,
+    fastMode
   });
 
   // Get loading status from answers
@@ -202,55 +209,23 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
   
   // Wrap the analyzeSelectedQuestions to include fastMode
   const analyzeSelectedQuestions = async (questionIds: string[]) => {
-    // Modify the useInvestmentMemo hook calls to pass fastMode
-    // Since we can't directly modify the hook, we'll override the answerService.sendMessage method
-    const originalSendMessage = answerService.sendMessage;
+    // Call the original method with fastMode parameter
+    await originalAnalyzeSelectedQuestions(questionIds);
     
-    try {
-      // Override the sendMessage to include fastMode
-      // We need to use any type here because the third parameter isn't in the type definition
-      const modifiedSendMessage = async (message: string, files: any[] = []) => {
-        return (originalSendMessage as any)(message, files, fastMode);
-      };
-      answerService.sendMessage = modifiedSendMessage;
-      
-      // Call the original method
-      await originalAnalyzeSelectedQuestions(questionIds);
-      
-      // Store the model used for each answer - this is just for UI display
-      // We can't directly update the answers state as it's controlled by the hook
-      const currentModel = getCurrentModel();
-      questionIds.forEach(id => {
-        if (answers[id]) {
-          // We need to use any type here because modelUsed isn't in the Answer type
-          (answers[id] as any).modelUsed = currentModel;
-        }
-      });
-    } finally {
-      // Restore the original method
-      answerService.sendMessage = originalSendMessage;
-    }
+    // Store the model used for each answer - this is just for UI display
+    const currentModel = getCurrentModel();
+    questionIds.forEach(id => {
+      if (answers[id]) {
+        // We need to use any type here because modelUsed isn't in the Answer type
+        (answers[id] as any).modelUsed = currentModel;
+      }
+    });
   };
   
   // Wrap regenerateAnswer to include fastMode
   const regenerateAnswer = async (id: string) => {
-    // Similar approach as above
-    const originalSendMessage = answerService.sendMessage;
-    
-    try {
-      // Override the sendMessage to include fastMode
-      // We need to use any type here because the third parameter isn't in the type definition
-      const modifiedSendMessage = async (message: string, files: any[] = []) => {
-        return (originalSendMessage as any)(message, files, fastMode);
-      };
-      answerService.sendMessage = modifiedSendMessage;
-      
-      // Call the original method
-      await originalRegenerateAnswer(id);
-    } finally {
-      // Restore the original method
-      answerService.sendMessage = originalSendMessage;
-    }
+    // Call the original method
+    await originalRegenerateAnswer(id);
   };
   
   // Effect to handle analyzing questions after state updates have completed
@@ -429,6 +404,11 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     setIsEditingDescription(false);
   };
 
+  // Add handler for custom questions
+  const handleCustomQuestionAdd = (question: InvestmentMemoQuestion) => {
+    setCustomQuestions(prev => [...prev, question]);
+  };
+
   return (
     <div className="w-full">
       <div className="flex flex-col mb-6">
@@ -560,7 +540,9 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
                 <div key={category}>
                   <h3 className="text-xl font-semibold border-b pb-2 mb-4">{category}</h3>
                   <div className="space-y-6">
-                    {currentContent.questions.map(question => {
+                    {currentContent.questions
+                      .filter(question => question.category === category)
+                      .map(question => {
                       const questionAnswer = currentContent.answers[question.id];
                       const modelUsed = (questionAnswer as any)?.modelUsed || 
                         (fastMode ? modelInfo.fast.id : modelInfo.normal.id);
@@ -610,6 +592,8 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
         onClose={() => setIsSelectionModalOpen(false)}
         onSubmit={handleQuestionSelection}
         initialSelections={selectedQuestionIds}
+        customQuestions={customQuestions}
+        onCustomQuestionAdd={handleCustomQuestionAdd}
       />
 
       {/* Export PDF Dialog */}

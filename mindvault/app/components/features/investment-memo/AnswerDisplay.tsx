@@ -8,7 +8,7 @@ import ChartComponent, { ChartData } from '../../ChartComponent';
 interface Answer {
   summary: string;
   details: string;
-  isEdited: boolean;
+  isEdited?: boolean;
   isLoading?: boolean;
   chartData?: ChartData;
 }

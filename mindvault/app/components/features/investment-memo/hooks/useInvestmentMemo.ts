@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { answerService } from '../../../../services/answerService.js';
-import { generatePromptForQuestion, generateSimplePrompt } from "../utils/promptGenerator";
+import { buildPromptForQuestion } from "../utils/promptBuilder";
+import { generateCustomInstructions } from "../utils/customInstructionsGenerator";
 import { ChartData } from '../../../ChartComponent';
 
 // Updated Answer type with separate summary and details fields, loading state, and chart data
@@ -17,15 +18,18 @@ export interface InvestmentMemoQuestion {
   question: string;
   description: string;
   category?: string;
+  subcategory?: string;
   complexity?: 'low' | 'medium' | 'high';
   recommended?: string[];
+  instructions?: string;  // Added for custom questions that might need their own instructions
 }
 
 interface UseInvestmentMemoProps {
   files: any[];
-  questions: InvestmentMemoQuestion[];
+  questions: InvestmentMemoQuestion[];  // Can now include both predefined and custom questions
   onComplete?: (passed: boolean) => void;
   onAnswerUpdate?: (id: string, summary: string, details: string) => void;
+  fastMode?: boolean;
 }
 
 interface UseInvestmentMemoReturn {
@@ -35,21 +39,13 @@ interface UseInvestmentMemoReturn {
   expandedAnswers: Record<string, boolean>;
   editingId: string | null;
   editedAnswer: string;
-  promptModalVisible: boolean;
-  currentPrompt: string;
-  currentPromptId: string;
   setEditedAnswer: (answer: string) => void;
-  setCurrentPrompt: (prompt: string) => void;
   toggleAnswer: (id: string) => void;
   handleEdit: (id: string) => void;
   handleSave: (id: string) => void;
   analyzeDocuments: () => Promise<void>;
   analyzeSelectedQuestions: (questionIds: string[]) => Promise<void>;
   regenerateAnswer: (id: string) => Promise<void>;
-  getPromptForQuestion: (id: string) => string;
-  handleViewPrompt: (id: string) => void;
-  handleSavePrompt: () => void;
-  closePromptModal: () => void;
 }
 
 // Add type definition for the API response
@@ -67,7 +63,8 @@ export function useInvestmentMemo({
   files,
   questions,
   onComplete,
-  onAnswerUpdate
+  onAnswerUpdate,
+  fastMode = false
 }: UseInvestmentMemoProps): UseInvestmentMemoReturn {
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
@@ -75,10 +72,6 @@ export function useInvestmentMemo({
   const [expandedAnswers, setExpandedAnswers] = useState<Record<string, boolean>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedAnswer, setEditedAnswer] = useState<string>('');
-  const [promptModalVisible, setPromptModalVisible] = useState<boolean>(false);
-  const [currentPrompt, setCurrentPrompt] = useState<string>('');
-  const [currentPromptId, setCurrentPromptId] = useState<string>('');
-  const [prompts, setPrompts] = useState<Record<string, string>>({});
 
   /**
    * Toggles the expansion state of an answer
@@ -134,82 +127,32 @@ export function useInvestmentMemo({
   };
 
   /**
-   * Gets the prompt for a specific question
-   */
-  const getPromptForQuestion = (id: string): string => {
-    if (prompts[id]) {
-      return prompts[id];
-    }
-    
-    // Use the new prompt generator
-    return generatePromptForQuestion(id);
-  };
-
-  /**
-   * Opens the prompt modal for viewing/editing a question prompt
-   */
-  const handleViewPrompt = (id: string) => {
-    setCurrentPromptId(id);
-    setCurrentPrompt(getPromptForQuestion(id));
-    setPromptModalVisible(true);
-  };
-
-  /**
-   * Saves the edited prompt
-   */
-  const handleSavePrompt = () => {
-    if (currentPromptId && currentPrompt.trim()) {
-      setPrompts(prev => ({
-        ...prev,
-        [currentPromptId]: currentPrompt
-      }));
-    }
-    
-    setPromptModalVisible(false);
-    setCurrentPromptId('');
-    setCurrentPrompt('');
-  };
-
-  /**
-   * Closes the prompt modal
-   */
-  const closePromptModal = () => {
-    setPromptModalVisible(false);
-    setCurrentPromptId('');
-    setCurrentPrompt('');
-  };
-
-  /**
    * Analyzes a single question
    */
-  const analyzeQuestion = async (questionId: string): Promise<Answer> => {
+  const analyzeQuestion = async (question: InvestmentMemoQuestion): Promise<Answer> => {
     // Mark this question as loading
     setAnswers(prev => ({
       ...prev,
-      [questionId]: {
-        ...prev[questionId],
+      [question.id]: {
+        ...prev[question.id],
         isLoading: true
       }
     }));
 
-    // Get the question details
-    const question = questions.find(q => q.id === questionId);
-    if (!question) {
-      console.error(`Question with id '${questionId}' not found in the available questions:`, 
-        questions.map(q => ({ id: q.id, question: q.question })));
-      throw new Error(`Question with id '${questionId}' not found. This might be due to a synchronization issue. Please try reselecting the question.`);
-    }
-
     try {
-      // Use the custom prompt if available, otherwise use the prompt generator
-      const prompt = prompts[questionId] 
-        ? prompts[questionId] 
-        : generatePromptForQuestion(questionId);
+      if (question.id.startsWith('custom_')) {
+        // Generate custom instructions for the question
+        question.instructions = await generateCustomInstructions(question);
+        console.log(`Custom instructions generated for question ${question.id}: ${question.instructions}`);
+      }
 
-      // Call the actual AI service
-      const response = await answerService.sendMessage(prompt, files);
-      
-      console.log(`Response for question ${questionId}:`, response);
+      // Use the prompt generator with the question object
+      const prompt = buildPromptForQuestion(question);
+
+      console.log(`Prompt passed to AI service: ${prompt}`);
+
+      // Call the actual AI service with fastMode
+      const response = await answerService.sendMessage(prompt, files, fastMode);
       
       // Parse the response text to extract summary and details
       let responseText = '';
@@ -221,7 +164,7 @@ export function useInvestmentMemo({
         responseText = response.text;
         // Extract chart data if available
         if ('chartData' in response && response.chartData) {
-          console.log(`Found chart data for question ${questionId}:`, response.chartData);
+          console.log(`Found chart data for question ${question.id}:`, response.chartData);
           chartData = response.chartData as ChartData;
         }
       } else {
@@ -288,18 +231,9 @@ export function useInvestmentMemo({
     setError(null);
     
     try {
-      // First verify all questions exist to avoid "Question not found" errors
-      const validQuestionIds: string[] = [];
-      const invalidQuestionIds: string[] = [];
-      
-      questionIds.forEach(id => {
-        const questionExists = questions.some(q => q.id === id);
-        if (questionExists) {
-          validQuestionIds.push(id);
-        } else {
-          invalidQuestionIds.push(id);
-        }
-      });
+      // Get valid questions in one pass
+      const selectedQuestions = questions.filter(q => questionIds.includes(q.id));
+      const invalidQuestionIds = questionIds.filter(id => !selectedQuestions.some(q => q.id === id));
       
       // Log warning if some IDs weren't found
       if (invalidQuestionIds.length > 0) {
@@ -309,13 +243,12 @@ export function useInvestmentMemo({
       }
       
       // If no valid questions, exit early
-      if (validQuestionIds.length === 0) {
+      if (selectedQuestions.length === 0) {
         setError('No valid questions to analyze. Please select questions and try again.');
         return;
       }
       
       // Setup initial loading state for all selected questions
-      const selectedQuestions = questions.filter(q => validQuestionIds.includes(q.id));
       const initialLoadingState: Record<string, Answer> = {};
       
       // Create initial loading state for each question
@@ -334,18 +267,18 @@ export function useInvestmentMemo({
         ...initialLoadingState
       }));
       
-      // Process each question
-      const answerPromises = validQuestionIds.map(id => analyzeQuestion(id));
+      // Process each question directly
+      const answerPromises = selectedQuestions.map(question => analyzeQuestion(question));
       const results = await Promise.all(answerPromises);
       
       // Update with real answers
       const finalAnswers: Record<string, Answer> = {};
-      validQuestionIds.forEach((id, index) => {
-        finalAnswers[id] = results[index];
+      selectedQuestions.forEach((question, index) => {
+        finalAnswers[question.id] = results[index];
         
         // Update caller if needed
         if (onAnswerUpdate) {
-          onAnswerUpdate(id, results[index].summary, results[index].details);
+          onAnswerUpdate(question.id, results[index].summary, results[index].details);
         }
       });
       
@@ -357,8 +290,8 @@ export function useInvestmentMemo({
       
       // Auto-expand newly added questions
       const newExpandedState: Record<string, boolean> = {};
-      validQuestionIds.forEach(id => {
-        newExpandedState[id] = true;
+      selectedQuestions.forEach(question => {
+        newExpandedState[question.id] = true;
       });
       
       setExpandedAnswers(prev => ({
@@ -400,38 +333,10 @@ export function useInvestmentMemo({
     if (!question) return;
     
     try {
-      // Mark this answer as loading
-      setAnswers(prev => ({
-        ...prev,
-        [id]: {
-          ...prev[id],
-          isLoading: true
-        }
-      }));
-      
-      // Generate a new answer
-      const regeneratedAnswer = await analyzeQuestion(id);
-      
-      // Update state with new answer
-      setAnswers(prev => ({
-        ...prev,
-        [id]: regeneratedAnswer
-      }));
-      
-      if (onAnswerUpdate) {
-        onAnswerUpdate(id, regeneratedAnswer.summary, regeneratedAnswer.details);
-      }
+      // Use analyzeSelectedQuestions for consistency
+      await analyzeSelectedQuestions([id]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred while regenerating the answer');
-      
-      // Reset loading state on error
-      setAnswers(prev => ({
-        ...prev,
-        [id]: {
-          ...prev[id],
-          isLoading: false
-        }
-      }));
     }
   };
 
@@ -442,20 +347,12 @@ export function useInvestmentMemo({
     expandedAnswers,
     editingId,
     editedAnswer,
-    promptModalVisible,
-    currentPrompt,
-    currentPromptId,
     setEditedAnswer,
-    setCurrentPrompt,
     toggleAnswer,
     handleEdit,
     handleSave,
     analyzeDocuments,
     analyzeSelectedQuestions,
-    regenerateAnswer,
-    getPromptForQuestion,
-    handleViewPrompt,
-    handleSavePrompt,
-    closePromptModal
+    regenerateAnswer
   };
 } 

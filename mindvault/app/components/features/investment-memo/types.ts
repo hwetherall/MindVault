@@ -6,6 +6,7 @@ export interface InvestmentMemoQuestion {
   question: string;
   description: string;
   category?: string;
+  subcategory?: string;
   complexity?: 'low' | 'medium' | 'high';
   recommended?: string[];
   instructions?: string;

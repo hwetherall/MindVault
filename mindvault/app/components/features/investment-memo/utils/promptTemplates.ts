@@ -9,15 +9,13 @@
  */
 export const FINANCIAL_METRICS_TEMPLATE = `
 You are analyzing financial metrics for an investment opportunity. 
-Focus on extracting precise numerical data from the financial documents.
+Focus on extracting precise numerical data from the available documents.
 
 When answering:
-1. Prioritize the Excel financial data as your primary source
-2. Cross-reference with any mentions in the pitch deck
-3. Include the specific currency and time period with all financial figures
-4. If calculating metrics (e.g., growth rates), show your calculation method
-5. Cite specific tabs, cells, or sections where you found the information
-6. IMPORTANT: Format large numbers using million/billion suffixes for readability
+1. Include the specific currency and time period with all financial figures
+2. If calculating metrics (e.g., growth rates), show your calculation method
+3. Cite specific tabs, cells, or sections where you found the information
+4. IMPORTANT: Format large numbers using million/billion suffixes for readability
    - Example: Write "40.49m AUD" instead of "40,485,584.91 AUD"
    - For millions: Use 2 decimal places followed by 'm' (e.g., 40.49m)
    - For billions: Use 2 decimal places followed by 'b' (e.g., 1.25b)
@@ -35,16 +33,14 @@ Your answer must include:
  */
 export const BUSINESS_MODEL_TEMPLATE = `
 You are analyzing the business fundamentals of an investment opportunity.
-Focus on understanding how the company creates and captures value.
+Focus on understanding how the company operates, creates and captures value.
 
 When answering:
-1. Prioritize the pitch deck as your primary source
-2. Look for explicit statements about business strategy, revenue model, and competitive advantages
-3. Identify specific customer segments and value propositions
-4. Note any metrics that validate the business model (e.g., retention rates, margins)
-5. Consider how the financial data supports or contradicts claims in the pitch deck
+1. Look for explicit statements about business strategy, revenue model, competitive advantages, specific customer segments, value propositions or other relevant information related to the question
+2. Note any metrics that validate the business model (e.g., retention rates, margins)
+3. Consider how the financial data supports or contradicts claims in the pitch deck
 
-Your answer must include:
+Your answer may include:
 - A clear explanation of how the company makes money
 - The key differentiators or competitive advantages
 - Any evidence of product-market fit or traction
@@ -60,13 +56,12 @@ You are analyzing the market opportunity for an investment.
 Focus on understanding the competitive landscape and market dynamics.
 
 When answering:
-1. Look for market size estimates (TAM, SAM, SOM) in the pitch deck
-2. Identify named competitors and their relative positioning
-3. Note any market trends, growth drivers, or regulatory factors
-4. Consider barriers to entry and the company's market penetration strategy
-5. Evaluate whether financial projections align with market opportunity claims
+1. Look for market size estimates (TAM, SAM, SOM) in the pitch deck, named competitors and their relative positioning or other relevant information related to the question
+2. Note any market trends, growth drivers, or regulatory factors
+3. Consider barriers to entry and the company's market penetration strategy
+4. Evaluate whether financial projections align with market opportunity claims
 
-Your answer must include:
+Your answer may include:
 - The defined market segment(s) the company is targeting
 - Key competitors and the company's competitive positioning
 - Market growth rate and overall opportunity size
@@ -88,7 +83,7 @@ When answering:
 4. Consider whether the team has the right mix of skills for this business
 5. Identify any key gaps in the team or hiring priorities
 
-Your answer must include:
+Your answer may include:
 - Background information on key executives (CEO, CTO, etc.)
 - Assessment of the team's relevant experience for this specific business
 - Any notable advisors or board members
@@ -110,7 +105,7 @@ When answering:
 4. Note any risk mitigation strategies mentioned
 5. Assess the realism of financial projections and assumptions
 
-Your answer must include:
+Your answer may include:
 - The most significant risks categorized by type
 - Assessment of which risks could be most impactful
 - Any red flags in the financial projections or assumptions

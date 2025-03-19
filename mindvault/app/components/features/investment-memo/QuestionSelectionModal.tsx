@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { INVESTMENT_MEMO_QUESTIONS } from './data/questions';
-import { X } from 'lucide-react';
+import { X, PlusCircle } from 'lucide-react';
+import CustomQuestionForm from './CustomQuestionForm';
+import { InvestmentMemoQuestion } from './hooks/useInvestmentMemo';
 
 // Define the category types - match the actual categories in the data
 type QuestionCategory = 'Financial' | 'Business' | 'Market' | 'Team' | 'Risk' | 'All' | 'Recommended';
@@ -10,13 +12,17 @@ interface QuestionSelectionModalProps {
   onClose: () => void;
   onSubmit: (selectedQuestions: string[], immediatelyAnalyze: boolean) => void;
   initialSelections?: string[];
+  customQuestions?: InvestmentMemoQuestion[];
+  onCustomQuestionAdd?: (question: InvestmentMemoQuestion) => void;
 }
 
 const QuestionSelectionModal: React.FC<QuestionSelectionModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
-  initialSelections = []
+  initialSelections = [],
+  customQuestions = [],
+  onCustomQuestionAdd
 }) => {
   // State for selected question IDs
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>(initialSelections);
@@ -24,6 +30,8 @@ const QuestionSelectionModal: React.FC<QuestionSelectionModalProps> = ({
   const [activeCategory, setActiveCategory] = useState<QuestionCategory>('All');
   // State for triggering immediate analysis
   const [immediatelyAnalyze, setImmediatelyAnalyze] = useState<boolean>(true);
+  // State for showing custom question form
+  const [showCustomForm, setShowCustomForm] = useState<boolean>(false);
   
   // Get unique categories from the questions
   const categories = ['All', 'Recommended', ...new Set(INVESTMENT_MEMO_QUESTIONS.map(q => q.category))].filter(Boolean) as QuestionCategory[];
@@ -33,15 +41,24 @@ const QuestionSelectionModal: React.FC<QuestionSelectionModalProps> = ({
     if (isOpen) {
       setSelectedQuestions(initialSelections);
       setImmediatelyAnalyze(true);
+      setShowCustomForm(false);
     }
   }, [isOpen, initialSelections]);
 
   // Filter questions based on active category
-  const filteredQuestions = INVESTMENT_MEMO_QUESTIONS.filter(q => {
-    if (activeCategory === 'All') return true;
-    if (activeCategory === 'Recommended' && q.recommended && q.recommended.length > 0) return true;
-    return q.category === activeCategory;
-  });
+  const filteredQuestions = [...INVESTMENT_MEMO_QUESTIONS, ...customQuestions]
+    .filter(q => {
+      if (activeCategory === 'All') return true;
+      if (activeCategory === 'Recommended' && q.recommended && q.recommended.length > 0) return true;
+      return q.category === activeCategory;
+    })
+    .sort((a, b) => {
+      // Sort custom questions to the top
+      if (a.id.startsWith('custom_') && !b.id.startsWith('custom_')) return -1;
+      if (!a.id.startsWith('custom_') && b.id.startsWith('custom_')) return 1;
+      // For questions of the same type, maintain their original order
+      return 0;
+    });
 
   // Determine if all filtered questions are selected
   const allFilteredSelected = filteredQuestions.length > 0 && 
@@ -84,6 +101,16 @@ const QuestionSelectionModal: React.FC<QuestionSelectionModalProps> = ({
     onClose();
   };
 
+  // Handle custom question submission
+  const handleCustomQuestionSubmit = (question: InvestmentMemoQuestion) => {
+    if (onCustomQuestionAdd) {
+      onCustomQuestionAdd(question);
+      // Automatically select the new question
+      setSelectedQuestions(prev => [...prev, question.id]);
+    }
+    setShowCustomForm(false);
+  };
+
   // If modal is not open, don't render anything
   if (!isOpen) return null;
 
@@ -121,7 +148,7 @@ const QuestionSelectionModal: React.FC<QuestionSelectionModalProps> = ({
             {/* Selection Controls */}
             <div className="ml-auto flex items-center text-sm space-x-4">
               <div className="text-gray-600">
-                {selectedQuestions.length} of {INVESTMENT_MEMO_QUESTIONS.length} questions selected
+                {selectedQuestions.length} of {filteredQuestions.length} questions selected
               </div>
               <button
                 className="text-[#F15A29] hover:underline"
@@ -137,6 +164,27 @@ const QuestionSelectionModal: React.FC<QuestionSelectionModalProps> = ({
             <p className="text-gray-700 mb-6">
               Choose the questions you want to include in your investment memo. We recommend selecting questions relevant to your analysis.
             </p>
+
+            {/* Add Custom Question Button */}
+            {!showCustomForm && (
+              <button
+                onClick={() => setShowCustomForm(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 mb-4 text-sm font-medium text-[#F15A29] bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors"
+              >
+                <PlusCircle size={16} />
+                Add Custom Question
+              </button>
+            )}
+
+            {/* Custom Question Form */}
+            {showCustomForm && (
+              <CustomQuestionForm
+                categories={categories.filter(cat => cat !== 'All' && cat !== 'Recommended')}
+                onSubmit={handleCustomQuestionSubmit}
+                onCancel={() => setShowCustomForm(false)}
+              />
+            )}
+
             <div className="space-y-4">
               {filteredQuestions.length === 0 ? (
                 <div className="text-center text-gray-500 py-8">
@@ -164,6 +212,11 @@ const QuestionSelectionModal: React.FC<QuestionSelectionModalProps> = ({
                           <p className="text-gray-500 text-sm mt-1">
                             {question.description}
                           </p>
+                        )}
+                        {question.id.startsWith('custom_') && (
+                          <span className="inline-block text-xs text-[#F15A29] bg-orange-50 px-2 py-0.5 rounded-full mt-1 ml-4">
+                            Custom Question
+                          </span>
                         )}
                       </div>
                     </div>
