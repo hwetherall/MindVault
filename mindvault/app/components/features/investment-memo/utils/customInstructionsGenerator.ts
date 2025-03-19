@@ -15,8 +15,7 @@ export async function generateCustomInstructions(question: InvestmentMemoQuestio
   //${categoryTemplate}
   //You might find this guidance useful to generate the instructions to answer the question.	
   
-  const taskOrPrompt = `Generate detailed instructions to answer this investment question: "${question.
-    question}" in the context of ${question.category} category. 
+  const taskOrPrompt = `Generate detailed instructions to answer this investment question: "${question.question}"${question.category ? ` in the context of ${question.category} category` : ''}. 
     
     The instructions should guide the analysis of the available document information in detail, providing what to search for, where this information might be found, alternative scenarios, how to handle information from multiple documents, and how to answer the question based on the information found. Always instruct to answer "No information found" if you cannot find the information in the documents. NEVER make up information.
     
@@ -113,7 +112,7 @@ export async function generateCustomInstructions(question: InvestmentMemoQuestio
   
           5. **Provide the Answer**: Once the problems the company proposes to address have been clearly 
           identified, list the specific problem(s) the company is trying to solve. Keep your answer short 
-          and concise. Include any additional information gathered that helps clarify the company’s 
+          and concise. Include any additional information gathered that helps clarify the company's 
           approach or strategy.
   
           6. **Verify Source**: Ensure you reference the correct source for your information, especially 

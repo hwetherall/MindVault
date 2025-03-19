@@ -48,7 +48,7 @@ export function buildPromptForQuestion(question: InvestmentMemoQuestion): string
   `;
 }
 
-export function buildPromptForPedramQuestion(question, instructions) {
+export function buildPromptForPedramQuestion(question: string, instructions?: string) {
   // Master prompt for Pedram's analysis
   const masterPrompt = `You are an expert financial analyst specializing in investment analysis. 
 Your task is to analyze the provided documents with a specific focus on ${question}.
@@ -58,9 +58,7 @@ Follow these critical requirements:
 3. Support your findings with specific data points when available
 4. Maintain a structured and clear response format
 5. If information is not found, clearly state this rather than making assumptions
-
-Instructions for this specific analysis:
-${instructions}
+${instructions ? `\nInstructions for this specific analysis:\n${instructions}` : ''}
 
 Please analyze the following question:
 ${question}`;

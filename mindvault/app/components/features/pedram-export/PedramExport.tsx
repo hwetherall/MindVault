@@ -51,10 +51,9 @@ export const PedramExport: React.FC<PedramExportProps> = ({ files, onClose }) =>
         // Generate custom instructions if needed
         if (question.instructionType === 'custom') {
           try {
-            instructions = await generateCustomInstructions({ 
-              question: question.question,
-              id: `pedram_${i}`,
-              description: question.question
+            instructions = await generateCustomInstructions({
+              ...question,
+              id: `pedram_${i}`
             });
           } catch (error) {
             console.error('Error generating custom instructions:', error);
