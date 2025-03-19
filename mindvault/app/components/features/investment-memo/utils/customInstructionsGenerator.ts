@@ -1,4 +1,5 @@
 import { InvestmentMemoQuestion } from "../types";
+import { getTemplateForCategory } from "./promptTemplates";
 
 /**
  * Generates custom instructions for a custom question using OpenAI
@@ -7,16 +8,19 @@ import { InvestmentMemoQuestion } from "../types";
  * @returns A string containing the generated instructions
  */
 export async function generateCustomInstructions(question: InvestmentMemoQuestion): Promise<string> {
+
+  const categoryTemplate = getTemplateForCategory(question.category); //At this moment this is not being used.
+  
+  //--GENERIC INSTRUCTIONS BASED ON CATEGORY	--
+  //${categoryTemplate}
+  //You might find this guidance useful to generate the instructions to answer the question.	
+  
   const taskOrPrompt = `Generate detailed instructions to answer this investment question: "${question.
     question}" in the context of ${question.category} category. 
     
-    The instructions should guide the analysis of financial documents in detail, providing what to search 
-    for, where this information might be found, alternative scenarios, and how to answer the question 
-    based on the information found. Always instruct to answer if "No information found" if you cannot 
-    find the information in the documents. NEVER make up information.
+    The instructions should guide the analysis of the available document information in detail, providing what to search for, where this information might be found, alternative scenarios, how to handle information from multiple documents, and how to answer the question based on the information found. Always instruct to answer "No information found" if you cannot find the information in the documents. NEVER make up information.
     
-    Here are 2 examples of great promts, <example 1> and <example 2>. Use these examples as base to build 
-    your prompt.
+    Here are 2 examples of great promts, <example 1> and <example 2>. Use these examples as base to build your prompt.
   
     <example 1>
     Question: What is the current Annual Recurring Revenue (ARR) of the company?
@@ -116,10 +120,7 @@ export async function generateCustomInstructions(question: InvestmentMemoQuestio
           if the problem-solving capabilities of the products are described in specific sections or pages 
           of the documents.
   
-          # Output Format
-  
-          Generate your answer 3 times and compare for consistency and accuracy. If discrepancies arise, 
-          refine your synthesis and provide a final answer with the most precise and consistent data."
+          Generate your answer 3 times and compare for consistency and accuracy. If discrepancies arise, refine your synthesis and provide a final answer with the most precise and consistent data."
       </example 2>
     `;
 

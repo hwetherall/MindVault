@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { answerService } from '../../../../services/answerService.js';
-import { generatePromptForQuestion } from "../utils/promptGenerator";
+import { buildPromptForQuestion } from "../utils/promptBuilder";
 import { generateCustomInstructions } from "../utils/customInstructionsGenerator";
 
 // Updated Answer type with separate summary and details fields and loading state
@@ -135,7 +135,7 @@ export function useInvestmentMemo({
       }
 
       // Use the prompt generator with the question object
-      const prompt = generatePromptForQuestion(question);
+      const prompt = buildPromptForQuestion(question);
 
       console.log(`Prompt passed to AI service: ${prompt}`);
 

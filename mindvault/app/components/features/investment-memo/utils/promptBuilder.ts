@@ -1,17 +1,17 @@
 import { InvestmentMemoQuestion } from "../types";
-import { getDocumentPriorityForQuestion, getQuestionById } from "../data/questions";
+import { getDocumentPriorityForQuestion } from "../data/questions";
 
 /**
- * Generates a detailed AI prompt for a specific investment memo question
+ * Builds a detailed AI prompt for a specific investment memo question
  * 
  * @param question The question object
  * @returns A detailed prompt string for the AI
  */
-export function generatePromptForQuestion(question: InvestmentMemoQuestion): string {
+export function buildPromptForQuestion(question: InvestmentMemoQuestion): string {
   // Get document priority for this question
   const docPriority = getDocumentPriorityForQuestion(question);
   
-  // Generate the prompt
+  // Build the prompt
   return `
     Based on ALL the available document information in <documents>, please answer this question:
     ${question.question}
@@ -36,9 +36,9 @@ export function generatePromptForQuestion(question: InvestmentMemoQuestion): str
     DETAILS:
     A section to provide comprehensive explanation with supporting information, calculations, and specific data points from the documents. Opt for bullet points and lists to make the answer more readable. It should ALWAYS follow the structure:
       - Source: Source of the information used to answer the question including the document(s) name(s) with page number for PDFs and sheet name for Excel files
-      - Thinking process: The answer in detail where the thought process to reach the answer is included. Calculations, considerations,	and any other supporting information should be included here. 
+      - Thinking process: Explain the thinking process to reach the answer. This is the answer in detail where the thought process to reach the answer is included. Calculations, considerations,	and any other supporting information should be included here. 
       - Conclusion: The final answer to the question.
-    Source, Thinking process and Conclusion dividers MUST be present in the answer to separate the subsections of DETAILS.	
+    Source, Thinking process and Conclusion dividers MUST be present in the answer to separate the subsections of DETAILS. Output the dividers in bold.
 
     ${question.instructions ? `Detailed instructions:\n${question.instructions}\n` : ''}
 
@@ -46,4 +46,4 @@ export function generatePromptForQuestion(question: InvestmentMemoQuestion): str
 
     Ensure there's a clear separation between the Summary and DETAILS sections.
   `;
-} 
+}
