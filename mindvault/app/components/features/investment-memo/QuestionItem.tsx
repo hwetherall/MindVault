@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronDown, ChevronUp, Edit2, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronUp, Edit2, RefreshCw, Code } from 'lucide-react';
 import { Answer } from './utils/pdfExport';
 import AnswerDisplay from './AnswerDisplay';
 import EditAnswer from './EditAnswer';
@@ -41,6 +41,9 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
   // Helper functions to check loading state safely
   const isAnswerLoading = answer && (answer as any).isLoading === true;
   const isAnswerGenerated = answer && !isAnswerLoading;
+
+  // Add state for playground
+  const [showPlayground, setShowPlayground] = React.useState(false);
 
   // Determine card elevation based on state
   const cardClasses = `border rounded-lg overflow-hidden mb-6 transition-all duration-200 ${
@@ -91,6 +94,20 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
               <button 
                 onClick={(e) => {
                   e.stopPropagation();
+                  setShowPlayground(!showPlayground);
+                }}
+                className={`p-1 mr-2 ${
+                  showPlayground 
+                    ? 'text-purple-600 hover:text-purple-800' 
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+                title="Toggle Prompt Playground"
+              >
+                <Code size={18} />
+              </button>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
                   onEdit(id);
                 }}
                 className="p-1 text-blue-600 hover:text-blue-800 mr-2"
@@ -138,6 +155,7 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
               answer={answer}
               onEdit={() => onEdit(id)} 
               onRegenerate={() => onRegenerate(id)}
+              showPlayground={showPlayground}
             />
           ) : (
             <div>

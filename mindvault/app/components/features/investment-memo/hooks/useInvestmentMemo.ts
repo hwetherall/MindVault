@@ -11,6 +11,15 @@ export interface Answer {
   isEdited: boolean;
   isLoading?: boolean;
   chartData?: ChartData;
+  modelUsed?: string;
+  timeTaken?: number;
+  messageLength?: number;
+  answerLength?: number;
+  questionInstructions?: string;
+  finalInstructionsPrompt?: string;
+  documentContext?: string;
+  finalPrompt?: string;
+  rawOutput?: string;
 }
 
 export interface InvestmentMemoQuestion {
@@ -54,6 +63,13 @@ interface AnswerServiceResponse {
   suggestedQuestions?: string[];
   chartData?: ChartData;
   error?: string;
+  modelUsed: string;
+  timeTaken: number;
+  messageLength: number;
+  answerLength: number;
+  documentContext: string;
+  finalPrompt: string;
+  rawOutput: string;
 }
 
 /**
@@ -152,7 +168,7 @@ export function useInvestmentMemo({
       console.log(`Prompt passed to AI service: ${prompt}`);
 
       // Call the actual AI service with fastMode
-      const response = await answerService.sendMessage(prompt, files, fastMode);
+      const response = await answerService.sendMessage(prompt, files, fastMode) as AnswerServiceResponse;
       
       // Parse the response text to extract summary and details
       let responseText = '';
@@ -204,12 +220,22 @@ export function useInvestmentMemo({
       summary = summary.replace(/^SUMMARY:?\s*/i, '').replace(/^SUMMARY\s*$/i, '').trim();
       details = details.replace(/^DETAILS:?\s*/i, '').replace(/^DETAILS\s*$/i, '').trim();
       
+      // Return the answer with all metrics from the response
       return {
         summary,
         details,
         isEdited: false,
         isLoading: false,
-        chartData
+        chartData,
+        modelUsed: response.modelUsed,
+        timeTaken: response.timeTaken,
+        messageLength: response.messageLength,
+        answerLength: response.answerLength,
+        questionInstructions: question.instructions,
+        finalInstructionsPrompt: prompt,
+        documentContext: response.documentContext,
+        finalPrompt: response.finalPrompt,
+        rawOutput: response.rawOutput
       };
     } catch (error) {
       console.error('Error analyzing question:', error);

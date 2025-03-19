@@ -222,10 +222,45 @@ const generateChartData = (question, files) => {
   return null;
 };
 
+// Add token estimation function
+function estimateTokens(text, model = "deepseek-r1-distill-llama-70b") {
+  if (!text) return 0;
+  
+  // Count words (more accurate than character count)
+  const wordCount = text.split(/\s+/).length;
+  
+  // Different models have different token ratios
+  const tokenRatio = model.includes("llama-3.1-8b") ? 1.3 : 
+                     model.includes("deepseek") ? 1.4 : 
+                     1.35; // Default ratio
+  
+  // Estimate base tokens from words
+  const estimatedTokens = Math.ceil(wordCount * tokenRatio);
+  
+  // Add extra for code blocks which tend to use more tokens
+  let codeBlockTokens = 0;
+  
+  // Find all code blocks using regex
+  const codeBlockRegex = /```[\s\S]*?```/g;
+  let match;
+  
+  // Use exec in a loop to find all matches
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    const codeBlock = match[0];
+    // Code tends to use more tokens per character
+    codeBlockTokens += Math.ceil(codeBlock.length / 3);
+  }
+  
+  return estimatedTokens + codeBlockTokens;
+}
+
 export const answerService = {
   async sendMessage(message, files = [], fastMode = false) {
     try {
       console.log(`Processing request with ${files.length} files, fastMode: ${fastMode}`);
+      
+      // Start timing the request
+      const startTime = Date.now();
       
       // Check if any files are available
       if (!files || files.length === 0) {
@@ -501,13 +536,28 @@ export const answerService = {
 
         // Get the raw response text
         let responseText = response.choices[0].message.content;
+
+        // Record raw response text
+        const rawResponse = responseText;
         
         // Clean the response to remove thinking content
         responseText = removeThinkingContent(responseText);
         
+        // Calculate time taken
+        const timeTaken = Date.now() - startTime;
+        
         // Check if this is an investment memo question
         if (message.includes('Investment Memo') || message.includes('investment memo')) {
-          return responseText;
+          return {
+            text: responseText,
+            modelUsed: model,
+            timeTaken,
+            messageLength: estimateTokens(fullMessage, model),
+            answerLength: estimateTokens(responseText, model),
+            documentContext: contextMessage,
+            finalPrompt: fullMessage,
+            rawOutput: rawResponse
+          };
         }
         
         // Try to generate chart data if appropriate
@@ -570,31 +620,52 @@ export const answerService = {
                      "points:", chartData.data.datasets[0]?.data.length);
         }
         
-        // Ensure we return the chartData with the response
+        // Return response with all metrics
         const responseObject = { 
           text: responseText, 
           suggestedQuestions: [],
-          chartData: chartData
+          chartData: chartData,
+          modelUsed: model,
+          timeTaken,
+          messageLength: estimateTokens(fullMessage, model),
+          answerLength: estimateTokens(responseText, model),
+          documentContext: contextMessage,
+          finalPrompt: fullMessage,
+          rawOutput: rawResponse
         };
         
-        console.log("Final response object has chartData:", !!responseObject.chartData);
+        console.log("Final response object:", responseObject);
         return responseObject;
       } catch (apiError) {
         console.error('DeepSeek API Error:', apiError);
         
-        // Return a more user-friendly error message
+        // Return a more user-friendly error message with metrics
         return {
           text: "I apologize, but I encountered an issue while analyzing your documents. This could be due to the complexity or size of the files. You might try asking about a more specific aspect of the documents.",
-          error: apiError.message
+          error: apiError.message,
+          modelUsed: model,
+          timeTaken: Date.now() - startTime,
+          messageLength: estimateTokens(fullMessage, model),
+          answerLength: 0,
+          documentContext: contextMessage,
+          finalPrompt: fullMessage,
+          rawOutput: ""
         };
       }
     } catch (error) {
       console.error('Error in AI chat:', error);
       
-      // Return user-friendly error
+      // Return user-friendly error with metrics
       return {
         text: "I'm sorry, but I encountered a technical issue while processing your request. Please try again or ask a more specific question about your documents.",
-        error: error.message
+        error: error.message,
+        modelUsed: fastMode ? "llama-3.1-8b-instant" : "deepseek-r1-distill-llama-70b",
+        timeTaken: Date.now() - startTime,
+        messageLength: estimateTokens(message, model),
+        answerLength: 0,
+        documentContext: "",
+        finalPrompt: message,
+        rawOutput: ""
       };
     }
   },

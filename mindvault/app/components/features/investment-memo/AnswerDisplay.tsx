@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Edit2, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronUp, Edit2, RefreshCw, Code } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { formatNumbersInText } from '../../../utils/textFormatting';
 import ChartComponent, { ChartData } from '../../ChartComponent';
@@ -11,12 +11,22 @@ interface Answer {
   isEdited?: boolean;
   isLoading?: boolean;
   chartData?: ChartData;
+  modelUsed?: string;
+  timeTaken?: number;
+  messageLength?: number;
+  answerLength?: number;
+  questionInstructions?: string;
+  finalInstructionsPrompt?: string;
+  documentContext?: string;
+  finalPrompt?: string;
+  rawOutput?: string;
 }
 
 interface AnswerDisplayProps {
   answer: Answer | undefined;
   onEdit: () => void;
   onRegenerate: () => void;
+  showPlayground?: boolean;
 }
 
 /**
@@ -30,9 +40,37 @@ const removeAsterisks = (text: string): string => {
 /**
  * Component for displaying an answer with formatting
  */
-const AnswerDisplay: React.FC<AnswerDisplayProps> = ({ answer, onEdit, onRegenerate }) => {
+const AnswerDisplay: React.FC<AnswerDisplayProps> = ({ answer, onEdit, onRegenerate, showPlayground = false }) => {
   // Add state to track if details are expanded
-  const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
+  const [isDetailsExpanded, setIsDetailsExpanded] = useState(showPlayground);
+  // Track each playground section independently
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    questionInstructions: false,
+    finalInstructionsPrompt: false,
+    documentContext: false,
+    finalPrompt: false,
+    aiOutput: false
+  });
+
+  // Auto-expand details when playground is opened
+  React.useEffect(() => {
+    if (showPlayground) {
+      setIsDetailsExpanded(true);
+    }
+  }, [showPlayground]);
+
+  // Toggle details expansion
+  const toggleDetails = () => {
+    setIsDetailsExpanded(!isDetailsExpanded);
+  };
+
+  // Toggle individual playground section
+  const togglePlaygroundSection = (section: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
 
   // Add debug logging for chart data
   React.useEffect(() => {
@@ -40,11 +78,6 @@ const AnswerDisplay: React.FC<AnswerDisplayProps> = ({ answer, onEdit, onRegener
       console.log("AnswerDisplay received chart data:", JSON.stringify(answer.chartData, null, 2));
     }
   }, [answer?.chartData]);
-
-  // Toggle details expansion
-  const toggleDetails = () => {
-    setIsDetailsExpanded(!isDetailsExpanded);
-  };
 
   if (!answer) {
     return (
@@ -130,6 +163,204 @@ const AnswerDisplay: React.FC<AnswerDisplayProps> = ({ answer, onEdit, onRegener
         dataPoints: answer.chartData.data.datasets[0].data.length,
         labels: answer.chartData.data.labels
       }, null, 2)
+    );
+  }
+
+  // Render Prompt Playground if enabled
+  if (showPlayground) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+          <h4 className="text-sm font-semibold text-gray-700 mb-4">Prompt Playground</h4>
+          <div className="space-y-4">
+            {/* Model and Metrics */}
+            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center">
+                    <span className="text-gray-600 font-medium">Model:</span>
+                    <span className="ml-2 text-blue-600">{answer.modelUsed || 'Not specified'}</span>
+                  </div>
+                  <div className="h-4 w-px bg-gray-300"></div>
+                  <div className="flex items-center">
+                    <span className="text-gray-600 font-medium">Time:</span>
+                    <span className="ml-2 text-green-600">{answer.timeTaken ? `${(answer.timeTaken / 1000).toFixed(2)}s` : 'N/A'}</span>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center">
+                    <span className="text-gray-600 font-medium">Input:</span>
+                    <span className="ml-2 text-purple-600">{answer.messageLength ? `${answer.messageLength} tokens` : 'N/A'}</span>
+                  </div>
+                  <div className="h-4 w-px bg-gray-300"></div>
+                  <div className="flex items-center">
+                    <span className="text-gray-600 font-medium">Output:</span>
+                    <span className="ml-2 text-amber-600">{answer.answerLength ? `${answer.answerLength} tokens` : 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Question Instructions */}
+            <div className="rounded-lg border border-gray-200 shadow-sm">
+              <div 
+                className="flex justify-between items-center cursor-pointer px-6 py-4" 
+                onClick={() => togglePlaygroundSection('questionInstructions')}
+              >
+                <h4 className="text-sm font-semibold text-gray-700">Question Instructions</h4>
+                <button className="text-gray-600 hover:text-gray-800 text-sm flex items-center">
+                  {expandedSections.questionInstructions ? (
+                    <>
+                      <span>Hide</span>
+                      <ChevronUp className="h-4 w-4 ml-1" />
+                    </>
+                  ) : (
+                    <>
+                      <span>Show</span>
+                      <ChevronDown className="h-4 w-4 ml-1" />
+                    </>
+                  )}
+                </button>
+              </div>
+              {expandedSections.questionInstructions && (
+                <div className="p-6 border-t border-gray-200 bg-gray-50">
+                  <pre className="text-sm text-gray-800 whitespace-pre-wrap">{answer.questionInstructions || 'No instructions available'}</pre>
+                </div>
+              )}
+            </div>
+
+            {/* Final Instructions Prompt */}
+            <div className="rounded-lg border border-gray-200 shadow-sm">
+              <div 
+                className="flex justify-between items-center cursor-pointer px-6 py-4" 
+                onClick={() => togglePlaygroundSection('finalInstructionsPrompt')}
+              >
+                <h4 className="text-sm font-semibold text-gray-700">Final Instructions Prompt</h4>
+                <button className="text-gray-600 hover:text-gray-800 text-sm flex items-center">
+                  {expandedSections.finalInstructionsPrompt ? (
+                    <>
+                      <span>Hide</span>
+                      <ChevronUp className="h-4 w-4 ml-1" />
+                    </>
+                  ) : (
+                    <>
+                      <span>Show</span>
+                      <ChevronDown className="h-4 w-4 ml-1" />
+                    </>
+                  )}
+                </button>
+              </div>
+              {expandedSections.finalInstructionsPrompt && (
+                <div className="p-6 border-t border-gray-200 bg-gray-50">
+                  <pre className="text-sm text-gray-800 whitespace-pre-wrap">{answer.finalInstructionsPrompt || 'No prompt available'}</pre>
+                </div>
+              )}
+            </div>
+
+            {/* Document Context */}
+            <div className="rounded-lg border border-gray-200 shadow-sm">
+              <div 
+                className="flex justify-between items-center cursor-pointer px-6 py-4" 
+                onClick={() => togglePlaygroundSection('documentContext')}
+              >
+                <h4 className="text-sm font-semibold text-gray-700">Document Context</h4>
+                <button className="text-gray-600 hover:text-gray-800 text-sm flex items-center">
+                  {expandedSections.documentContext ? (
+                    <>
+                      <span>Hide</span>
+                      <ChevronUp className="h-4 w-4 ml-1" />
+                    </>
+                  ) : (
+                    <>
+                      <span>Show</span>
+                      <ChevronDown className="h-4 w-4 ml-1" />
+                    </>
+                  )}
+                </button>
+              </div>
+              {expandedSections.documentContext && (
+                <div className="p-6 border-t border-gray-200 bg-gray-50">
+                  <pre className="text-sm text-gray-800 whitespace-pre-wrap">{answer.documentContext || 'No context available'}</pre>
+                </div>
+              )}
+            </div>
+
+            {/* Final Prompt */}
+            <div className="rounded-lg border border-gray-200 shadow-sm">
+              <div 
+                className="flex justify-between items-center cursor-pointer px-6 py-4" 
+                onClick={() => togglePlaygroundSection('finalPrompt')}
+              >
+                <h4 className="text-sm font-semibold text-gray-700">Final Prompt</h4>
+                <button className="text-gray-600 hover:text-gray-800 text-sm flex items-center">
+                  {expandedSections.finalPrompt ? (
+                    <>
+                      <span>Hide</span>
+                      <ChevronUp className="h-4 w-4 ml-1" />
+                    </>
+                  ) : (
+                    <>
+                      <span>Show</span>
+                      <ChevronDown className="h-4 w-4 ml-1" />
+                    </>
+                  )}
+                </button>
+              </div>
+              {expandedSections.finalPrompt && (
+                <div className="p-6 border-t border-gray-200 bg-gray-50">
+                  <pre className="text-sm text-gray-800 whitespace-pre-wrap">{answer.finalPrompt || 'No prompt available'}</pre>
+                </div>
+              )}
+            </div>
+
+            {/* AI Output */}
+            <div className="rounded-lg border border-gray-200 shadow-sm">
+              <div 
+                className="flex justify-between items-center cursor-pointer px-6 py-4" 
+                onClick={() => togglePlaygroundSection('aiOutput')}
+              >
+                <h4 className="text-sm font-semibold text-gray-700">AI Output</h4>
+                <button className="text-gray-600 hover:text-gray-800 text-sm flex items-center">
+                  {expandedSections.aiOutput ? (
+                    <>
+                      <span>Hide</span>
+                      <ChevronUp className="h-4 w-4 ml-1" />
+                    </>
+                  ) : (
+                    <>
+                      <span>Show</span>
+                      <ChevronDown className="h-4 w-4 ml-1" />
+                    </>
+                  )}
+                </button>
+              </div>
+              {expandedSections.aiOutput && (
+                <div className="p-6 border-t border-gray-200 bg-gray-50">
+                  <pre className="text-sm text-gray-800 whitespace-pre-wrap">{answer.rawOutput || 'No output available'}</pre>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-end space-x-2">
+          <button
+            onClick={onEdit}
+            className="flex items-center text-sm px-3 py-1 rounded bg-gray-100 hover:bg-gray-200"
+          >
+            <Edit2 className="h-3 w-3 mr-1" />
+            Edit
+          </button>
+          <button
+            onClick={onRegenerate}
+            className="flex items-center text-sm px-3 py-1 rounded bg-gray-100 hover:bg-gray-200"
+          >
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Regenerate
+          </button>
+        </div>
+      </div>
     );
   }
 
