@@ -13,22 +13,6 @@ export type DocumentPriority = {
  * Document priority mapping for each question
  * This helps guide the AI to focus on the right document type for each question
  */
-export const QUESTION_DOCUMENT_MAPPING: Record<string, DocumentPriority> = {
-  'arr': { primary: 'excel', secondary: 'pdf' },
-  'growth_rate': { primary: 'excel', secondary: 'pdf' },
-  'valuation': { primary: 'pdf', secondary: 'excel' },
-  'burn_rate': { primary: 'excel', secondary: 'pdf' },
-  'runway': { primary: 'excel', secondary: 'pdf' },
-  'business_model': { primary: 'pdf', secondary: 'excel' },
-  'customers': { primary: 'pdf', secondary: 'excel' },
-  'competition': { primary: 'pdf', secondary: 'excel' },
-  'differentiation': { primary: 'pdf', secondary: 'excel' },
-  'team': { primary: 'pdf', secondary: 'excel' },
-  'risks': { primary: 'both', secondary: 'both' },
-  'funding_history': { primary: 'pdf', secondary: 'excel' },
-  'problem': { primary: 'pdf', secondary: 'excel' }
-};
-
 export const QUESTION_DOCUMENT_MAPPING_BY_CATEGORY: Record<string, DocumentPriority> = {
    'Financial': { primary: 'excel', secondary: 'pdf' },
    'Business': { primary: 'pdf', secondary: 'excel' },
@@ -998,7 +982,13 @@ export const INVESTMENT_MEMO_QUESTIONS: InvestmentMemoQuestion[] = [
  * @returns The document priority mapping for the question, or a default if not found
  */
 export function getDocumentPriorityForQuestion(question: InvestmentMemoQuestion): DocumentPriority {
-  return QUESTION_DOCUMENT_MAPPING_BY_SUBCATEGORY[question.subcategory || ''] || { primary: 'both', secondary: 'both' };
+   if (question.subcategory) {
+      return QUESTION_DOCUMENT_MAPPING_BY_SUBCATEGORY[question.subcategory] || { primary: 'both', secondary: 'both' };
+   } else if (question.category) {
+      return QUESTION_DOCUMENT_MAPPING_BY_CATEGORY[question.category] || { primary: 'both', secondary: 'both' };
+   } else {
+      return { primary: 'both', secondary: 'both' };
+   } 
 }
 
 /**

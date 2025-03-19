@@ -155,9 +155,12 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
   const [tempTitle, setTempTitle] = useState(title);
   const [tempDescription, setTempDescription] = useState(description);
   
-  // Filtered questions based on selection
+  // Add state for custom questions
+  const [customQuestions, setCustomQuestions] = useState<InvestmentMemoQuestion[]>([]);
+  
+  // Modify the filteredQuestions to include custom questions
   const filteredQuestions = selectedQuestionIds.length > 0
-    ? INVESTMENT_MEMO_QUESTIONS.filter(q => selectedQuestionIds.includes(q.id))
+    ? [...INVESTMENT_MEMO_QUESTIONS, ...customQuestions].filter(q => selectedQuestionIds.includes(q.id))
     : [];
   
   // Custom wrapper for onAnswerUpdate to handle both summary and details
@@ -401,6 +404,11 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     setIsEditingDescription(false);
   };
 
+  // Add handler for custom questions
+  const handleCustomQuestionAdd = (question: InvestmentMemoQuestion) => {
+    setCustomQuestions(prev => [...prev, question]);
+  };
+
   return (
     <div className="w-full">
       <div className="flex flex-col mb-6">
@@ -584,6 +592,8 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
         onClose={() => setIsSelectionModalOpen(false)}
         onSubmit={handleQuestionSelection}
         initialSelections={selectedQuestionIds}
+        customQuestions={customQuestions}
+        onCustomQuestionAdd={handleCustomQuestionAdd}
       />
 
       {/* Export PDF Dialog */}
