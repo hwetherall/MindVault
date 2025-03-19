@@ -1,17 +1,5 @@
 /* eslint-disable no-undef */
-// Remove direct OpenAI import as we'll use our API endpoint
-// import { OpenAI } from 'openai';
-import { getSuggestedQuestions } from './excelAIService';
 import { extractTimeSeriesForChart, extractMultipleMetricsForChart, detectChartType, extractARRFromQuarterlyData } from './excelChartService';
-
-// Keywords that might indicate an Excel-related question
-const EXCEL_KEYWORDS = [
-  'excel', 'spreadsheet', 'financial', 'financials', 'finance',
-  'revenue', 'profit', 'margin', 'budget', 'forecast',
-  'sales', 'growth', 'expense', 'cash', 'flow', 'balance',
-  'sheet', 'income', 'statement', 'ratio', 'metric',
-  'trend', 'projection', 'quarterly', 'annual'
-];
 
 // Helper function to clean thinking tags from responses
 function removeThinkingContent(text) {
