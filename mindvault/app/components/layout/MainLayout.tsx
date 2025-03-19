@@ -8,6 +8,7 @@ import { filesService } from '../../services/filesService';
 import InvestmentMemoMain from '../features/investment-memo/InvestmentMemoMain';
 import ErrorBoundary from '../ErrorBoundary';
 import { FileText, FileSpreadsheet, X, ChevronLeft, ChevronRight, Plus, Database, Trash, CheckCircle, AlertCircle } from 'lucide-react';
+import PedramExportCard from '../features/pedram-export/PedramExportCard';
 
 // Add type definition for filesService
 interface FilesService {
@@ -268,7 +269,7 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
                         <FileSpreadsheet size={24} className="text-green-500" />
                       </div>
                       <span className="text-xs mt-1">Excel</span>
-              </div>
+                    </div>
               
                     {/* Upload Button */}
                     <button 
@@ -329,7 +330,7 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
                           <span className="text-green-600 text-sm">Spreadsheets</span>
                           <span className="text-xs text-green-400">(Excel)</span>
                         </button>
-              </div>
+                      </div>
               
                       {/* Hidden File Inputs */}
                       <input
@@ -362,12 +363,12 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
                                   )}
                                   <span className="break-words text-sm">{file.name}</span>
                                 </div>
-                  <button
+                                <button
                                   onClick={() => handleDeleteFile(file.id, file.type)}
                                   className="text-gray-500 hover:text-red-500 flex-shrink-0 ml-2 mt-1"
-                  >
+                                >
                                   <X size={16} />
-                  </button>
+                                </button>
                               </li>
                             ))}
                           </ul>
@@ -379,28 +380,34 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
                       </div>
 
                       {/* Clear Repository Button */}
-                  <button
-                    onClick={handleClearRepository}
+                      <button
+                        onClick={handleClearRepository}
                         className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
-                  >
+                      >
                         <Trash size={16} />
-                    Clear Repository
-                  </button>
-                </div>
+                        Clear Repository
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
+
+              {/* Pedram Analysis Button */}
+              <PedramExportCard
+                files={files}
+                isCollapsed={isCollapsed}
+              />
             </div>
 
             {/* Right Column - Investment Memo Content */}
             <div className={`transition-all duration-300 ease-in-out ${isCollapsed ? 'md:col-span-11' : 'md:col-span-8'}`}>
-                <div className="border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-all duration-200 p-6">
-                  <InvestmentMemoMain 
-                    files={files} 
-                    onComplete={handleAnalysisComplete} 
-                    onAnswerUpdate={handleAnswerUpdate}
-                  />
-                </div>
+              <div className="border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-all duration-200 p-6">
+                <InvestmentMemoMain 
+                  files={files} 
+                  onComplete={handleAnalysisComplete} 
+                  onAnswerUpdate={handleAnswerUpdate}
+                />
+              </div>
             </div>
           </div>
         </main>

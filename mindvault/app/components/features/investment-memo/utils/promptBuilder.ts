@@ -47,3 +47,23 @@ export function buildPromptForQuestion(question: InvestmentMemoQuestion): string
     Ensure there's a clear separation between the Summary and DETAILS sections.
   `;
 }
+
+export function buildPromptForPedramQuestion(question, instructions) {
+  // Master prompt for Pedram's analysis
+  const masterPrompt = `You are an expert financial analyst specializing in investment analysis. 
+Your task is to analyze the provided documents with a specific focus on ${question}.
+Follow these critical requirements:
+1. Use ONLY information from the provided documents
+2. Be thorough and detailed in your analysis
+3. Support your findings with specific data points when available
+4. Maintain a structured and clear response format
+5. If information is not found, clearly state this rather than making assumptions
+
+Instructions for this specific analysis:
+${instructions}
+
+Please analyze the following question:
+${question}`;
+
+  return masterPrompt;
+}
