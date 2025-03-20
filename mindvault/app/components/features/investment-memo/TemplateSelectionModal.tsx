@@ -34,7 +34,7 @@ const TemplateSelectionModal: React.FC<TemplateSelectionModalProps> = ({
             Choose a template to pre-select questions for your investment memo, or create a custom selection.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {TEMPLATES.map((template) => (
               <div 
                 key={template.id}
@@ -43,16 +43,24 @@ const TemplateSelectionModal: React.FC<TemplateSelectionModalProps> = ({
                 }`}
                 onClick={() => template.id === 'custom' ? onSelectCustom() : onSelectTemplate(template.id)}
               >
-                <div className="p-4">
-                  <h3 className="font-medium text-lg text-[#1A1F2E]">{template.name}</h3>
-                  <p className="text-gray-500 text-sm mt-1">
+                <div className="p-6">
+                  <div className="flex items-center mb-3">
+                    <div className="text-3xl mr-3">{template.logo}</div>
+                    <h3 className="font-medium text-lg text-[#1A1F2E]">{template.name}</h3>
+                  </div>
+                  <p className="text-gray-600 text-sm">
                     {template.description}
                   </p>
-                  <div className="mt-2 text-xs text-gray-500">
-                    {template.id !== 'custom' ? 
-                      `${template.questions.length} question${template.questions.length !== 1 ? 's' : ''}` : 
-                      'Select your own questions'
-                    }
+                  <div className="mt-4 text-xs text-gray-500 flex items-center">
+                    {template.id !== 'custom' ? (
+                      <span className="bg-[#F15A29] bg-opacity-10 text-[#F15A29] px-2 py-1 rounded-full">
+                        {template.questions.length} question{template.questions.length !== 1 ? 's' : ''}
+                      </span>
+                    ) : (
+                      <span className="bg-gray-200 px-2 py-1 rounded-full">
+                        Select your own questions
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

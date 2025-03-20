@@ -131,7 +131,7 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
       displayName: "The Innovera Tortoise is methodically examining every detail in your documents."
     },
     fast: {
-      id: "llama-3.1-8b-instant",
+      id: "llama-3.2-3b-preview",
       description: "Faster responses",
       displayName: "The Innovera Hare is racing through your documents to find quick answers."
     }
@@ -416,8 +416,26 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     // Find the template
     const selectedTemplate = TEMPLATES.find(t => t.id === templateId);
     if (selectedTemplate) {
+      console.log(`Selected template: ${selectedTemplate.name}`);
+      console.log(`Template has ${selectedTemplate.questions.length} questions`);
+      
+      // Log a few question IDs for debugging
+      if (selectedTemplate.questions.length > 0) {
+        console.log('Sample question IDs:', selectedTemplate.questions.slice(0, 3));
+        
+        // Verify if these IDs exist in INVESTMENT_MEMO_QUESTIONS
+        const foundQuestions = INVESTMENT_MEMO_QUESTIONS.filter(q => 
+          selectedTemplate.questions.includes(q.id)
+        );
+        console.log(`Found ${foundQuestions.length} matching questions in INVESTMENT_MEMO_QUESTIONS`);
+      } else {
+        console.warn(`Template ${selectedTemplate.name} has no questions!`);
+      }
+      
       // Get the questions from the template
       handleQuestionSelection(selectedTemplate.questions, true);
+    } else {
+      console.error(`Template with ID ${templateId} not found`);
     }
     setIsTemplateModalOpen(false);
   };
