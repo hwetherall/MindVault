@@ -24,6 +24,7 @@ interface QuestionItemProps {
     complexity?: 'low' | 'medium' | 'high';
     recommended?: string[];
   };
+  children?: React.ReactNode;
   answer?: Answer;
   isExpanded: boolean;
   onToggle: () => void;
@@ -41,13 +42,13 @@ interface QuestionItemProps {
  */
 const QuestionItem: React.FC<QuestionItemProps> = ({
   question,
+  children,
   answer,
   isExpanded,
   onToggle,
   onRegenerate,
   onEdit,
   onSave,
-  onRegenerate,
   onDelete,
   editedAnswer,
   setEditedAnswer,
@@ -133,8 +134,8 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
           <button 
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm(`Are you sure you want to remove "${question}"?`)) {
-                onDelete(id);
+              if (confirm(`Are you sure you want to remove "${question.question}"?`)) {
+                onDelete(question.id);
               }
             }}
             className="p-1 text-red-500 hover:text-red-700 mr-2"

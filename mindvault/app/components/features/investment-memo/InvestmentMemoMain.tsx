@@ -639,18 +639,15 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
                       return (
                         <QuestionItem
                           key={question.id}
-                          id={question.id}
-                          question={question.question}
-                          description={question.description}
+                          question={question}
                           answer={questionAnswer}
                           isExpanded={expandedAnswers[question.id] || false}
-                          isEditing={editingId === question.id}
-                          editedAnswer={editingId === question.id ? editedAnswer : ''}
-                          setEditedAnswer={setEditedAnswer}
                           onToggle={() => toggleAnswer(question.id)}
                           onEdit={handleEdit}
                           onSave={(id, content) => handleSave(id, content)}
                           onRegenerate={(customPrompt?: string) => regenerateAnswer(question.id, customPrompt)}
+                          editedAnswer={editingId === question.id ? editedAnswer : ''}
+                          setEditedAnswer={setEditedAnswer}
                           onDelete={handleDeleteQuestion}
                         >
                           {/* Model indicator */}
