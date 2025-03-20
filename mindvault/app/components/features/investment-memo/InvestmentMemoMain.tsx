@@ -221,10 +221,10 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     });
   };
   
-  // Wrap regenerateAnswer to include fastMode
-  const regenerateAnswer = async (id: string) => {
-    // Call the original method
-    await originalRegenerateAnswer(id);
+  // Update the regenerateAnswer function
+  const regenerateAnswer = async (id: string, customPrompt?: string) => {
+    // Call the original method with both the id and custom prompt
+    await originalRegenerateAnswer(id, customPrompt);
   };
   
   // Effect to handle analyzing questions after state updates have completed
@@ -542,41 +542,26 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
                     {currentContent.questions
                       .filter(question => question.category === category)
                       .map(question => {
-                      const questionAnswer = currentContent.answers[question.id];
-                      const modelUsed = (questionAnswer as any)?.modelUsed || 
-                        (fastMode ? modelInfo.fast.id : modelInfo.normal.id);
-                      const isFastMode = modelUsed === modelInfo.fast.id;
-                      
-                      return (
-                        <QuestionItem
-                          key={question.id}
-                          id={question.id}
-                          question={question.question}
-                          description={question.description}
-                          answer={questionAnswer}
-                          isExpanded={expandedAnswers[question.id] || false}
-                          isEditing={editingId === question.id}
-                          editedAnswer={editingId === question.id ? editedAnswer : ''}
-                          setEditedAnswer={setEditedAnswer}
-                          onToggle={toggleAnswer}
-                          onEdit={handleEdit}
-                          onSave={(id, content) => handleSave(id)}
-                          onRegenerate={regenerateAnswer}
-                        >
-                          {/* Model indicator */}
-                          {questionAnswer && (
-                            <div className={`text-xs mb-2 ${
-                              isFastMode ? 'text-amber-600' : 'text-blue-600'
-                            }`}>
-                              {isFastMode 
-                                ? modelInfo.fast.displayName
-                                : modelInfo.normal.displayName
-                              }
-                            </div>
-                          )}
-                        </QuestionItem>
-                      );
-                    })}
+                        const questionAnswer = currentContent.answers[question.id];
+                        const modelUsed = (questionAnswer as any)?.modelUsed || 
+                          (fastMode ? modelInfo.fast.id : modelInfo.normal.id);
+                        const isFastMode = modelUsed === modelInfo.fast.id;
+                        
+                        return (
+                          <QuestionItem
+                            key={question.id}
+                            question={question}
+                            answer={questionAnswer}
+                            isExpanded={expandedAnswers[question.id] || false}
+                            onToggle={() => toggleAnswer(question.id)}
+                            onEdit={handleEdit}
+                            onSave={(id, content) => handleSave(id, content)}
+                            onRegenerate={(customPrompt?: string) => regenerateAnswer(question.id, customPrompt)}
+                            editedAnswer={editingId === question.id ? editedAnswer : ''}
+                            setEditedAnswer={setEditedAnswer}
+                          />
+                        );
+                      })}
                   </div>
                 </div>
               ))}
