@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronDown, ChevronUp, Edit2, RefreshCw, Code } from 'lucide-react';
+import { ChevronDown, ChevronUp, Edit2, RefreshCw, Code, Trash2 } from 'lucide-react';
 import { Answer } from './utils/pdfExport';
 import AnswerDisplay from './AnswerDisplay';
 import EditAnswer from './EditAnswer';
@@ -15,6 +15,7 @@ interface QuestionItemProps {
   onEdit: (id: string) => void;
   onSave: (id: string, content: string) => void;
   onRegenerate: (id: string) => void;
+  onDelete: (id: string) => void;
   editedAnswer: string;
   setEditedAnswer: (content: string) => void;
   children?: React.ReactNode;
@@ -34,6 +35,7 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
   onEdit,
   onSave,
   onRegenerate,
+  onDelete,
   editedAnswer,
   setEditedAnswer,
   children
@@ -89,6 +91,20 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
           )}
         </div>
         <div className="flex items-center ml-4">
+          {/* Delete button - always show */}
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              if (confirm(`Are you sure you want to remove "${question}"?`)) {
+                onDelete(id);
+              }
+            }}
+            className="p-1 text-red-500 hover:text-red-700 mr-2"
+            title="Remove question"
+          >
+            <Trash2 size={18} />
+          </button>
+          
           {isAnswerGenerated && (
             <>
               <button 

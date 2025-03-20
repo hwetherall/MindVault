@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, Zap } from 'lucide-react';
 import { TEMPLATES } from './data/templates';
 
 interface TemplateSelectionModalProps {
@@ -46,7 +46,15 @@ const TemplateSelectionModal: React.FC<TemplateSelectionModalProps> = ({
                 <div className="p-6">
                   <div className="flex items-center mb-3">
                     <div className="text-3xl mr-3">{template.logo}</div>
-                    <h3 className="font-medium text-lg text-[#1A1F2E]">{template.name}</h3>
+                    <div className="flex flex-col">
+                      <h3 className="font-medium text-lg text-[#1A1F2E]">{template.name}</h3>
+                      {template.id === 'quick_analysis' && (
+                        <div className="flex items-center text-xs text-amber-600 mt-1">
+                          <Zap size={12} className="mr-1" />
+                          <span>Uses fast mode</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <p className="text-gray-600 text-sm">
                     {template.description}

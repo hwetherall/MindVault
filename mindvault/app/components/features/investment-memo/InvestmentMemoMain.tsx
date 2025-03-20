@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileDown, PlusCircle, Pencil, Check } from 'lucide-react';
+import { FileDown, PlusCircle, Pencil, Check, RefreshCw } from 'lucide-react';
 import QuestionItem from './QuestionItem';
 import QuestionSelectionModal from './QuestionSelectionModal';
 import TemplateSelectionModal from './TemplateSelectionModal';
@@ -411,6 +411,24 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     setCustomQuestions(prev => [...prev, question]);
   };
 
+  // Function to handle deleting an individual question
+  const handleDeleteQuestion = (id: string) => {
+    try {
+      // Remove the question ID from the selected questions
+      setSelectedQuestionIds(prev => prev.filter(qId => qId !== id));
+      
+      // If it's a custom question, remove it from the custom questions list as well
+      const isCustomQuestion = customQuestions.some(q => q.id === id);
+      if (isCustomQuestion) {
+        setCustomQuestions(prev => prev.filter(q => q.id !== id));
+      }
+      
+      console.log(`Removed question with ID: ${id}`);
+    } catch (error) {
+      console.error('Error removing question:', error);
+    }
+  };
+
   // Handle template selection
   const handleTemplateSelection = (templateId: string) => {
     // Find the template
@@ -418,6 +436,16 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     if (selectedTemplate) {
       console.log(`Selected template: ${selectedTemplate.name}`);
       console.log(`Template has ${selectedTemplate.questions.length} questions`);
+      
+      // Set fastMode to true when Quick Analysis template is selected
+      if (templateId === 'quick_analysis') {
+        handleSetFastMode(true);
+        console.log('Fast mode enabled for Quick Analysis template');
+      } else {
+        // For other templates, set to normal mode
+        handleSetFastMode(false);
+        console.log('Normal mode set for non-Quick Analysis template');
+      }
       
       // Log a few question IDs for debugging
       if (selectedTemplate.questions.length > 0) {
@@ -533,23 +561,46 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
 
       {/* Status Information */}
       <div className="mb-6">
-        <button 
-          onClick={() => setIsTemplateModalOpen(true)}
-          className="flex items-center gap-2 bg-[#F15A29] text-white px-4 py-2 rounded-lg hover:bg-[#D94315] mb-4"
-        >
-          <PlusCircle size={18} />
-          <span>{selectedQuestionIds.length === 0 ? 'Select Questions' : 'Add or Remove Questions'}</span>
-        </button>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => setIsTemplateModalOpen(true)}
+            className="flex items-center gap-2 bg-[#F15A29] text-white px-4 py-2 rounded-lg hover:bg-[#D94315]"
+          >
+            <PlusCircle size={18} />
+            <span>{selectedQuestionIds.length === 0 ? 'Select Questions' : 'Add or Remove Questions'}</span>
+          </button>
+          
+          {selectedQuestionIds.length > 0 && (
+            <button 
+              onClick={() => {
+                // Reset questions
+                setSelectedQuestionIds([]);
+                // Clear any pending analysis
+                setPendingAnalysisIds([]);
+                // Reset to default title if needed
+                if (title !== 'Investment Memo') {
+                  setTitle('Investment Memo');
+                }
+                // Clear description
+                setDescription('');
+              }}
+              className="flex items-center gap-2 bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-200"
+            >
+              <RefreshCw size={18} />
+              <span>Reset</span>
+            </button>
+          )}
+        </div>
         
         {loading > 0 && (
-          <div className="flex items-center gap-2 text-blue-600 mb-4">
+          <div className="flex items-center gap-2 text-blue-600 mb-4 mt-4">
             <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full mr-1"></div>
             <span>Analyzing {loading} question{loading > 1 ? 's' : ''}...</span>
           </div>
         )}
         
         {error && (
-          <div className="bg-red-50 text-red-800 p-4 rounded-lg mb-4">
+          <div className="bg-red-50 text-red-800 p-4 rounded-lg mb-4 mt-4">
             {error}
           </div>
         )}
@@ -600,6 +651,7 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
                           onEdit={handleEdit}
                           onSave={(id, content) => handleSave(id)}
                           onRegenerate={regenerateAnswer}
+                          onDelete={handleDeleteQuestion}
                         >
                           {/* Model indicator */}
                           {questionAnswer && (
