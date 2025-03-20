@@ -1,5 +1,6 @@
 {
-  "buildCommand": "npm run build && mkdir -p dist && cp .next/routes-manifest.json dist/",
+  "installCommand": "npm install && npm install react-syntax-highlighter @types/react-syntax-highlighter",
+  "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
   "rewrites": []
