@@ -1,0 +1,174 @@
+/* Investment Memo PDF Styles */
+.investment-memo {
+  font-family: 'Arial', sans-serif;
+  color: #333;
+  line-height: 1.5;
+  max-width: 100%;
+}
+
+.investment-memo h1 {
+  font-size: 24px;
+  color: #1a56db;
+  margin-top: 24px;
+  margin-bottom: 16px;
+  text-align: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.investment-memo h2 {
+  font-size: 20px;
+  color: #2563eb;
+  margin-top: 20px;
+  margin-bottom: 12px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.investment-memo h3 {
+  font-size: 18px;
+  color: #3b82f6;
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.investment-memo h4 {
+  font-size: 16px;
+  color: #60a5fa;
+  margin-top: 12px;
+  margin-bottom: 6px;
+}
+
+.investment-memo p {
+  margin-bottom: 12px;
+}
+
+.investment-memo table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+}
+
+.investment-memo table th {
+  background-color: #f1f5f9;
+  padding: 8px;
+  text-align: left;
+  font-weight: 600;
+  border: 1px solid #cbd5e1;
+}
+
+.investment-memo table td {
+  padding: 8px;
+  border: 1px solid #cbd5e1;
+}
+
+.investment-memo table tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+.investment-memo ul, .investment-memo ol {
+  margin-bottom: 12px;
+  padding-left: 20px;
+}
+
+.investment-memo li {
+  margin-bottom: 4px;
+}
+
+.investment-memo blockquote {
+  margin: 12px 0;
+  padding: 12px 16px;
+  background-color: #f1f5f9;
+  border-left: 4px solid #3b82f6;
+  font-style: italic;
+}
+
+.investment-memo .highlight {
+  background-color: #fef3c7;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.investment-memo .metric-box {
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.investment-memo .metric-box h4 {
+  margin-top: 0;
+  color: #0369a1;
+}
+
+.investment-memo .risk-box {
+  background-color: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.investment-memo .risk-box h4 {
+  margin-top: 0;
+  color: #e11d48;
+}
+
+.investment-memo .opportunity-box {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.investment-memo .opportunity-box h4 {
+  margin-top: 0;
+  color: #16a34a;
+}
+
+/* Header and basic info section */
+.investment-memo .memo-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.investment-memo .company-info {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.investment-memo .info-item {
+  display: flex;
+}
+
+.investment-memo .info-label {
+  font-weight: 600;
+  min-width: 150px;
+}
+
+/* Page breaks for PDF */
+.investment-memo .page-break {
+  page-break-after: always;
+}
+
+/* Executive summary styling */
+.investment-memo .executive-summary {
+  background-color: #f8fafc;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+/* Footer */
+.investment-memo .memo-footer {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 12px;
+  color: #64748b;
+  text-align: center;
+} 

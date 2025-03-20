@@ -28,6 +28,7 @@
     "gpt-tokenizer": "^2.8.1",
     "groq-sdk": "^0.16.0",
     "html2canvas": "^1.4.1",
+    "html2pdf.js": "^0.10.3",
     "jspdf": "^3.0.0",
     "katex": "^0.16.21",
     "limiter": "^3.0.0",
