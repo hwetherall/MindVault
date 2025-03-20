@@ -224,10 +224,10 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     });
   };
   
-  // Wrap regenerateAnswer to include fastMode
-  const regenerateAnswer = async (id: string) => {
-    // Call the original method
-    await originalRegenerateAnswer(id);
+  // Update the regenerateAnswer function
+  const regenerateAnswer = async (id: string, customPrompt?: string) => {
+    // Call the original method with both the id and custom prompt
+    await originalRegenerateAnswer(id, customPrompt);
   };
   
   // Effect to handle analyzing questions after state updates have completed
@@ -647,10 +647,10 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
                           isEditing={editingId === question.id}
                           editedAnswer={editingId === question.id ? editedAnswer : ''}
                           setEditedAnswer={setEditedAnswer}
-                          onToggle={toggleAnswer}
+                          onToggle={() => toggleAnswer(question.id)}
                           onEdit={handleEdit}
-                          onSave={(id, content) => handleSave(id)}
-                          onRegenerate={regenerateAnswer}
+                          onSave={(id, content) => handleSave(id, content)}
+                          onRegenerate={(customPrompt?: string) => regenerateAnswer(question.id, customPrompt)}
                           onDelete={handleDeleteQuestion}
                         >
                           {/* Model indicator */}

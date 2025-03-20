@@ -15,8 +15,7 @@ export interface Answer {
   timeTaken?: number;
   messageLength?: number;
   answerLength?: number;
-  questionInstructions?: string;
-  finalInstructionsPrompt?: string;
+  finalInstructions?: string;
   documentContext?: string;
   finalPrompt?: string;
   rawOutput?: string;
@@ -35,7 +34,7 @@ export interface InvestmentMemoQuestion {
 
 interface UseInvestmentMemoProps {
   files: any[];
-  questions: InvestmentMemoQuestion[];  // Can now include both predefined and custom questions
+  questions: InvestmentMemoQuestion[];
   onComplete?: (passed: boolean) => void;
   onAnswerUpdate?: (id: string, summary: string, details: string) => void;
   fastMode?: boolean;
@@ -51,10 +50,10 @@ interface UseInvestmentMemoReturn {
   setEditedAnswer: (answer: string) => void;
   toggleAnswer: (id: string) => void;
   handleEdit: (id: string) => void;
-  handleSave: (id: string) => void;
+  handleSave: (id: string, content: string, instructions?: string) => void;
   analyzeDocuments: () => Promise<void>;
-  analyzeSelectedQuestions: (questionIds: string[]) => Promise<void>;
-  regenerateAnswer: (id: string) => Promise<void>;
+  analyzeSelectedQuestions: (questionIds: string[], setPrompt?: string) => Promise<void>;
+  regenerateAnswer: (id: string, customPrompt?: string) => Promise<void>;
 }
 
 // Add type definition for the API response
@@ -117,15 +116,18 @@ export function useInvestmentMemo({
   /**
    * Saves the edited answer
    */
-  const handleSave = (id: string) => {
-    if (editedAnswer.trim()) {
+  const handleSave = (id: string, content: string, instructions?: string) => {
+    if (content.trim()) {
       const updatedAnswer = {
-        summary: editedAnswer,
+        ...answers[id],
+        summary: content,
         details: answers[id]?.details || '',
         isEdited: true,
         isLoading: false,
         // Preserve chart data if it exists
-        chartData: answers[id]?.chartData
+        chartData: answers[id]?.chartData,
+        // Update instructions if provided
+        finalInstructions: instructions || answers[id]?.finalInstructions
       };
       
       setAnswers(prev => ({
@@ -145,7 +147,7 @@ export function useInvestmentMemo({
   /**
    * Analyzes a single question
    */
-  const analyzeQuestion = async (question: InvestmentMemoQuestion): Promise<Answer> => {
+  const analyzeQuestion = async (question: InvestmentMemoQuestion, customInstructions?: string): Promise<Answer> => {
     // Mark this question as loading
     setAnswers(prev => ({
       ...prev,
@@ -156,14 +158,21 @@ export function useInvestmentMemo({
     }));
 
     try {
-      if (question.id.startsWith('custom_')) {
-        // Generate custom instructions for the question
-        question.instructions = await generateCustomInstructions(question);
-        console.log(`Custom instructions generated for question ${question.id}: ${question.instructions}`);
-      }
+      let prompt = '';
 
-      // Use the prompt generator with the question object
-      const prompt = buildPromptForQuestion(question);
+      if (customInstructions){
+        prompt = customInstructions;
+
+      } else {
+        if (question.id.startsWith('custom_')) {
+          // Generate custom instructions for the question
+          question.instructions = await generateCustomInstructions(question);
+          console.log(`Custom instructions generated for question ${question.id}: ${question.instructions}`);
+        }
+
+        // Use the prompt generator with the question object
+        prompt = buildPromptForQuestion(question);
+      }
 
       console.log(`Prompt passed to AI service: ${prompt}`);
 
@@ -231,8 +240,7 @@ export function useInvestmentMemo({
         timeTaken: response.timeTaken,
         messageLength: response.messageLength,
         answerLength: response.answerLength,
-        questionInstructions: question.instructions,
-        finalInstructionsPrompt: prompt,
+        finalInstructions: prompt,
         documentContext: response.documentContext,
         finalPrompt: response.finalPrompt,
         rawOutput: response.rawOutput
@@ -253,7 +261,7 @@ export function useInvestmentMemo({
   /**
    * Analyzes documents to generate answers for selected questions
    */
-  const analyzeSelectedQuestions = async (questionIds: string[]) => {
+  const analyzeSelectedQuestions = async (questionIds: string[], setPrompt?: string) => {
     setError(null);
     
     try {
@@ -294,7 +302,7 @@ export function useInvestmentMemo({
       }));
       
       // Process each question directly
-      const answerPromises = selectedQuestions.map(question => analyzeQuestion(question));
+      const answerPromises = selectedQuestions.map(question => analyzeQuestion(question, setPrompt));
       const results = await Promise.all(answerPromises);
       
       // Update with real answers
@@ -354,13 +362,13 @@ export function useInvestmentMemo({
   /**
    * Regenerates a specific answer
    */
-  const regenerateAnswer = async (id: string) => {
+  const regenerateAnswer = async (id: string, customPrompt?: string) => {
     const question = questions.find(q => q.id === id);
     if (!question) return;
     
     try {
-      // Use analyzeSelectedQuestions for consistency
-      await analyzeSelectedQuestions([id]);
+      // Use the custom prompt if provided, otherwise use the stored instructions
+      await analyzeSelectedQuestions([id], customPrompt);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred while regenerating the answer');
     }

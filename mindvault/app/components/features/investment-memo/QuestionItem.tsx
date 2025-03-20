@@ -1,51 +1,78 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Edit2, RefreshCw, Code, Trash2 } from 'lucide-react';
-import { Answer } from './utils/pdfExport';
+import { Answer as BaseAnswer } from './utils/pdfExport';
 import AnswerDisplay from './AnswerDisplay';
 import EditAnswer from './EditAnswer';
+import { InvestmentMemoQuestion } from './utils/pdfExport';
+import PromptPlayground from './PromptPlayground';
+
+// Extend the base Answer type to include additional fields
+interface Answer extends BaseAnswer {
+  finalInstructions?: string;
+  documentContext?: string;
+  finalPrompt?: string;
+  rawOutput?: string;
+}
 
 interface QuestionItemProps {
-  id: string;
-  question: string;
-  description: string;
-  answer: Answer | undefined;
+  question: {
+    id: string;
+    question: string;
+    description: string;
+    category?: string;
+    subcategory?: string;
+    complexity?: 'low' | 'medium' | 'high';
+    recommended?: string[];
+  };
+  answer?: Answer;
   isExpanded: boolean;
-  isEditing: boolean;
-  onToggle: (id: string) => void;
+  onToggle: () => void;
   onEdit: (id: string) => void;
   onSave: (id: string, content: string) => void;
-  onRegenerate: (id: string) => void;
+  onRegenerate: (customPrompt?: string) => void;
   onDelete: (id: string) => void;
   editedAnswer: string;
-  setEditedAnswer: (content: string) => void;
-  children?: React.ReactNode;
+  setEditedAnswer: (answer: string) => void;
+  showPlayground?: boolean;
 }
 
 /**
  * Component for displaying an individual investment memo question with its answer
  */
 const QuestionItem: React.FC<QuestionItemProps> = ({
-  id,
   question,
-  description,
   answer,
   isExpanded,
-  isEditing,
   onToggle,
+  onRegenerate,
   onEdit,
   onSave,
   onRegenerate,
   onDelete,
   editedAnswer,
   setEditedAnswer,
-  children
+  showPlayground = false
 }) => {
   // Helper functions to check loading state safely
   const isAnswerLoading = answer && (answer as any).isLoading === true;
   const isAnswerGenerated = answer && !isAnswerLoading;
+  const isEditing = editedAnswer !== '';
 
-  // Add state for playground
-  const [showPlayground, setShowPlayground] = React.useState(false);
+  // Add state for playground and edited instructions
+  const [showPlaygroundState, setShowPlaygroundState] = React.useState(showPlayground);
+  const [editedInstructions, setEditedInstructions] = React.useState<string | undefined>(undefined);
+
+  // Handle regenerate with current instructions
+  const handleRegenerate = () => {
+    // Use edited instructions if available, otherwise use original
+    const promptToUse = editedInstructions !== undefined ? editedInstructions : answer?.finalInstructions;
+    onRegenerate(promptToUse);
+  };
+
+  // Handle instructions change
+  const handleInstructionsChange = (value: string) => {
+    setEditedInstructions(value);
+  };
 
   // Determine card elevation based on state
   const cardClasses = `border rounded-lg overflow-hidden mb-6 transition-all duration-200 ${
@@ -66,12 +93,12 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
     <div className={cardClasses}>
       {/* Question Header */}
       <div 
-        onClick={() => onToggle(id)}
+        onClick={onToggle}
         className="p-4 bg-white flex justify-between items-center cursor-pointer"
       >
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <h4 className="text-lg font-medium text-gray-900">{question}</h4>
+            <h4 className="text-lg font-medium text-gray-900">{question.question}</h4>
             {/* Status indicator */}
             {isAnswerLoading ? (
               <div className="flex items-center gap-1.5 text-blue-600 text-xs ml-4 px-2.5 py-0.5 rounded-full border border-blue-200 bg-blue-50">
@@ -85,9 +112,20 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
               </div>
             ) : null}
           </div>
-          <p className="text-sm text-gray-600 mt-1">{description}</p>
+          <p className="text-sm text-gray-600 mt-1">{question.description}</p>
           {!isExpanded && isAnswerGenerated && (
             <p className="text-sm text-gray-700 mt-2 line-clamp-2">{getSummaryPreview()}</p>
+          )}
+          {/* Model indicator */}
+          {answer && (
+            <div className={`text-xs mt-2 ${
+              (answer as any).modelUsed === 'llama-3.1-8b-instant' ? 'text-amber-600' : 'text-blue-600'
+            }`}>
+              {(answer as any).modelUsed === 'llama-3.1-8b-instant'
+                ? 'The Innovera Hare is racing through your documents to find quick answers.'
+                : 'The Innovera Tortoise is methodically examining every detail in your documents.'
+              }
+            </div>
           )}
         </div>
         <div className="flex items-center ml-4">
@@ -110,10 +148,10 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
               <button 
                 onClick={(e) => {
                   e.stopPropagation();
-                  setShowPlayground(!showPlayground);
+                  setShowPlaygroundState(!showPlaygroundState);
                 }}
                 className={`p-1 mr-2 ${
-                  showPlayground 
+                  showPlaygroundState 
                     ? 'text-purple-600 hover:text-purple-800' 
                     : 'text-gray-600 hover:text-gray-800'
                 }`}
@@ -124,7 +162,7 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
               <button 
                 onClick={(e) => {
                   e.stopPropagation();
-                  onEdit(id);
+                  onEdit(question.id);
                 }}
                 className="p-1 text-blue-600 hover:text-blue-800 mr-2"
                 title="Edit answer"
@@ -134,7 +172,7 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
               <button 
                 onClick={(e) => {
                   e.stopPropagation();
-                  onRegenerate(id);
+                  handleRegenerate();
                 }}
                 className="p-1 text-blue-600 hover:text-blue-800 mr-2"
                 title="Regenerate answer"
@@ -151,9 +189,6 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
       {/* Answer Content */}
       {isExpanded && (
         <div className="p-4 bg-gray-50 border-t border-gray-200">
-          {/* Display model indicator if provided */}
-          {children}
-          
           {isAnswerLoading ? (
             <div className="flex items-center gap-2 text-blue-600">
               <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
@@ -163,25 +198,35 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
             <EditAnswer 
               value={editedAnswer}
               onChange={setEditedAnswer}
-              onSave={() => onSave(id, editedAnswer)}
+              onSave={() => onSave(question.id, editedAnswer)}
               onCancel={() => onEdit('')}
             />
           ) : isAnswerGenerated ? (
             <AnswerDisplay 
               answer={answer}
-              onEdit={() => onEdit(id)} 
-              onRegenerate={() => onRegenerate(id)}
-              showPlayground={showPlayground}
+              onEdit={() => onEdit(question.id)}
+              onRegenerate={handleRegenerate}
+              showPlayground={showPlaygroundState}
+              onInstructionsChange={handleInstructionsChange}
+              currentInstructions={editedInstructions || answer?.finalInstructions}
             />
           ) : (
             <div>
               <button
-                onClick={() => onRegenerate(id)}
+                onClick={handleRegenerate}
                 className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
               >
                 Generate Answer
               </button>
             </div>
+          )}
+          {showPlayground && answer && (
+            <PromptPlayground
+              answer={answer}
+              onRegenerate={handleRegenerate}
+              onInstructionsChange={handleInstructionsChange}
+              currentInstructions={editedInstructions || answer?.finalInstructions}
+            />
           )}
         </div>
       )}

@@ -1,3 +1,5 @@
+import { ChartData } from '../../../ChartComponent';
+
 /**
  * Investment memo questions data structure
  */
@@ -17,6 +19,17 @@ export interface Answer {
   summary: string;
   details: string;
   isEdited: boolean;
+  isLoading?: boolean;
+  chartData?: ChartData;
+  modelUsed?: string;
+  timeTaken?: number;
+  messageLength?: number;
+  answerLength?: number;
+  questionInstructions?: string;
+  finalInstructionsPrompt?: string;
+  documentContext?: string;
+  finalPrompt?: string;
+  rawOutput?: string;
 }
 
 /**
