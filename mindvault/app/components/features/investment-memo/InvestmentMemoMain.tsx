@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { FileDown, PlusCircle, Pencil, Check } from 'lucide-react';
 import QuestionItem from './QuestionItem';
 import QuestionSelectionModal from './QuestionSelectionModal';
+import TemplateSelectionModal from './TemplateSelectionModal';
 import { useInvestmentMemo, InvestmentMemoQuestion } from './hooks/useInvestmentMemo';
 import { exportToPDF, Answer } from './utils/pdfExport';
 import { ExportPDFDialog } from './ExportPDFDialog';
 
 // Import from the new data file instead of constants
 import { INVESTMENT_MEMO_QUESTIONS } from './data/questions';
+import { TEMPLATES } from './data/templates';
 
 // Local FastModeToggle component to avoid import issues
 interface FastModeToggleProps {
@@ -88,6 +90,7 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
 }) => {
   // State for question selection modal
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [translatedContent, setTranslatedContent] = useState<TranslatedContent | null>(null);
@@ -408,6 +411,23 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     setCustomQuestions(prev => [...prev, question]);
   };
 
+  // Handle template selection
+  const handleTemplateSelection = (templateId: string) => {
+    // Find the template
+    const selectedTemplate = TEMPLATES.find(t => t.id === templateId);
+    if (selectedTemplate) {
+      // Get the questions from the template
+      handleQuestionSelection(selectedTemplate.questions, true);
+    }
+    setIsTemplateModalOpen(false);
+  };
+
+  // Handle custom template selection
+  const handleCustomSelection = () => {
+    setIsTemplateModalOpen(false);
+    setIsSelectionModalOpen(true);
+  };
+
   return (
     <div className="w-full">
       <div className="flex flex-col mb-6">
@@ -496,7 +516,7 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
       {/* Status Information */}
       <div className="mb-6">
         <button 
-          onClick={() => setIsSelectionModalOpen(true)}
+          onClick={() => setIsTemplateModalOpen(true)}
           className="flex items-center gap-2 bg-[#F15A29] text-white px-4 py-2 rounded-lg hover:bg-[#D94315] mb-4"
         >
           <PlusCircle size={18} />
@@ -524,7 +544,7 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
             Start by selecting investment questions to analyze your documents
           </p>
           <button 
-            onClick={() => setIsSelectionModalOpen(true)}
+            onClick={() => setIsTemplateModalOpen(true)}
             className="inline-flex items-center gap-2 bg-[#F15A29] text-white px-4 py-2 rounded-lg hover:bg-[#D94315]"
           >
             <PlusCircle size={18} />
@@ -593,6 +613,14 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
         initialSelections={selectedQuestionIds}
         customQuestions={customQuestions}
         onCustomQuestionAdd={handleCustomQuestionAdd}
+      />
+
+      {/* Template Selection Modal */}
+      <TemplateSelectionModal
+        isOpen={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+        onSelectTemplate={handleTemplateSelection}
+        onSelectCustom={handleCustomSelection}
       />
 
       {/* Export PDF Dialog */}

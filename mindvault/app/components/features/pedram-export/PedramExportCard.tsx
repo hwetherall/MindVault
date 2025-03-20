@@ -85,12 +85,6 @@ export const PedramExport: React.FC<PedramExportProps> = ({ files, onClose }) =>
     const answers: Record<string, string> = {};
     abortControllerRef.current = new AbortController();
     
-    // Helper function to delay execution
-    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-    
-    // Configurable delay between API calls (in milliseconds)
-    const API_DELAY = 300; // Adjust as needed
-    
     try {
       for (let i = 0; i < PEDRAM_QUESTIONS.length; i++) {
         // Check if processing was aborted
@@ -135,12 +129,6 @@ export const PedramExport: React.FC<PedramExportProps> = ({ files, onClose }) =>
           currentQuestion: i + 1,
           answers
         }));
-        
-        // Add delay between requests, but not after the last one
-        if (i < PEDRAM_QUESTIONS.length - 1) {
-          console.log(`Waiting ${API_DELAY}ms before next request to avoid rate limiting...`);
-          await delay(API_DELAY);
-        }
       }
 
       // After all questions are answered, generate the investment memo
