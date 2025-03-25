@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import puppeteer from 'puppeteer';
+import puppeteer, { Browser } from 'puppeteer';
 import { marked } from 'marked';
 import { formatNumbersInText } from '../../utils/textFormatting';
 import fs from 'fs/promises';
@@ -32,7 +32,20 @@ export const maxDuration = 60; // Set maximum duration to 60 seconds (Vercel hob
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
+  let browser: Browser | null = null;
+  
   try {
+    // Check for Vercel deployment in production
+    if (process.env.VERCEL === '1') {
+      return NextResponse.json({ 
+        error: 'PDF generation not available on Vercel deployment',
+        details: {
+          errorType: 'EnvironmentError',
+          suggestion: 'Using client-side PDF generation instead.'
+        }
+      }, { status: 503 });
+    }
+    
     const { 
       questions,
       answers,
@@ -41,62 +54,29 @@ export async function POST(request: Request) {
       options,
       logo,
       template
-    }: {
-      questions: Question[];
-      answers: Record<string, Answer>;
-      title: string;
-      description: string;
-      options: ExportOptions;
-      logo?: string;
-      template: string;
     } = await request.json();
 
-    // Read font files
-    const fontFiles = {
-      normal: await fs.readFile(path.join(process.cwd(), 'public', 'fonts', 'gotham', 'Gotham-Book.otf')),
-      bold: await fs.readFile(path.join(process.cwd(), 'public', 'fonts', 'gotham', 'Gotham-Medium.otf'))
-    };
-
-    // Read default logo and validate base64
-    const defaultLogoPath = path.join(process.cwd(), 'public', 'templates', 'unnamed.jpg');
-    const defaultLogo = await fs.readFile(defaultLogoPath);
-    const defaultLogoBase64 = `data:image/jpeg;base64,${defaultLogo.toString('base64')}`;
-
-    // Validate custom logo if provided
-    let validatedLogo = logo;
-    if (logo) {
-      // Check if it's a valid data URL with base64 encoding
-      const isValidDataUrl = /^data:image\/(jpeg|jpg|png|gif|webp);base64,([A-Za-z0-9+/=]*)$/.test(logo);
-      if (!isValidDataUrl) {
-        console.warn('Custom logo is not a valid base64 data URL, falling back to default logo');
-        validatedLogo = undefined;
-      }
-    }
-
-    // Convert font files to base64
-    const fontBase64 = {
-      normal: fontFiles.normal.toString('base64'),
-      bold: fontFiles.bold.toString('base64')
-    };
-
-    // Pre-process markdown content
-    const processedAnswers = Object.fromEntries(
-      await Promise.all(
-        Object.entries(answers).map(async ([id, answer]) => [
-          id,
-          {
-            ...answer,
-            summaryHtml: await marked.parse(formatNumbersInText(answer.summary)),
-            detailsHtml: await marked.parse(formatNumbersInText(answer.details))
-          }
-        ])
-      )
-    );
-
-    const browser = await puppeteer.launch({
+    // Use minimal browser configuration to reduce memory usage
+    const puppeteerOptions = {
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      // Use default executable path
+      executablePath: undefined 
+    };
+
+    try {
+      browser = await puppeteer.launch(puppeteerOptions);
+    } catch (browserError) {
+      console.error('Failed to launch browser:', browserError);
+      return NextResponse.json({ 
+        error: 'PDF generation failed - browser could not be launched',
+        details: {
+          errorType: 'BrowserLaunchError',
+          errorMessage: browserError.message,
+          suggestion: 'PDF generation will be handled on the client side instead.'
+        }
+      }, { status: 503 });
+    }
     
     const page = await browser.newPage();
 
@@ -417,12 +397,22 @@ export async function POST(request: Request) {
       name: error.name,
       cause: error.cause
     });
+    
     return NextResponse.json({ 
-      error: error.message,
+      error: 'PDF generation failed on the server',
       details: {
-        errorType: error.name,
-        errorCause: error.cause
+        errorType: error.name || 'Error',
+        suggestion: 'PDF generation will continue on the client side.'
       }
-    }, { status: 500 });
+    }, { status: 503 });
+  } finally {
+    // Ensure browser is always closed to free up memory
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (closeError) {
+        console.error('Error closing browser:', closeError);
+      }
+    }
   }
 } 

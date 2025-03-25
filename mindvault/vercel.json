@@ -1,6 +1,12 @@
 {
-  "installCommand": "npm install && npm install react-syntax-highlighter @types/react-syntax-highlighter",
+  "functions": {
+    "app/api/generate-pdf/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
   "buildCommand": "npm run build",
+  "installCommand": "npm install",
   "outputDirectory": ".next",
   "framework": "nextjs",
   "rewrites": []

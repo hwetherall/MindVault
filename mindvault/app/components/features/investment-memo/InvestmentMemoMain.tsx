@@ -6,6 +6,7 @@ import TemplateSelectionModal from './TemplateSelectionModal';
 import { useInvestmentMemo, InvestmentMemoQuestion } from './hooks/useInvestmentMemo';
 import { exportToPDF, Answer } from './utils/pdfExport';
 import { ExportPDFDialog } from './ExportPDFDialog';
+import { LoadingOverlay } from './LoadingOverlay';
 
 // Import from the new data file instead of constants
 import { INVESTMENT_MEMO_QUESTIONS } from './data/questions';
@@ -93,6 +94,7 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [translatedContent, setTranslatedContent] = useState<TranslatedContent | null>(null);
   const [originalContent, setOriginalContent] = useState<{
     title: string;
@@ -268,36 +270,46 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
 
   // Function to handle PDF export from dialog
   const handleExportPDFPopup = async () => {
-    const contentToExport = exportOptions.language === 'ja' && translatedContent
-      ? {
-          questions: translatedContent.questions,
-          answers: Object.entries(translatedContent.answers).reduce((acc, [id, answer]) => {
-            acc[id] = {
-              ...answer,
-              isEdited: answers[id]?.isEdited || false
-            };
-            return acc;
-          }, {} as Record<string, Answer>),
-          title: translatedContent.title,
-          description: translatedContent.description
-        }
-      : {
-          questions: filteredQuestions,
-          answers,
-          title,
-          description
-        };
+    setIsExporting(true);
+    try {
+      const contentToExport = exportOptions.language === 'ja' && translatedContent
+        ? {
+            questions: translatedContent.questions,
+            answers: Object.keys(translatedContent.answers).reduce((acc, id) => {
+              acc[id] = {
+                ...answers[id],
+                summary: translatedContent.answers[id].summary,
+                details: translatedContent.answers[id].details,
+              };
+              return acc;
+            }, {} as Record<string, Answer>),
+            title: translatedContent.title,
+            description: translatedContent.description
+          }
+        : {
+            questions: filteredQuestions,
+            answers,
+            title,
+            description
+          };
 
-    await exportToPDF(
-      contentToExport.questions,
-      contentToExport.answers,
-      contentToExport.title,
-      contentToExport.description,
-      exportOptions
-    );
-    setIsExportDialogOpen(false);
-    if (onComplete) {
-      onComplete(true);
+      await exportToPDF(
+        contentToExport.questions,
+        contentToExport.answers,
+        contentToExport.title,
+        contentToExport.description,
+        exportOptions
+      );
+      setIsExportDialogOpen(false);
+      if (onComplete) {
+        onComplete(true);
+      }
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      // You might want to show a user-friendly error message here
+      alert(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -475,232 +487,235 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
   };
 
   return (
-    <div className="w-full">
-      <div className="flex flex-col mb-6">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            {isEditingTitle ? (
+    <div className="flex flex-col w-full h-full">
+      {(Object.values(loading).some(Boolean) || isTranslating || isExporting) && <LoadingOverlay />}
+      <div className="w-full">
+        <div className="flex flex-col mb-6">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              {isEditingTitle ? (
+                <>
+                  <input
+                    type="text"
+                    value={tempTitle}
+                    onChange={(e) => setTempTitle(e.target.value)}
+                    className="text-2xl font-semibold text-[#1A1F2E] bg-transparent border-b border-[#F15A29] outline-none pb-1"
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleTitleSave}
+                    className="p-1 text-green-600 hover:text-green-700"
+                  >
+                    <Check size={18} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-2xl font-semibold text-[#1A1F2E]">{currentContent.title}</h2>
+                  <button
+                    onClick={handleTitleEdit}
+                    className="p-1 text-[#F15A29] hover:text-[#D94315]"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-4">
+              {/* Fast Mode Toggle */}
+              <FastModeToggle fastMode={fastMode} setFastMode={handleSetFastMode} />
+              
+              <button
+                onClick={handleExportPDF}
+                className={`flex items-center gap-2 px-3 py-1 rounded transition-colors ${
+                  isAnalyzing || loading > 0 || total === 0
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+                disabled={isAnalyzing || loading > 0 || total === 0}
+              >
+                <FileDown size={18} />
+                <span>Export PDF</span>
+              </button>
+            </div>
+          </div>
+          <div className="mt-2 flex items-start gap-2">
+            {isEditingDescription ? (
               <>
                 <input
                   type="text"
-                  value={tempTitle}
-                  onChange={(e) => setTempTitle(e.target.value)}
-                  className="text-2xl font-semibold text-[#1A1F2E] bg-transparent border-b border-[#F15A29] outline-none pb-1"
+                  value={tempDescription}
+                  onChange={(e) => setTempDescription(e.target.value)}
+                  placeholder="Add a description..."
+                  className="flex-1 text-base text-gray-600 bg-transparent border-b border-[#F15A29] outline-none pb-1 italic font-normal"
                   autoFocus
                 />
                 <button
-                  onClick={handleTitleSave}
+                  onClick={handleDescriptionSave}
                   className="p-1 text-green-600 hover:text-green-700"
                 >
-                  <Check size={18} />
+                  <Check size={16} />
                 </button>
               </>
             ) : (
-              <>
-                <h2 className="text-2xl font-semibold text-[#1A1F2E]">{currentContent.title}</h2>
+              <div className="flex-1 flex items-center">
+                <p className="text-base text-gray-600 italic font-normal">
+                  {currentContent.description || <span className="text-gray-400">Add a description...</span>}
+                </p>
                 <button
-                  onClick={handleTitleEdit}
-                  className="p-1 text-[#F15A29] hover:text-[#D94315]"
+                  onClick={handleDescriptionEdit}
+                  className="p-1 text-[#F15A29] hover:text-[#D94315] ml-1"
                 >
-                  <Pencil size={16} />
+                  <Pencil size={14} />
                 </button>
-              </>
+              </div>
             )}
           </div>
-          <div className="flex items-center gap-4">
-            {/* Fast Mode Toggle */}
-            <FastModeToggle fastMode={fastMode} setFastMode={handleSetFastMode} />
-            
-            <button
-              onClick={handleExportPDF}
-              className={`flex items-center gap-2 px-3 py-1 rounded transition-colors ${
-                isAnalyzing || loading > 0 || total === 0
-                  ? 'text-gray-400 cursor-not-allowed'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-              disabled={isAnalyzing || loading > 0 || total === 0}
-            >
-              <FileDown size={18} />
-              <span>Export PDF</span>
-            </button>
-          </div>
         </div>
-        <div className="mt-2 flex items-start gap-2">
-          {isEditingDescription ? (
-            <>
-              <input
-                type="text"
-                value={tempDescription}
-                onChange={(e) => setTempDescription(e.target.value)}
-                placeholder="Add a description..."
-                className="flex-1 text-base text-gray-600 bg-transparent border-b border-[#F15A29] outline-none pb-1 italic font-normal"
-                autoFocus
-              />
-              <button
-                onClick={handleDescriptionSave}
-                className="p-1 text-green-600 hover:text-green-700"
-              >
-                <Check size={16} />
-              </button>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center">
-              <p className="text-base text-gray-600 italic font-normal">
-                {currentContent.description || <span className="text-gray-400">Add a description...</span>}
-              </p>
-              <button
-                onClick={handleDescriptionEdit}
-                className="p-1 text-[#F15A29] hover:text-[#D94315] ml-1"
-              >
-                <Pencil size={14} />
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* Status Information */}
-      <div className="mb-6">
-        <div className="flex gap-2">
-          <button 
-            onClick={() => setIsTemplateModalOpen(true)}
-            className="flex items-center gap-2 bg-[#F15A29] text-white px-4 py-2 rounded-lg hover:bg-[#D94315]"
-          >
-            <PlusCircle size={18} />
-            <span>{selectedQuestionIds.length === 0 ? 'Select Questions' : 'Add or Remove Questions'}</span>
-          </button>
-          
-          {selectedQuestionIds.length > 0 && (
+        {/* Status Information */}
+        <div className="mb-6">
+          <div className="flex gap-2">
             <button 
-              onClick={() => {
-                // Reset questions
-                setSelectedQuestionIds([]);
-                // Clear any pending analysis
-                setPendingAnalysisIds([]);
-                // Reset to default title if needed
-                if (title !== 'Investment Memo') {
-                  setTitle('Investment Memo');
-                }
-                // Clear description
-                setDescription('');
-              }}
-              className="flex items-center gap-2 bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-200"
+              onClick={() => setIsTemplateModalOpen(true)}
+              className="flex items-center gap-2 bg-[#F15A29] text-white px-4 py-2 rounded-lg hover:bg-[#D94315]"
             >
-              <RefreshCw size={18} />
-              <span>Reset</span>
+              <PlusCircle size={18} />
+              <span>{selectedQuestionIds.length === 0 ? 'Select Questions' : 'Add or Remove Questions'}</span>
             </button>
+            
+            {selectedQuestionIds.length > 0 && (
+              <button 
+                onClick={() => {
+                  // Reset questions
+                  setSelectedQuestionIds([]);
+                  // Clear any pending analysis
+                  setPendingAnalysisIds([]);
+                  // Reset to default title if needed
+                  if (title !== 'Investment Memo') {
+                    setTitle('Investment Memo');
+                  }
+                  // Clear description
+                  setDescription('');
+                }}
+                className="flex items-center gap-2 bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-200"
+              >
+                <RefreshCw size={18} />
+                <span>Reset</span>
+              </button>
+            )}
+          </div>
+          
+          {loading > 0 && (
+            <div className="flex items-center gap-2 text-blue-600 mb-4 mt-4">
+              <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full mr-1"></div>
+              <span>Analyzing {loading} question{loading > 1 ? 's' : ''}...</span>
+            </div>
           )}
-        </div>
-        
-        {loading > 0 && (
-          <div className="flex items-center gap-2 text-blue-600 mb-4 mt-4">
-            <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full mr-1"></div>
-            <span>Analyzing {loading} question{loading > 1 ? 's' : ''}...</span>
-          </div>
-        )}
-        
-        {error && (
-          <div className="bg-red-50 text-red-800 p-4 rounded-lg mb-4 mt-4">
-            {error}
-          </div>
-        )}
-      </div>
-
-      {selectedQuestionIds.length === 0 ? (
-        <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
-          <h3 className="text-xl font-semibold text-gray-600 mb-2">No Questions Selected</h3>
-          <p className="text-base text-gray-500 mb-4">
-            Start by selecting investment questions to analyze your documents
-          </p>
-          <button 
-            onClick={() => setIsTemplateModalOpen(true)}
-            className="inline-flex items-center gap-2 bg-[#F15A29] text-white px-4 py-2 rounded-lg hover:bg-[#D94315]"
-          >
-            <PlusCircle size={18} />
-            <span>Select Questions</span>
-          </button>
-        </div>
-      ) : (
-        <div>
-          {categories.length > 0 && (
-            <div className="space-y-8">
-              {categories.map(category => (
-                <div key={category}>
-                  <h3 className="text-xl font-semibold border-b pb-2 mb-4">{category}</h3>
-                  <div className="space-y-6">
-                    {currentContent.questions
-                      .filter(question => question.category === category)
-                      .map(question => {
-                      const questionAnswer = currentContent.answers[question.id];
-                      const modelUsed = (questionAnswer as any)?.modelUsed || 
-                        (fastMode ? modelInfo.fast.id : modelInfo.normal.id);
-                      const isFastMode = modelUsed === modelInfo.fast.id;
-                      
-                      return (
-                        <QuestionItem
-                          key={question.id}
-                          question={question}
-                          answer={questionAnswer}
-                          isExpanded={expandedAnswers[question.id] || false}
-                          onToggle={() => toggleAnswer(question.id)}
-                          onEdit={handleEdit}
-                          onSave={(id, content) => handleSave(id, content)}
-                          onRegenerate={(customPrompt?: string) => regenerateAnswer(question.id, customPrompt)}
-                          editedAnswer={editingId === question.id ? editedAnswer : ''}
-                          setEditedAnswer={setEditedAnswer}
-                          onDelete={handleDeleteQuestion}
-                        >
-                          {/* Model indicator */}
-                          {questionAnswer && (
-                            <div className={`text-xs mb-2 ${
-                              isFastMode ? 'text-amber-600' : 'text-blue-600'
-                            }`}>
-                              {isFastMode 
-                                ? modelInfo.fast.displayName
-                                : modelInfo.normal.displayName
-                              }
-                            </div>
-                          )}
-                        </QuestionItem>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+          
+          {error && (
+            <div className="bg-red-50 text-red-800 p-4 rounded-lg mb-4 mt-4">
+              {error}
             </div>
           )}
         </div>
-      )}
 
-      {/* Question Selection Modal */}
-      <QuestionSelectionModal
-        isOpen={isSelectionModalOpen}
-        onClose={() => setIsSelectionModalOpen(false)}
-        onSubmit={handleQuestionSelection}
-        initialSelections={selectedQuestionIds}
-        customQuestions={customQuestions}
-        onCustomQuestionAdd={handleCustomQuestionAdd}
-      />
+        {selectedQuestionIds.length === 0 ? (
+          <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
+            <h3 className="text-xl font-semibold text-gray-600 mb-2">No Questions Selected</h3>
+            <p className="text-base text-gray-500 mb-4">
+              Start by selecting investment questions to analyze your documents
+            </p>
+            <button 
+              onClick={() => setIsTemplateModalOpen(true)}
+              className="inline-flex items-center gap-2 bg-[#F15A29] text-white px-4 py-2 rounded-lg hover:bg-[#D94315]"
+            >
+              <PlusCircle size={18} />
+              <span>Select Questions</span>
+            </button>
+          </div>
+        ) : (
+          <div>
+            {categories.length > 0 && (
+              <div className="space-y-8">
+                {categories.map(category => (
+                  <div key={category}>
+                    <h3 className="text-xl font-semibold border-b pb-2 mb-4">{category}</h3>
+                    <div className="space-y-6">
+                      {currentContent.questions
+                        .filter(question => question.category === category)
+                        .map(question => {
+                        const questionAnswer = currentContent.answers[question.id];
+                        const modelUsed = (questionAnswer as any)?.modelUsed || 
+                          (fastMode ? modelInfo.fast.id : modelInfo.normal.id);
+                        const isFastMode = modelUsed === modelInfo.fast.id;
+                        
+                        return (
+                          <QuestionItem
+                            key={question.id}
+                            question={question}
+                            answer={questionAnswer}
+                            isExpanded={expandedAnswers[question.id] || false}
+                            onToggle={() => toggleAnswer(question.id)}
+                            onEdit={handleEdit}
+                            onSave={(id, content) => handleSave(id, content)}
+                            onRegenerate={(customPrompt?: string) => regenerateAnswer(question.id, customPrompt)}
+                            editedAnswer={editingId === question.id ? editedAnswer : ''}
+                            setEditedAnswer={setEditedAnswer}
+                            onDelete={handleDeleteQuestion}
+                          >
+                            {/* Model indicator */}
+                            {questionAnswer && (
+                              <div className={`text-xs mb-2 ${
+                                isFastMode ? 'text-amber-600' : 'text-blue-600'
+                              }`}>
+                                {isFastMode 
+                                  ? modelInfo.fast.displayName
+                                  : modelInfo.normal.displayName
+                                }
+                              </div>
+                            )}
+                          </QuestionItem>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-      {/* Template Selection Modal */}
-      <TemplateSelectionModal
-        isOpen={isTemplateModalOpen}
-        onClose={() => setIsTemplateModalOpen(false)}
-        onSelectTemplate={handleTemplateSelection}
-        onSelectCustom={handleCustomSelection}
-      />
-
-      {/* Export PDF Dialog */}
-      {isExportDialogOpen && (
-        <ExportPDFDialog
-          onClose={() => setIsExportDialogOpen(false)}
-          onExport={handleExportPDFPopup}
-          options={exportOptions}
-          onOptionsChange={setExportOptions}
-          onLanguageChange={handleLanguageChange}
-          isTranslating={isTranslating}
+        {/* Question Selection Modal */}
+        <QuestionSelectionModal
+          isOpen={isSelectionModalOpen}
+          onClose={() => setIsSelectionModalOpen(false)}
+          onSubmit={handleQuestionSelection}
+          initialSelections={selectedQuestionIds}
+          customQuestions={customQuestions}
+          onCustomQuestionAdd={handleCustomQuestionAdd}
         />
-      )}
+
+        {/* Template Selection Modal */}
+        <TemplateSelectionModal
+          isOpen={isTemplateModalOpen}
+          onClose={() => setIsTemplateModalOpen(false)}
+          onSelectTemplate={handleTemplateSelection}
+          onSelectCustom={handleCustomSelection}
+        />
+
+        {/* Export PDF Dialog */}
+        {isExportDialogOpen && (
+          <ExportPDFDialog
+            onClose={() => setIsExportDialogOpen(false)}
+            onExport={handleExportPDFPopup}
+            options={exportOptions}
+            onOptionsChange={setExportOptions}
+            onLanguageChange={handleLanguageChange}
+            isTranslating={isTranslating}
+          />
+        )}
+      </div>
     </div>
   );
 };
