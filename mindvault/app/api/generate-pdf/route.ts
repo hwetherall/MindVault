@@ -16,6 +16,22 @@ interface Answer {
   summary: string;
   details: string;
   isEdited: boolean;
+  chartData?: {
+    type: 'line' | 'bar' | 'area';
+    title: string;
+    data: {
+      labels: string[];
+      datasets: Array<{
+        label: string;
+        data: number[];
+        borderColor?: string;
+        backgroundColor?: string;
+        pointBackgroundColor?: string;
+        pointRadius?: number;
+        tension?: number;
+      }>;
+    };
+  };
 }
 
 interface ExportOptions {
@@ -255,6 +271,145 @@ export async function POST(request: Request) {
                 section.appendChild(detailsDiv);
               }
 
+              // Add chart rendering if chart data exists
+              if (answer.chartData) {
+                const chartContainer = document.createElement('div');
+                chartContainer.className = 'chart-container';
+                chartContainer.style.width = '100%';
+                chartContainer.style.height = '400px';
+                chartContainer.style.marginTop = '20px';
+                chartContainer.style.marginBottom = '20px';
+                
+                // Create chart ID
+                const chartId = \`chart-\${id}\`;
+                chartContainer.id = chartId;
+                
+                section.appendChild(chartContainer);
+                
+                // Create the chart (using Recharts)
+                const chartScript = document.createElement('script');
+                chartScript.innerHTML = \`
+                  // Wait for recharts to be loaded
+                  window.addEventListener('load', () => {
+                    try {
+                      // Convert chart data to the format Recharts expects
+                      const transformedData = \${JSON.stringify(answer.chartData.data.labels)}.map((label, index) => {
+                        const dataPoint = { name: label };
+                        
+                        // Add each dataset's value for this label
+                        \${JSON.stringify(answer.chartData.data.datasets)}.forEach(dataset => {
+                          dataPoint[dataset.label] = dataset.data[index];
+                        });
+                        
+                        return dataPoint;
+                      });
+                      
+                      // Default colors if none provided
+                      const defaultColors = [
+                        '#4287f5', '#36B37E', '#6554C0', '#FF5630', '#FFAB00',
+                        '#00B8D9', '#0065FF', '#4C9AFF', '#2684FF', '#B3D4FF'
+                      ];
+                      
+                      // Wait for React and Recharts to be available
+                      if (window.React && window.ReactDOM && window.Recharts) {
+                        const {
+                          LineChart, Line, BarChart, Bar, AreaChart, Area,
+                          XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+                        } = window.Recharts;
+                        
+                        // Render the appropriate chart
+                        const ChartComponent = () => {
+                          switch('\${answer.chartData.type}') {
+                            case 'bar':
+                              return React.createElement(
+                                ResponsiveContainer,
+                                { width: '100%', height: 400 },
+                                React.createElement(
+                                  BarChart,
+                                  { data: transformedData },
+                                  React.createElement(CartesianGrid, { strokeDasharray: '3 3' }),
+                                  React.createElement(XAxis, { dataKey: 'name' }),
+                                  React.createElement(YAxis),
+                                  React.createElement(Tooltip),
+                                  React.createElement(Legend),
+                                  \${JSON.stringify(answer.chartData.data.datasets)}.map((dataset, index) => 
+                                    React.createElement(Bar, {
+                                      key: dataset.label,
+                                      dataKey: dataset.label,
+                                      fill: dataset.backgroundColor || defaultColors[index % defaultColors.length]
+                                    })
+                                  )
+                                )
+                              );
+                            case 'area':
+                              return React.createElement(
+                                ResponsiveContainer,
+                                { width: '100%', height: 400 },
+                                React.createElement(
+                                  AreaChart,
+                                  { data: transformedData },
+                                  React.createElement(CartesianGrid, { strokeDasharray: '3 3' }),
+                                  React.createElement(XAxis, { dataKey: 'name' }),
+                                  React.createElement(YAxis),
+                                  React.createElement(Tooltip),
+                                  React.createElement(Legend),
+                                  \${JSON.stringify(answer.chartData.data.datasets)}.map((dataset, index) => 
+                                    React.createElement(Area, {
+                                      key: dataset.label,
+                                      type: 'monotone',
+                                      dataKey: dataset.label,
+                                      stroke: dataset.borderColor || defaultColors[index % defaultColors.length],
+                                      fill: dataset.backgroundColor || defaultColors[index % defaultColors.length] + '55'
+                                    })
+                                  )
+                                )
+                              );
+                            case 'line':
+                            default:
+                              return React.createElement(
+                                ResponsiveContainer,
+                                { width: '100%', height: 400 },
+                                React.createElement(
+                                  LineChart,
+                                  { data: transformedData },
+                                  React.createElement(CartesianGrid, { strokeDasharray: '3 3' }),
+                                  React.createElement(XAxis, { dataKey: 'name' }),
+                                  React.createElement(YAxis),
+                                  React.createElement(Tooltip),
+                                  React.createElement(Legend),
+                                  \${JSON.stringify(answer.chartData.data.datasets)}.map((dataset, index) => 
+                                    React.createElement(Line, {
+                                      key: dataset.label,
+                                      type: 'monotone',
+                                      dataKey: dataset.label,
+                                      stroke: dataset.borderColor || defaultColors[index % defaultColors.length],
+                                      dot: { fill: dataset.pointBackgroundColor || dataset.borderColor || defaultColors[index % defaultColors.length] }
+                                    })
+                                  )
+                                )
+                              );
+                          }
+                        };
+                        
+                        // Render the chart
+                        ReactDOM.render(
+                          React.createElement(ChartComponent),
+                          document.getElementById('\${chartId}')
+                        );
+                        
+                        console.log('Chart rendered in \${chartId}');
+                      } else {
+                        console.error('React, ReactDOM, or Recharts not available');
+                      }
+                    } catch (error) {
+                      console.error('Error rendering chart:', error);
+                    }
+                  });
+                \`;
+                
+                document.body.appendChild(chartScript);
+              }
+
               contentContainer.appendChild(section);
             }
           });
@@ -297,9 +452,23 @@ export async function POST(request: Request) {
 
     // Generate the final HTML with scripts
     const finalHtml = template.replace('</head>', `
+      <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+      <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+      <script src="https://unpkg.com/recharts@2.1.9/umd/Recharts.min.js"></script>
       <script>
         ${fullScript}
       </script>
+      <style>
+        .chart-container {
+          width: 100%;
+          height: 400px;
+          margin: 20px 0;
+          border: 1px solid #f0f0f0;
+          border-radius: 8px;
+          padding: 10px;
+          background-color: white;
+        }
+      </style>
     </head>`);
 
     // Generate PDF using our serverless Puppeteer utility
@@ -321,7 +490,7 @@ export async function POST(request: Request) {
     return new NextResponse(uint8Array, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${`${encodeURIComponent(title.toLowerCase().replace(/\s+/g, '-'))}.pdf`}"`,
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(title.toLowerCase().replace(/\s+/g, '-'))}.pdf"`,
       },
     });
 

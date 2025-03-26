@@ -70,18 +70,88 @@ export async function generatePDF(html: string) {
     // Enable JavaScript and CSS
     await page.setJavaScriptEnabled(true);
 
+    // Load required libraries for charts
+    const rechartsScript = `
+      <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+      <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+      <script src="https://unpkg.com/recharts@2.1.9/umd/Recharts.min.js"></script>
+    `;
+    
+    // Add Recharts scripts to the HTML
+    html = html.replace('</head>', `${rechartsScript}</head>`);
+
     // Set content and wait for everything to load
     await page.setContent(html, {
       waitUntil: ['networkidle0', 'load', 'domcontentloaded'],
       timeout: 30000
     });
 
-    // Wait for MathJax script to load
-    await page.waitForSelector('#MathJax-script', { timeout: 5000 })
-      .catch(error => console.log('MathJax script not found:', error));
+    // Wait for MathJax script to load (if present)
+    try {
+      await page.waitForSelector('#MathJax-script', { timeout: 5000 });
+    } catch (error) {
+      console.log('MathJax script not found:', error);
+    }
 
-    // Additional wait to ensure everything is rendered
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Check for chart containers
+    let chartContainersCount = 0;
+    try {
+      const chartContainers = await page.$$('.chart-container');
+      chartContainersCount = chartContainers.length;
+    } catch (error) {
+      console.log('Error checking for chart containers:', error);
+    }
+
+    console.log(`Found ${chartContainersCount} chart containers`);
+
+    if (chartContainersCount > 0) {
+      // Add a flag to the page to signal when charts are done rendering
+      await page.addScriptTag({
+        content: `
+          // Function to check if charts are rendered
+          function checkChartsRendered() {
+            const containers = document.querySelectorAll('.chart-container');
+            let allRendered = true;
+            
+            containers.forEach(container => {
+              if (!container.querySelector('svg')) {
+                allRendered = false;
+              }
+            });
+            
+            if (allRendered) {
+              document.body.setAttribute('data-charts-rendered', 'true');
+              console.log('All charts rendered successfully');
+            } else {
+              setTimeout(checkChartsRendered, 1000);
+            }
+          }
+          
+          // Start checking after everything is loaded
+          window.addEventListener('load', () => {
+            // Give initial time for React to initialize
+            setTimeout(checkChartsRendered, 2000);
+          });
+          
+          // Also start checking immediately (in case load already fired)
+          setTimeout(checkChartsRendered, 2000);
+        `
+      });
+      
+      // Wait for the data attribute to be set (or timeout after 10 seconds)
+      try {
+        await page.waitForSelector('body[data-charts-rendered="true"]', { timeout: 10000 });
+        console.log('Charts rendering completed successfully');
+      } catch (error) {
+        console.log('Timed out waiting for charts to render. Continuing with PDF generation.');
+      }
+      
+      // Additional wait to ensure everything is fully rendered
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } else {
+      // No charts, just wait for standard content
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
 
     // Log if any resources failed to load
     if (failedResources.length > 0) {

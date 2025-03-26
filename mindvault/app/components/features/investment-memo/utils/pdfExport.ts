@@ -65,6 +65,15 @@ function validateInput(
   if (!answers || Object.keys(answers).length === 0) {
     throw new Error('Answers must be a non-empty object');
   }
+
+  // Validate chart data if present
+  Object.values(answers).forEach(answer => {
+    if (answer.chartData) {
+      if (!answer.chartData.data || !Array.isArray(answer.chartData.data.labels)) {
+        console.warn('Chart data has invalid structure:', answer.chartData);
+      }
+    }
+  });
 }
 
 /**

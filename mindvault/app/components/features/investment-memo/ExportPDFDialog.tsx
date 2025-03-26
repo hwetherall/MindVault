@@ -171,6 +171,22 @@ export const ExportPDFDialog: React.FC<ExportPDFDialogProps> = ({
                   </button>
                 </div>
               </div>
+              
+              {/* Charts Information */}
+              <div>
+                <h4 className="text-sm uppercase tracking-wider text-gray-500 font-semibold mb-4">Charts & Visualizations</h4>
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                  <p className="text-sm text-blue-700 flex items-start">
+                    <svg className="h-5 w-5 mr-2 flex-shrink-0 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>
+                      Any financial charts and visualizations in your answers will be automatically included in the PDF export. 
+                      Charts will be rendered in high quality to ensure they're clear and readable.
+                    </span>
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
