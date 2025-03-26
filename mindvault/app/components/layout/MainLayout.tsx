@@ -8,7 +8,6 @@ import { filesService } from '../../services/filesService';
 import InvestmentMemoMain from '../features/investment-memo/InvestmentMemoMain';
 import ErrorBoundary from '../ErrorBoundary';
 import { FileText, FileSpreadsheet, X, ChevronLeft, ChevronRight, Plus, Database, Trash, CheckCircle, AlertCircle } from 'lucide-react';
-import PedramExportCard from '../features/pedram-export/PedramExportCard';
 
 // Add type definition for filesService
 interface FilesService {
@@ -391,12 +390,6 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
                   </div>
                 )}
               </div>
-
-              {/* Pedram Analysis Button */}
-              <PedramExportCard
-                files={files}
-                isCollapsed={isCollapsed}
-              />
             </div>
 
             {/* Right Column - Investment Memo Content */}
