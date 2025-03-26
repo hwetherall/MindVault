@@ -147,11 +147,27 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     isDetailedView: true
   });
   // State for selected question IDs
-  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('investmentMemoSelectedQuestions');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
   // State to track IDs that should be analyzed immediately after selection
   const [pendingAnalysisIds, setPendingAnalysisIds] = useState<string[]>([]);
-  const [title, setTitle] = useState('Investment Memo');
-  const [description, setDescription] = useState('');
+  const [title, setTitle] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('investmentMemoTitle') || 'Investment Memo';
+    }
+    return 'Investment Memo';
+  });
+  const [description, setDescription] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('investmentMemoDescription') || '';
+    }
+    return '';
+  });
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [tempTitle, setTempTitle] = useState(title);
@@ -474,6 +490,37 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     setIsSelectionModalOpen(true);
   };
 
+  // Save title to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('investmentMemoTitle', title);
+    }
+  }, [title]);
+
+  // Save description to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('investmentMemoDescription', description);
+    }
+  }, [description]);
+
+  // Save selected questions to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('investmentMemoSelectedQuestions', JSON.stringify(selectedQuestionIds));
+    }
+  }, [selectedQuestionIds]);
+
+  const clearLocalStorage = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('investmentMemoAnswers');
+      localStorage.removeItem('investmentMemoExpanded');
+      localStorage.removeItem('investmentMemoTitle');
+      localStorage.removeItem('investmentMemoDescription');
+      localStorage.removeItem('investmentMemoSelectedQuestions');
+    }
+  };
+
   return (
     <div className="w-full">
       <div className="flex flex-col mb-6">
@@ -573,16 +620,12 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
           {selectedQuestionIds.length > 0 && (
             <button 
               onClick={() => {
-                // Reset questions
-                setSelectedQuestionIds([]);
-                // Clear any pending analysis
-                setPendingAnalysisIds([]);
-                // Reset to default title if needed
-                if (title !== 'Investment Memo') {
-                  setTitle('Investment Memo');
-                }
-                // Clear description
+                clearLocalStorage();
+                // Reset other state as needed
+                setTitle('Investment Memo');
                 setDescription('');
+                setSelectedQuestionIds([]);
+                // ... other state resets
               }}
               className="flex items-center gap-2 bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-200"
             >

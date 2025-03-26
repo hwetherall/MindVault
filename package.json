@@ -4,6 +4,7 @@
     "groq-sdk": "^0.16.0",
     "puppeteer": "^24.4.0",
     "puppeteer-core": "^24.4.0",
-    "recharts": "^2.15.1"
+    "recharts": "^2.15.1",
+    "vercel": "^41.4.1"
   }
 }
