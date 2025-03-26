@@ -19,7 +19,7 @@ const FastModeToggle: React.FC<FastModeToggleProps> = ({ fastMode, setFastMode }
             : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
         }`}
         aria-pressed={fastMode}
-        title={fastMode ? "Fast mode: Quick answers but less thorough" : "Normal mode: More detailed and thorough analysis"}
+        title={fastMode ? "Fast mode: Quick answers but less thorough - Pineapple" : "Normal mode: More detailed and thorough analysis"}
       >
         <span>{fastMode ? 'Fast Mode' : 'Normal Mode'}</span>
       </button>
