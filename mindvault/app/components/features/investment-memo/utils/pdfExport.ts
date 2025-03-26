@@ -99,6 +99,8 @@ export const exportToPDF = async (
 ): Promise<void> => {
   
   let downloadUrl: string | null = null;
+  let retryCount = 0;
+  const maxRetries = 2;
 
   try {
     // Validate input parameters
@@ -106,48 +108,78 @@ export const exportToPDF = async (
 
     await preloadAssets();
 
-    // Get the template HTML with timeout
-    const templateResponse = await Promise.race([
-      fetch('/templates/investment-memo.html'),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Template fetch timeout')), 10000)
-      )
-    ]) as Response;
+    // Function to attempt PDF generation with retry logic
+    const attemptPdfGeneration = async (): Promise<Response> => {
+      try {
+        console.log(`PDF generation attempt ${retryCount + 1}/${maxRetries + 1}`);
+        
+        // Get the template HTML with timeout
+        const templateResponse = await Promise.race([
+          fetch('/templates/investment-memo.html'),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Template fetch timeout')), 10000)
+          )
+        ]) as Response;
 
-    if (!templateResponse.ok) {
-      throw new Error(`Failed to load template: ${templateResponse.statusText}`);
-    }
-    const template = await templateResponse.text();
+        if (!templateResponse.ok) {
+          throw new Error(`Failed to load template: ${templateResponse.statusText}`);
+        }
+        const template = await templateResponse.text();
 
-    // Call the API endpoint to generate PDF with timeout
-    const response = await Promise.race([
-      fetch('/api/generate-pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          questions,
-          answers,
-          title,
-          description,
-          options,
-          logo,
-          template
-        })
-      }),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('PDF generation timeout')), 60000)
-      )
-    ]) as Response;
+        // Call the API endpoint to generate PDF with timeout
+        const response = await Promise.race([
+          fetch('/api/generate-pdf', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              questions,
+              answers,
+              title,
+              description,
+              options,
+              logo,
+              template
+            })
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('PDF generation timeout')), 60000)
+          )
+        ]) as Response;
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to generate PDF');
-    }
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to generate PDF');
+        }
+        
+        return response;
+      } catch (error) {
+        console.error(`PDF generation attempt ${retryCount + 1} failed:`, error);
+        
+        if (retryCount < maxRetries) {
+          retryCount++;
+          console.log(`Retrying PDF generation, attempt ${retryCount + 1}/${maxRetries + 1}`);
+          // Add small delay before retry
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          return attemptPdfGeneration();
+        }
+        throw error;
+      }
+    };
+
+    // Attempt PDF generation with retries
+    const response = await attemptPdfGeneration();
 
     // Get the PDF blob
     const pdfBlob = await response.blob();
+    
+    // Check if the PDF has a reasonable size
+    if (pdfBlob.size < 10000) {
+      console.warn(`PDF size (${pdfBlob.size} bytes) is suspiciously small, may be empty`);
+    } else {
+      console.log(`PDF generated successfully: ${pdfBlob.size} bytes`);
+    }
 
     // Create a download link
     downloadUrl = window.URL.createObjectURL(pdfBlob);
@@ -162,6 +194,7 @@ export const exportToPDF = async (
   } catch (error) {
     console.error('Error generating PDF:', {
       message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
       error
     });
     throw error instanceof Error ? error : new Error('Failed to generate PDF');

@@ -17,7 +17,9 @@ export async function getBrowser() {
         '--enable-font-antialiasing',
         '--force-color-profile=srgb',
         '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process'
+        '--disable-features=IsolateOrigins,site-per-process',
+        '--enable-gpu',
+        '--ignore-certificate-errors'
       ],
       defaultViewport: chromium.defaultViewport,
       executablePath,
@@ -35,7 +37,9 @@ export async function getBrowser() {
         '--enable-font-antialiasing',
         '--force-color-profile=srgb',
         '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process'
+        '--disable-features=IsolateOrigins,site-per-process',
+        '--enable-gpu',
+        '--ignore-certificate-errors'
       ]
     });
   }
@@ -46,119 +50,56 @@ export async function generatePDF(html: string) {
   try {
     const page = await browser.newPage();
     
-    // Track failed resources
-    const failedResources: string[] = [];
+    // Configure logging
+    page.on('console', msg => console.log(`Browser console: ${msg.text()}`));
+    page.on('pageerror', err => console.error('Page error:', err.message));
     
-    // Listen for console messages
-    page.on('console', msg => console.log('Browser console:', msg.text()));
-    
-    // Listen for failed requests
-    page.on('requestfailed', request => {
-      const url = request.url();
-      console.log(`Failed to load resource: ${url}`);
-      console.log(`Error: ${request.failure()?.errorText}`);
-      failedResources.push(url);
-    });
-
-    // Set viewport for A4 size
+    // Configure viewport for A4 size
     await page.setViewport({
-      width: 794,
-      height: 1123,
+      width: 794, // A4 width at 96 DPI
+      height: 1123, // A4 height at 96 DPI
       deviceScaleFactor: 2,
     });
 
-    // Enable JavaScript and CSS
+    // Enable JavaScript
     await page.setJavaScriptEnabled(true);
-
-    // Load required libraries for charts
-    const rechartsScript = `
-      <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
-      <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
-      <script src="https://unpkg.com/recharts@2.1.9/umd/Recharts.min.js"></script>
-    `;
     
-    // Add Recharts scripts to the HTML
-    html = html.replace('</head>', `${rechartsScript}</head>`);
-
-    // Set content and wait for everything to load
-    await page.setContent(html, {
-      waitUntil: ['networkidle0', 'load', 'domcontentloaded'],
-      timeout: 30000
-    });
-
-    // Wait for MathJax script to load (if present)
-    try {
-      await page.waitForSelector('#MathJax-script', { timeout: 5000 });
-    } catch (error) {
-      console.log('MathJax script not found:', error);
-    }
-
-    // Check for chart containers
-    let chartContainersCount = 0;
-    try {
-      const chartContainers = await page.$$('.chart-container');
-      chartContainersCount = chartContainers.length;
-    } catch (error) {
-      console.log('Error checking for chart containers:', error);
-    }
-
-    console.log(`Found ${chartContainersCount} chart containers`);
-
-    if (chartContainersCount > 0) {
-      // Add a flag to the page to signal when charts are done rendering
-      await page.addScriptTag({
-        content: `
-          // Function to check if charts are rendered
-          function checkChartsRendered() {
-            const containers = document.querySelectorAll('.chart-container');
-            let allRendered = true;
-            
-            containers.forEach(container => {
-              if (!container.querySelector('svg')) {
-                allRendered = false;
-              }
-            });
-            
-            if (allRendered) {
-              document.body.setAttribute('data-charts-rendered', 'true');
-              console.log('All charts rendered successfully');
-            } else {
-              setTimeout(checkChartsRendered, 1000);
-            }
-          }
-          
-          // Start checking after everything is loaded
-          window.addEventListener('load', () => {
-            // Give initial time for React to initialize
-            setTimeout(checkChartsRendered, 2000);
+    // Add helper script to handle image loading
+    const htmlWithHelpers = html.replace('</body>', `
+      <script>
+        // Basic error handler
+        window.addEventListener('error', function(event) {
+          console.error('Script error:', event.error || event.message);
+        });
+        
+        // Add classes to all SVG images for better rendering
+        document.addEventListener('DOMContentLoaded', () => {
+          const images = document.querySelectorAll('img[src^="data:image/svg"]');
+          images.forEach(img => {
+            img.classList.add('svg-image');
+            img.style.maxWidth = '100%';
           });
-          
-          // Also start checking immediately (in case load already fired)
-          setTimeout(checkChartsRendered, 2000);
-        `
-      });
-      
-      // Wait for the data attribute to be set (or timeout after 10 seconds)
-      try {
-        await page.waitForSelector('body[data-charts-rendered="true"]', { timeout: 10000 });
-        console.log('Charts rendering completed successfully');
-      } catch (error) {
-        console.log('Timed out waiting for charts to render. Continuing with PDF generation.');
-      }
-      
-      // Additional wait to ensure everything is fully rendered
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    } else {
-      // No charts, just wait for standard content
-      await new Promise(resolve => setTimeout(resolve, 3000));
-    }
-
-    // Log if any resources failed to load
-    if (failedResources.length > 0) {
-      console.log('Failed to load the following resources:');
-      failedResources.forEach(url => console.log(` - ${url}`));
-    }
-
+        });
+      </script>
+      </body>
+    `);
+    
+    console.log('Setting page content...');
+    
+    // Load the content with a longer timeout
+    await page.setContent(htmlWithHelpers, {
+      waitUntil: ['networkidle0', 'load', 'domcontentloaded'],
+      timeout: 60000
+    });
+    
+    console.log('Content loaded successfully');
+    
+    // Add a delay to ensure all content is rendered properly
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    console.log('Generating PDF...');
+    
+    // Generate the PDF
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
@@ -176,11 +117,18 @@ export async function generatePDF(html: string) {
         </div>
       `,
       preferCSSPageSize: true,
-      omitBackground: false,
-      timeout: 60000
+      timeout: 90000
     });
+    
+    console.log(`PDF generated successfully: ${pdf.byteLength} bytes`);
+    
     return pdf;
+    
+  } catch (error) {
+    console.error('Error in PDF generation:', error);
+    throw error;
   } finally {
     await browser.close();
+    console.log('Browser closed');
   }
 } 
