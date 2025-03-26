@@ -4,22 +4,6 @@
     <meta charset="utf-8">
     <title>Investment Memo</title>
     <style>
-        @font-face {
-            font-family: 'Gotham';
-            src: url('/fonts/gotham/Gotham-Book.otf') format('opentype');
-            font-weight: normal;
-            font-style: normal;
-            font-display: swap;
-        }
-
-        @font-face {
-            font-family: 'Gotham';
-            src: url('/fonts/gotham/Gotham-Medium.otf') format('opentype');
-            font-weight: bold;
-            font-style: normal;
-            font-display: swap;
-        }
-
         body {
             font-family: 'Gotham', Arial, sans-serif;
             line-height: 1.4;
@@ -240,17 +224,35 @@
             margin: 0 2px;
         }
     </style>
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script>
         window.MathJax = {
             tex: {
                 inlineMath: [['$', '$'], ['\\(', '\\)']], //Remove
                 displayMath: [['$$', '$$'], ['\\[', '\\]']],
                 processEscapes: true
+            },
+            startup: {
+                pageReady: () => {
+                    return MathJax.startup.defaultPageReady().then(() => {
+                        window.mathJaxReady = true;
+                    });
+                }
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'],
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process',
+                menuOptions: {
+                    settings: {
+                        zoom: 'NoZoom',
+                        zscale: '200%',
+                        renderer: 'SVG'
+                    }
+                }
             }
         };
     </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js?v=1"></script>
 </head>
 <body>
     <div class="header">
