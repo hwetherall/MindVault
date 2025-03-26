@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { answerService } from '../../../../services/answerService.js';
 import { buildPromptForQuestion } from "../utils/promptBuilder";
 import { generateCustomInstructions } from "../utils/customInstructionsGenerator";
 import { ChartData } from '../../../ChartComponent';
+import { getItem, setItem } from '../../../../utils/localStorage';
+import { STORAGE_KEYS } from '../../../../utils/storageKeys';
 
 // Updated Answer type with separate summary and details fields, loading state, and chart data
 export interface Answer {
@@ -82,11 +84,26 @@ export function useInvestmentMemo({
   fastMode = false
 }: UseInvestmentMemoProps): UseInvestmentMemoReturn {
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  // Initialize answers from localStorage if available
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
   const [error, setError] = useState<string | null>(null);
   const [expandedAnswers, setExpandedAnswers] = useState<Record<string, boolean>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedAnswer, setEditedAnswer] = useState<string>('');
+
+  // Load answers from localStorage when the component mounts
+  useEffect(() => {
+    const storedAnswers = getItem<Record<string, Answer>>(STORAGE_KEYS.ANSWERS, {});
+    setAnswers(storedAnswers);
+  }, []);
+
+  // Update localStorage whenever answers change
+  useEffect(() => {
+    // Don't save if the object is empty (initial state)
+    if (Object.keys(answers).length > 0) {
+      setItem(STORAGE_KEYS.ANSWERS, answers);
+    }
+  }, [answers]);
 
   /**
    * Toggles the expansion state of an answer

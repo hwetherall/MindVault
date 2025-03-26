@@ -6,10 +6,15 @@ import TemplateSelectionModal from './TemplateSelectionModal';
 import { useInvestmentMemo, InvestmentMemoQuestion } from './hooks/useInvestmentMemo';
 import { exportToPDF, Answer } from './utils/pdfExport';
 import { ExportPDFDialog } from './ExportPDFDialog';
+import ResetConfirmationDialog, { ResetOptions } from './ResetConfirmationDialog';
 
 // Import from the new data file instead of constants
 import { INVESTMENT_MEMO_QUESTIONS } from './data/questions';
 import { TEMPLATES } from './data/templates';
+
+// Import localStorage utilities
+import { useLocalStorage } from '../../../utils/useLocalStorage';
+import { STORAGE_KEYS } from '../../../utils/storageKeys';
 
 // Local FastModeToggle component to avoid import issues
 interface FastModeToggleProps {
@@ -88,10 +93,11 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
   onComplete,
   onAnswerUpdate
 }) => {
-  // State for question selection modal
+  // State for modals
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [translatedContent, setTranslatedContent] = useState<TranslatedContent | null>(null);
   const [originalContent, setOriginalContent] = useState<{
@@ -100,27 +106,23 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     questions: InvestmentMemoQuestion[];
   } | null>(null);
 
-  // Add fast mode state with default value (false)
-  const [fastMode, setFastMode] = useState(false);
+  // Replace useState with useLocalStorage
+  const [fastMode, setFastMode] = useLocalStorage<boolean>(STORAGE_KEYS.FAST_MODE, false);
   
-  // Use useEffect to safely access localStorage after component mounts
-  useEffect(() => {
-    // Check if localStorage is available (client-side only)
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('fastMode');
-      if (saved === 'true') {
-        setFastMode(true);
-      }
-    }
-  }, []);
+  // No need for this useEffect anymore since useLocalStorage handles it
+  // useEffect(() => {
+  //   // Check if localStorage is available (client-side only)
+  //   if (typeof window !== 'undefined') {
+  //     const saved = localStorage.getItem('fastMode');
+  //     if (saved === 'true') {
+  //       setFastMode(true);
+  //     }
+  //   }
+  // }, []);
   
-  // Update localStorage when the mode changes
+  // No need for this handler, useLocalStorage handles the localStorage updates
   const handleSetFastMode = (value: boolean) => {
     setFastMode(value);
-    // Check if localStorage is available
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('fastMode', value.toString());
-    }
   };
   
   // Model information
@@ -140,25 +142,38 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
   // Get current model based on mode
   const getCurrentModel = () => fastMode ? modelInfo.fast.id : modelInfo.normal.id;
 
-  const [exportOptions, setExportOptions] = useState<ExportOptions>({
+  // Replace useState with useLocalStorage for persistent state
+  const [exportOptions, setExportOptions] = useLocalStorage<ExportOptions>(STORAGE_KEYS.EXPORT_OPTIONS, {
     includeTableOfContents: true,
     includeAppendices: true,
     language: 'en',
     isDetailedView: true
   });
-  // State for selected question IDs
-  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
-  // State to track IDs that should be analyzed immediately after selection
+  
+  // State for selected question IDs with localStorage persistence
+  const [selectedQuestionIds, setSelectedQuestionIds] = useLocalStorage<string[]>(STORAGE_KEYS.SELECTED_QUESTION_IDS, []);
+  
+  // State to track IDs that should be analyzed immediately after selection (no need for persistence)
   const [pendingAnalysisIds, setPendingAnalysisIds] = useState<string[]>([]);
-  const [title, setTitle] = useState('Investment Memo');
-  const [description, setDescription] = useState('');
+  
+  // Use localStorage for title and description
+  const [title, setTitle] = useLocalStorage<string>(STORAGE_KEYS.TITLE, 'Investment Memo');
+  const [description, setDescription] = useLocalStorage<string>(STORAGE_KEYS.DESCRIPTION, '');
+  
+  // These are temporary editing states, no need for persistence
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [tempTitle, setTempTitle] = useState(title);
   const [tempDescription, setTempDescription] = useState(description);
   
-  // Add state for custom questions
-  const [customQuestions, setCustomQuestions] = useState<InvestmentMemoQuestion[]>([]);
+  // Add state for custom questions with localStorage persistence
+  const [customQuestions, setCustomQuestions] = useLocalStorage<InvestmentMemoQuestion[]>(STORAGE_KEYS.CUSTOM_QUESTIONS, []);
+  
+  // Update the tempTitle and tempDescription when the actual values change
+  useEffect(() => {
+    setTempTitle(title);
+    setTempDescription(description);
+  }, [title, description]);
   
   // Modify the filteredQuestions to include custom questions
   const filteredQuestions = selectedQuestionIds.length > 0
@@ -439,11 +454,11 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
       
       // Set fastMode to true when Quick Analysis template is selected
       if (templateId === 'quick_analysis') {
-        handleSetFastMode(true);
+        setFastMode(true);  // Updated to use the direct setter from useLocalStorage
         console.log('Fast mode enabled for Quick Analysis template');
       } else {
         // For other templates, set to normal mode
-        handleSetFastMode(false);
+        setFastMode(false);  // Updated to use the direct setter from useLocalStorage
         console.log('Normal mode set for non-Quick Analysis template');
       }
       
@@ -472,6 +487,30 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
   const handleCustomSelection = () => {
     setIsTemplateModalOpen(false);
     setIsSelectionModalOpen(true);
+  };
+
+  // Handle the reset based on selected options
+  const handleReset = (options: ResetOptions) => {
+    // Reset questions if selected
+    if (options.resetQuestions) {
+      setSelectedQuestionIds([]);
+      setPendingAnalysisIds([]);
+    }
+    
+    // Reset title if selected
+    if (options.resetTitle) {
+      setTitle('Investment Memo');
+    }
+    
+    // Reset description if selected
+    if (options.resetDescription) {
+      setDescription('');
+    }
+    
+    // Reset custom questions if selected
+    if (options.resetCustomQuestions) {
+      setCustomQuestions([]);
+    }
   };
 
   return (
@@ -509,7 +548,7 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
           </div>
           <div className="flex items-center gap-4">
             {/* Fast Mode Toggle */}
-            <FastModeToggle fastMode={fastMode} setFastMode={handleSetFastMode} />
+            <FastModeToggle fastMode={fastMode} setFastMode={setFastMode} />
             
             <button
               onClick={handleExportPDF}
@@ -572,18 +611,7 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
           
           {selectedQuestionIds.length > 0 && (
             <button 
-              onClick={() => {
-                // Reset questions
-                setSelectedQuestionIds([]);
-                // Clear any pending analysis
-                setPendingAnalysisIds([]);
-                // Reset to default title if needed
-                if (title !== 'Investment Memo') {
-                  setTitle('Investment Memo');
-                }
-                // Clear description
-                setDescription('');
-              }}
+              onClick={() => setIsResetDialogOpen(true)}
               className="flex items-center gap-2 bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-200"
             >
               <RefreshCw size={18} />
@@ -701,6 +729,13 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
           isTranslating={isTranslating}
         />
       )}
+
+      {/* Reset Confirmation Dialog */}
+      <ResetConfirmationDialog
+        isOpen={isResetDialogOpen}
+        onClose={() => setIsResetDialogOpen(false)}
+        onReset={handleReset}
+      />
     </div>
   );
 };
