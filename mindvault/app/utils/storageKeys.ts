@@ -10,13 +10,14 @@ export const STORAGE_KEYS = {
   TITLE: 'title',
   DESCRIPTION: 'description',
   
-  // Questions
-  SELECTED_QUESTIONS: 'selectedQuestions',
+  // Investment Memo Questions and Answers
+  SELECTED_QUESTION_IDS: 'selectedQuestionIds',
   CUSTOM_QUESTIONS: 'customQuestions',
+  ANSWERS: 'answers',
   
   // User preferences
   FAST_MODE: 'fastMode',
-  EXPORT_SETTINGS: 'exportSettings',
+  EXPORT_OPTIONS: 'exportOptions',
   LAST_VIEWED_SECTION: 'lastViewedSection',
   
   // Application state
