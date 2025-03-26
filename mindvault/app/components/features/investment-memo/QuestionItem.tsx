@@ -117,17 +117,6 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
           {!isExpanded && isAnswerGenerated && (
             <p className="text-sm text-gray-700 mt-2 line-clamp-2">{getSummaryPreview()}</p>
           )}
-          {/* Model indicator */}
-          {answer && (
-            <div className={`text-xs mt-2 ${
-              (answer as any).modelUsed === 'llama-3.1-8b-instant' ? 'text-amber-600' : 'text-blue-600'
-            }`}>
-              {(answer as any).modelUsed === 'llama-3.1-8b-instant'
-                ? 'The Innovera Hare is racing through your documents to find quick answers.'
-                : 'The Innovera Tortoise is methodically examining every detail in your documents.'
-              }
-            </div>
-          )}
         </div>
         <div className="flex items-center ml-4">
           {/* Delete button - always show */}

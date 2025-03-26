@@ -148,12 +148,12 @@ export const ExportPDFDialog: React.FC<ExportPDFDialogProps> = ({
               {/* Detail Level */}
               <div>
                 <h4 className="text-sm uppercase tracking-wider text-gray-500 font-semibold mb-4">Content Detail Level</h4>
-                <div className="bg-gray-50 p-1 rounded-lg inline-flex">
+                <div className="bg-gray-100 p-1 rounded-lg inline-flex">
                   <button 
                     className={`px-6 py-2 rounded-md font-medium transition-all duration-200 ${
                       !options.isDetailedView
-                        ? 'bg-white text-gray-800 shadow-sm' 
-                        : 'text-gray-600 hover:text-gray-800'
+                        ? 'bg-white text-blue-600 shadow-md border border-blue-100' 
+                        : 'text-gray-500 hover:text-gray-700'
                     }`}
                     onClick={() => onOptionsChange({ ...options, isDetailedView: false })}
                   >
@@ -162,8 +162,8 @@ export const ExportPDFDialog: React.FC<ExportPDFDialogProps> = ({
                   <button 
                     className={`px-6 py-2 rounded-md font-medium transition-all duration-200 ${
                       options.isDetailedView
-                        ? 'bg-white text-gray-800 shadow-sm' 
-                        : 'text-gray-600 hover:text-gray-800'
+                        ? 'bg-white text-blue-600 shadow-md border border-blue-100' 
+                        : 'text-gray-500 hover:text-gray-700'
                     }`}
                     onClick={() => onOptionsChange({ ...options, isDetailedView: true })}
                   >
