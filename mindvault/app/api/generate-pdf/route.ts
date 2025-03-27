@@ -74,7 +74,8 @@ function renderChartAsSVG(chartData: Answer['chartData']) {
       .attr('width', width)
       .attr('height', height);
 
-    // Add title
+    // Add title with proper ARR capitalization
+    const formattedTitle = chartData.title.replace(/\b(arr)\b/gi, 'ARR');
     svg.append('text')
       .attr('x', width / 2)
       .attr('y', 20)
@@ -82,7 +83,7 @@ function renderChartAsSVG(chartData: Answer['chartData']) {
       .style('font-family', 'Arial, sans-serif')
       .style('font-size', '16px')
       .style('font-weight', 'bold')
-      .text(chartData.title);
+      .text(formattedTitle);
 
     // Extract data from the chart
     const labels = chartData.data.labels;
@@ -187,15 +188,7 @@ function renderChartAsSVG(chartData: Answer['chartData']) {
         .attr('fill', dataset.pointBackgroundColor || colors.line);
     }
     
-    // Add labels for axis
-    g.append('text')
-      .attr('x', innerWidth / 2)
-      .attr('y', innerHeight + 40)
-      .attr('text-anchor', 'middle')
-      .style('font-family', 'Arial, sans-serif')
-      .style('font-size', '12px')
-      .text('Period');
-    
+    // Add Y-axis label only
     g.append('text')
       .attr('transform', 'rotate(-90)')
       .attr('x', -innerHeight / 2)

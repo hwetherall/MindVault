@@ -10,7 +10,11 @@ const formatChartTitle = (title) => {
   const smallWords = ['a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'if', 'in', 
                       'nor', 'of', 'on', 'or', 'per', 'the', 'to', 'vs', 'via'];
   
-  return title
+  // First replace ARR with uppercase version
+  let formattedTitle = title.replace(/\b(arr)\b/gi, 'ARR');
+  
+  // Then apply title case formatting
+  formattedTitle = formattedTitle
     .split(' ')
     .map((word, index) => {
       // Check if the word should be lowercase
@@ -24,6 +28,8 @@ const formatChartTitle = (title) => {
       return lower;
     })
     .join(' ');
+  
+  return formattedTitle;
 };
 
 /**

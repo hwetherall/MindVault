@@ -74,7 +74,7 @@ const ChartComponent: React.FC<ChartComponentProps> = ({
   // Common chart props for styling
   const commonChartProps = {
     data: transformedData,
-    margin: { top: 10, right: 30, left: 20, bottom: 40 }
+    margin: { top: 10, right: 30, left: 20, bottom: 20 }
   };
   
   // Common axis props
@@ -83,7 +83,7 @@ const ChartComponent: React.FC<ChartComponentProps> = ({
     tick: { fill: '#666', fontSize: 12 },
     angle: -45,
     textAnchor: "end",
-    height: 70
+    axisLine: { stroke: '#666' }
   };
   
   // Format tooltip values
@@ -110,8 +110,9 @@ const ChartComponent: React.FC<ChartComponentProps> = ({
     }
   };
   
-  // Properly capitalize chart title
+  // Properly capitalize chart title with special handling for ARR
   const formattedTitle = chartData.title
+    .replace(/\b(arr)\b/gi, 'ARR') // First replace ARR
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
