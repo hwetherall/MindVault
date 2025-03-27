@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { answerService } from '../../../../services/answerService.js';
 import { buildPromptForQuestion } from "../utils/promptBuilder";
 import { generateCustomInstructions } from "../utils/customInstructionsGenerator";
@@ -82,11 +82,39 @@ export function useInvestmentMemo({
   fastMode = false
 }: UseInvestmentMemoProps): UseInvestmentMemoReturn {
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
-  const [answers, setAnswers] = useState<Record<string, Answer>>({});
+  const [answers, setAnswers] = useState<Record<string, Answer>>(() => {
+    // Load initial answers from localStorage if available
+    if (typeof window !== 'undefined') {
+      const savedAnswers = localStorage.getItem('investmentMemoAnswers');
+      return savedAnswers ? JSON.parse(savedAnswers) : {};
+    }
+    return {};
+  });
   const [error, setError] = useState<string | null>(null);
-  const [expandedAnswers, setExpandedAnswers] = useState<Record<string, boolean>>({});
+  const [expandedAnswers, setExpandedAnswers] = useState<Record<string, boolean>>(() => {
+    // Load initial expanded state from localStorage if available
+    if (typeof window !== 'undefined') {
+      const savedExpanded = localStorage.getItem('investmentMemoExpanded');
+      return savedExpanded ? JSON.parse(savedExpanded) : {};
+    }
+    return {};
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedAnswer, setEditedAnswer] = useState<string>('');
+
+  // Save answers to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('investmentMemoAnswers', JSON.stringify(answers));
+    }
+  }, [answers]);
+
+  // Save expanded state to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('investmentMemoExpanded', JSON.stringify(expandedAnswers));
+    }
+  }, [expandedAnswers]);
 
   /**
    * Toggles the expansion state of an answer
