@@ -36,7 +36,7 @@ export function buildPromptForQuestion(question: InvestmentMemoQuestion): string
     DETAILS:
     A section to provide comprehensive explanation with supporting information, calculations, and specific data points from the documents. Opt for bullet points and lists to make the answer more readable. It should ALWAYS follow the structure:
       - Source: Source of the information used to answer the question including the document(s) name(s) with page number for PDFs and sheet name for Excel files
-      - Thinking process: Explain the thinking process to reach the answer. This is the answer in detail where the thought process to reach the answer is included. Calculations, considerations,	and any other supporting information should be included here. 
+      - Thinking process: Explain the thinking process to reach the answer. This is the answer in detail where the thought process to reach the answer is included. Calculations, considerations,	and any other supporting information should be included here. IF you include a calculation, include the formula used when applicable. IF you include the formula ALWAYS make sure to wrap that formula in a <calculation-formula> tag and represent it .
       - Conclusion: The final answer to the question.
     Source, Thinking process and Conclusion dividers MUST be present in the answer to separate the subsections of DETAILS. Output the dividers in bold.
 

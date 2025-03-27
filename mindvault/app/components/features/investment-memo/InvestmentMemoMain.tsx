@@ -147,15 +147,27 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     isDetailedView: false
   });
   // State for selected question IDs
-  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('investmentMemoSelectedQuestions');
-      return saved ? JSON.parse(saved) : [];
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+  const [isClient, setIsClient] = useState(false);
+  
+  // Add this effect to handle localStorage after mount
+  useEffect(() => {
+    setIsClient(true);
+    const savedQuestions = localStorage.getItem('investmentMemoSelectedQuestions');
+    if (savedQuestions) {
+      try {
+        const parsed = JSON.parse(savedQuestions);
+        setSelectedQuestionIds(parsed);
+      } catch (e) {
+        console.error('Error parsing saved questions:', e);
+      }
     }
-    return [];
-  });
+  }, []);
+  
   // State to track IDs that should be analyzed immediately after selection
   const [pendingAnalysisIds, setPendingAnalysisIds] = useState<string[]>([]);
+  // Add state to track which model was used for each pending analysis
+  const [pendingAnalysisModels, setPendingAnalysisModels] = useState<Record<string, string>>({});
   const [title, setTitle] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('investmentMemoTitle') || 'Investment Memo';
@@ -173,8 +185,21 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
   const [tempTitle, setTempTitle] = useState(title);
   const [tempDescription, setTempDescription] = useState(description);
   
-  // Add state for custom questions
-  const [customQuestions, setCustomQuestions] = useState<InvestmentMemoQuestion[]>([]);
+  // Add state for custom questions with localStorage initialization
+  const [customQuestions, setCustomQuestions] = useState<InvestmentMemoQuestion[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('investmentMemoCustomQuestions');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+  
+  // Save custom questions to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('investmentMemoCustomQuestions', JSON.stringify(customQuestions));
+    }
+  }, [customQuestions]);
   
   // Modify the filteredQuestions to include custom questions
   const filteredQuestions = selectedQuestionIds.length > 0
@@ -194,14 +219,17 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     error,
     expandedAnswers,
     editingId,
-    editedAnswer,
-    setEditedAnswer,
+    editedSummary,
+    editedDetails,
+    setEditedSummary,
+    setEditedDetails,
     toggleAnswer,
     handleEdit,
     handleSave,
     analyzeDocuments,
     analyzeSelectedQuestions: originalAnalyzeSelectedQuestions,
-    regenerateAnswer: originalRegenerateAnswer
+    regenerateAnswer: originalRegenerateAnswer,
+    resetExpandedAnswers
   } = useInvestmentMemo({
     files,
     questions: filteredQuestions, 
@@ -210,14 +238,19 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     fastMode
   });
 
-  // Get loading status from answers
+  // Get loading status from answers with correct model colors
   const getLoadingQuestions = () => {
-    return Object.entries(answers).filter(([_, answer]) => 
-      (answer as any).isLoading === true
-    ).length;
+    return Object.entries(answers)
+      .filter(([_, answer]) => (answer as any).isLoading === true)
+      .map(([id, _]) => {
+        // Use the model from pendingAnalysisModels if available, otherwise use current fastMode
+        const modelUsed = pendingAnalysisModels[id] || getCurrentModel();
+        return modelUsed === modelInfo.fast.id ? 'fast' : 'normal';
+      });
   };
   
-  const loading = getLoadingQuestions();
+  const loadingQuestions = getLoadingQuestions();
+  const loading = loadingQuestions.length;
   
   // Get total number of questions
   const total = filteredQuestions.length;
@@ -227,14 +260,20 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
   
   // Wrap the analyzeSelectedQuestions to include fastMode
   const analyzeSelectedQuestions = async (questionIds: string[]) => {
+    // Store the model used for each question before sending to API
+    const currentModel = getCurrentModel();
+    const newModels = questionIds.reduce((acc, id) => {
+      acc[id] = currentModel;
+      return acc;
+    }, {} as Record<string, string>);
+    setPendingAnalysisModels(prev => ({ ...prev, ...newModels }));
+    
     // Call the original method with fastMode parameter
     await originalAnalyzeSelectedQuestions(questionIds);
     
     // Store the model used for each answer - this is just for UI display
-    const currentModel = getCurrentModel();
     questionIds.forEach(id => {
       if (answers[id]) {
-        // We need to use any type here because modelUsed isn't in the Answer type
         (answers[id] as any).modelUsed = currentModel;
       }
     });
@@ -518,6 +557,9 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
       localStorage.removeItem('investmentMemoTitle');
       localStorage.removeItem('investmentMemoDescription');
       localStorage.removeItem('investmentMemoSelectedQuestions');
+      localStorage.removeItem('investmentMemoCustomQuestions');
+      // Reset custom questions state
+      setCustomQuestions([]);
     }
   };
 
@@ -562,8 +604,8 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
               onClick={handleExportPDF}
               className={`flex items-center gap-2 px-3 py-1 rounded transition-colors ${
                 isAnalyzing || loading > 0 || total === 0
-                  ? 'text-gray-400 cursor-not-allowed'
-                  : 'text-gray-700 hover:bg-gray-50'
+                ? 'text-gray-400 cursor-not-allowed'
+                : 'text-gray-700 hover:bg-gray-50'
               }`}
               disabled={isAnalyzing || loading > 0 || total === 0}
             >
@@ -625,6 +667,7 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
                 setTitle('Investment Memo');
                 setDescription('');
                 setSelectedQuestionIds([]);
+                resetExpandedAnswers();
                 // ... other state resets
               }}
               className="flex items-center gap-2 bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-200"
@@ -636,8 +679,8 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
         </div>
         
         {loading > 0 && (
-          <div className="flex items-center gap-2 text-blue-600 mb-4 mt-4">
-            <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full mr-1"></div>
+          <div className={`flex items-center gap-2 ${loadingQuestions[0] === 'fast' ? 'text-amber-600' : 'text-blue-600'} mb-4 mt-4`}>
+            <div className={`animate-spin h-4 w-4 border-2 ${loadingQuestions[0] === 'fast' ? 'border-amber-600' : 'border-blue-600'} border-t-transparent rounded-full mr-1`}></div>
             <span>Analyzing {loading} question{loading > 1 ? 's' : ''}...</span>
           </div>
         )}
@@ -687,24 +730,16 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
                           isExpanded={expandedAnswers[question.id] || false}
                           onToggle={() => toggleAnswer(question.id)}
                           onEdit={handleEdit}
-                          onSave={(id, content) => handleSave(id, content)}
+                          onSave={(id, summary, details) => handleSave(id, summary, details)}
                           onRegenerate={(customPrompt?: string) => regenerateAnswer(question.id, customPrompt)}
-                          editedAnswer={editingId === question.id ? editedAnswer : ''}
-                          setEditedAnswer={setEditedAnswer}
                           onDelete={handleDeleteQuestion}
-                        >
-                          {/* Model indicator */}
-                          {questionAnswer && (
-                            <div className={`text-xs mb-2 ${
-                              isFastMode ? 'text-amber-600' : 'text-blue-600'
-                            }`}>
-                              {isFastMode 
-                                ? modelInfo.fast.displayName
-                                : modelInfo.normal.displayName
-                              }
-                            </div>
-                          )}
-                        </QuestionItem>
+                          editedSummary={editedSummary}
+                          editedDetails={editedDetails}
+                          setEditedSummary={setEditedSummary}
+                          setEditedDetails={setEditedDetails}
+                          showPlayground={false}
+                          currentModel={isFastMode ? 'fast' : 'normal'}
+                        />
                       );
                     })}
                   </div>

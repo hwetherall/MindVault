@@ -23,15 +23,18 @@ const formatNumberWithSuffix = (num: number): string => {
 };
 
 /**
- * Removes asterisks from the beginning and end of text
+ * Removes orphaned asterisks from text while preserving markdown formatting
  * @param text The text to process
- * @returns Text with asterisks removed from beginning and end
+ * @returns Text with orphaned asterisks removed but markdown preserved
  */
-const removeAsterisks = (text: string): string => {
+export const removeAsterisks = (text: string): string => {
   if (!text) return '';
   
-  // Remove asterisks from beginning and end of text
-  return text.replace(/^\*\*\s*/, '').replace(/\s*\*\*$/, '');
+  // This regex matches single asterisks that:
+  // - Are not preceded by another asterisk (negative lookbehind)
+  // - Are not followed by another asterisk (negative lookahead)
+  // - Are not followed by a space and then an asterisk (to preserve list items)
+  return text.replace(/(?<!\*)\*(?!\*)(?!\s*\*)/g, '');
 };
 
 /**

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { answerService } from '../../../../services/answerService.js';
 import { buildPromptForQuestion } from "../utils/promptBuilder";
 import { generateCustomInstructions } from "../utils/customInstructionsGenerator";
@@ -46,14 +46,17 @@ interface UseInvestmentMemoReturn {
   error: string | null;
   expandedAnswers: Record<string, boolean>;
   editingId: string | null;
-  editedAnswer: string;
-  setEditedAnswer: (answer: string) => void;
+  editedSummary: string;
+  editedDetails: string;
+  setEditedSummary: (summary: string) => void;
+  setEditedDetails: (details: string) => void;
   toggleAnswer: (id: string) => void;
   handleEdit: (id: string) => void;
-  handleSave: (id: string, content: string, instructions?: string) => void;
+  handleSave: (id: string, summary: string, details: string, instructions?: string) => void;
   analyzeDocuments: () => Promise<void>;
   analyzeSelectedQuestions: (questionIds: string[], setPrompt?: string) => Promise<void>;
   regenerateAnswer: (id: string, customPrompt?: string) => Promise<void>;
+  resetExpandedAnswers: () => void;
 }
 
 // Add type definition for the API response
@@ -94,13 +97,14 @@ export function useInvestmentMemo({
   const [expandedAnswers, setExpandedAnswers] = useState<Record<string, boolean>>(() => {
     // Load initial expanded state from localStorage if available
     if (typeof window !== 'undefined') {
-      const savedExpanded = localStorage.getItem('investmentMemoExpanded');
-      return savedExpanded ? JSON.parse(savedExpanded) : {};
+      const saved = localStorage.getItem('investmentMemoExpanded');
+      return saved ? JSON.parse(saved) : {};
     }
     return {};
   });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editedAnswer, setEditedAnswer] = useState<string>('');
+  const [editedSummary, setEditedSummary] = useState<string>('');
+  const [editedDetails, setEditedDetails] = useState<string>('');
 
   // Save answers to localStorage whenever they change
   useEffect(() => {
@@ -115,6 +119,14 @@ export function useInvestmentMemo({
       localStorage.setItem('investmentMemoExpanded', JSON.stringify(expandedAnswers));
     }
   }, [expandedAnswers]);
+
+  // Add reset function
+  const resetExpandedAnswers = useCallback(() => {
+    setExpandedAnswers({});
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('investmentMemoExpanded');
+    }
+  }, []);
 
   /**
    * Toggles the expansion state of an answer
@@ -132,24 +144,25 @@ export function useInvestmentMemo({
   const handleEdit = (id: string) => {
     if (!id) {
       setEditingId(null);
-      setEditedAnswer('');
+      setEditedSummary('');
+      setEditedDetails('');
       return;
     }
     
     setEditingId(id);
-    // Edit the summary part by default
-    setEditedAnswer(answers[id]?.summary || '');
+    setEditedSummary(answers[id]?.summary || '');
+    setEditedDetails(answers[id]?.details || '');
   };
 
   /**
    * Saves the edited answer
    */
-  const handleSave = (id: string, content: string, instructions?: string) => {
-    if (content.trim()) {
+  const handleSave = (id: string, summary: string, details: string, instructions?: string) => {
+    if (summary.trim() || details.trim()) {
       const updatedAnswer = {
         ...answers[id],
-        summary: content,
-        details: answers[id]?.details || '',
+        summary: summary.trim(),
+        details: details.trim(),
         isEdited: true,
         isLoading: false,
         // Preserve chart data if it exists
@@ -169,7 +182,8 @@ export function useInvestmentMemo({
     }
     
     setEditingId(null);
-    setEditedAnswer('');
+    setEditedSummary('');
+    setEditedDetails('');
   };
 
   /**
@@ -408,13 +422,16 @@ export function useInvestmentMemo({
     error,
     expandedAnswers,
     editingId,
-    editedAnswer,
-    setEditedAnswer,
+    editedSummary,
+    editedDetails,
+    setEditedSummary,
+    setEditedDetails,
     toggleAnswer,
     handleEdit,
     handleSave,
     analyzeDocuments,
     analyzeSelectedQuestions,
-    regenerateAnswer
+    regenerateAnswer,
+    resetExpandedAnswers
   };
 } 

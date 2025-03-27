@@ -66,17 +66,15 @@ export const splitAnswerContent = (content: string | any) => {
   const parts = processedContent.split(/DETAILS:/i);
   
   if (parts.length === 1) {
-    // Clean up asterisks in content if no DETAILS section
+    // If no DETAILS section, clean up the content
     let cleanContent = parts[0].trim();
     cleanContent = cleanContent.replace(/Summary:/i, '').trim();
     
     // Remove numbered list format (e.g., "1. Summary")
     cleanContent = cleanContent.replace(/^\d+\.\s*Summary\s*/i, '');
     
-    // Remove markdown bold/italic formatting
-    cleanContent = cleanContent.replace(/\*\*(.*?)\*\*/g, '$1'); // Bold
-    cleanContent = cleanContent.replace(/\*(.*?)\*/g, '$1');     // Italic
-    cleanContent = cleanContent.replace(/\*+/g, '');             // Any remaining asterisks
+    // Only remove orphaned asterisks (not part of markdown formatting)
+    //cleanContent = cleanContent.replace(/(?<!\*)\*(?!\*)(?!\s*\*)/g, '');
     
     return { 
       tldr: cleanContent, 
@@ -97,14 +95,9 @@ export const splitAnswerContent = (content: string | any) => {
   // Remove numbered list format (e.g., "2. Details")
   details = details.replace(/^\d+\.\s*Details\s*/i, '');
   
-  // Remove markdown bold/italic formatting from both parts
-  tldr = tldr.replace(/\*\*(.*?)\*\*/g, '$1');    // Bold
-  tldr = tldr.replace(/\*(.*?)\*/g, '$1');        // Italic
-  tldr = tldr.replace(/\*+/g, '');                // Any remaining asterisks
-  
-  details = details.replace(/\*\*(.*?)\*\*/g, '$1'); // Bold
-  details = details.replace(/\*(.*?)\*/g, '$1');     // Italic
-  details = details.replace(/\*+/g, '');             // Any remaining asterisks
+  // Only remove orphaned asterisks (not part of markdown formatting)
+  //tldr = tldr.replace(/(?<!\*)\*(?!\*)(?!\s*\*)/g, '');
+  //details = details.replace(/(?<!\*)\*(?!\*)(?!\s*\*)/g, '');
   
   return { 
     tldr: tldr, 

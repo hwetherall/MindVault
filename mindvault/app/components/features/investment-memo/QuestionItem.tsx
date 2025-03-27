@@ -29,12 +29,15 @@ interface QuestionItemProps {
   isExpanded: boolean;
   onToggle: () => void;
   onEdit: (id: string) => void;
-  onSave: (id: string, content: string) => void;
+  onSave: (id: string, summary: string, details: string) => void;
   onRegenerate: (customPrompt?: string) => void;
   onDelete: (id: string) => void;
-  editedAnswer: string;
-  setEditedAnswer: (answer: string) => void;
+  editedSummary: string;
+  editedDetails: string;
+  setEditedSummary: (summary: string) => void;
+  setEditedDetails: (details: string) => void;
   showPlayground?: boolean;
+  currentModel: 'fast' | 'normal';
 }
 
 /**
@@ -50,14 +53,17 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
   onEdit,
   onSave,
   onDelete,
-  editedAnswer,
-  setEditedAnswer,
-  showPlayground = false
+  editedSummary,
+  editedDetails,
+  setEditedSummary,
+  setEditedDetails,
+  showPlayground = false,
+  currentModel
 }) => {
   // Helper functions to check loading state safely
   const isAnswerLoading = answer && (answer as any).isLoading === true;
   const isAnswerGenerated = answer && !isAnswerLoading;
-  const isEditing = editedAnswer !== '';
+  const isEditing = editedSummary !== '' || editedDetails !== '';
 
   // Add state for playground and edited instructions
   const [showPlaygroundState, setShowPlaygroundState] = React.useState(showPlayground);
@@ -102,8 +108,8 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
             <h4 className="text-lg font-medium text-gray-900">{question.question}</h4>
             {/* Status indicator */}
             {isAnswerLoading ? (
-              <div className="flex items-center gap-1.5 text-blue-600 text-xs ml-4 px-2.5 py-0.5 rounded-full border border-blue-200 bg-blue-50">
-                <div className="animate-spin h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+              <div className={`flex items-center gap-1.5 text-${currentModel === 'fast' ? 'amber' : 'blue'}-600 text-xs ml-4 px-2.5 py-0.5 rounded-full border border-${currentModel === 'fast' ? 'amber' : 'blue'}-200 bg-${currentModel === 'fast' ? 'amber' : 'blue'}-50`}>
+                <div className={`animate-spin h-3 w-3 border-2 border-${currentModel === 'fast' ? 'amber' : 'blue'}-600 border-t-transparent rounded-full`}></div>
                 <span>Analyzing...</span>
               </div>
             ) : isAnswerGenerated ? (
@@ -180,15 +186,17 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
       {isExpanded && (
         <div className="p-4 bg-gray-50 border-t border-gray-200">
           {isAnswerLoading ? (
-            <div className="flex items-center gap-2 text-blue-600">
-              <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <div className="animate-spin h-4 w-4 border-2 border-gray-600 border-t-transparent rounded-full"></div>
               <span>Generating answer...</span>
             </div>
           ) : isEditing ? (
             <EditAnswer 
-              value={editedAnswer}
-              onChange={setEditedAnswer}
-              onSave={() => onSave(question.id, editedAnswer)}
+              summary={editedSummary}
+              details={editedDetails}
+              onChangeSummary={setEditedSummary}
+              onChangeDetails={setEditedDetails}
+              onSave={() => onSave(question.id, editedSummary, editedDetails)}
               onCancel={() => onEdit('')}
             />
           ) : isAnswerGenerated ? (

@@ -23,12 +23,15 @@ function removeThinkingContent(text) {
     cleanedText = cleanedText.replace(regex, '\n');
   }
   
-  // Remove asterisks at the beginning and end of text blocks
-  // This looks for ** at the beginning of lines or at the beginning of the text
-  cleanedText = cleanedText.replace(/^(\s*)\*\*\s*/gm, '$1');
+  // Clean up orphaned bold markers and excessive newlines
+  // First, remove any standalone ** at the start or end of lines that are not part of proper markdown
+  cleanedText = cleanedText.replace(/^(\s*)\*\*(?!\w)/gm, '$1');
+  cleanedText = cleanedText.replace(/(?!\w)\*\*(\s*)$/gm, '$1');
   
-  // This looks for ** at the end of lines or at the end of the text
-  cleanedText = cleanedText.replace(/\s*\*\*(\s*)$/gm, '$1');
+  // Then remove any orphaned ** that are not part of proper markdown bold formatting
+  // This regex looks for ** that are not followed by text and another **
+  cleanedText = cleanedText.replace(/\*\*(?!\w)/g, '');
+  cleanedText = cleanedText.replace(/(?!\w)\*\*/g, '');
   
   // Clean up any excessive newlines
   cleanedText = cleanedText.replace(/\n{3,}/g, '\n\n');

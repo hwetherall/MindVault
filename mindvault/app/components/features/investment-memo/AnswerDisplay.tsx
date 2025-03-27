@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Edit2, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { formatNumbersInText } from '../../../utils/textFormatting';
+import { formatNumbersInText, removeAsterisks } from '../../../utils/textFormatting';
 import ChartComponent, { ChartData } from '../../ChartComponent';
 import PromptPlayground from './PromptPlayground';
 
@@ -30,14 +30,6 @@ interface AnswerDisplayProps {
   onInstructionsChange?: (value: string) => void;
   currentInstructions?: string;
 }
-
-/**
- * Removes asterisks from text content
- */
-const removeAsterisks = (text: string): string => {
-  if (!text) return '';
-  return text.replace(/^\*\*\s*/gm, '').replace(/\s*\*\*$/gm, '');
-};
 
 /**
  * Component for displaying an answer with formatting

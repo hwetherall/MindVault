@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { Bold, Italic, List, Code, Heading, X, Save } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 interface EditAnswerProps {
-  value: string;
-  onChange: (value: string) => void;
+  summary: string;
+  details: string;
+  onChangeSummary: (value: string) => void;
+  onChangeDetails: (value: string) => void;
   onSave: () => void;
   onCancel: () => void;
 }
@@ -12,17 +15,23 @@ interface EditAnswerProps {
  * Enhanced component for editing answers with markdown support
  */
 const EditAnswer: React.FC<EditAnswerProps> = ({
-  value,
-  onChange,
+  summary,
+  details,
+  onChangeSummary,
+  onChangeDetails,
   onSave,
   onCancel
 }) => {
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
   
   // Insert markdown formatting at cursor position
-  const insertFormatting = (formatting: string, surroundSelection: boolean = true) => {
-    const textarea = document.getElementById('answer-editor') as HTMLTextAreaElement;
+  const insertFormatting = (formatting: string, surroundSelection: boolean = true, isDetails: boolean = false) => {
+    const textareaId = isDetails ? 'details-editor' : 'summary-editor';
+    const textarea = document.getElementById(textareaId) as HTMLTextAreaElement;
     if (!textarea) return;
+    
+    const value = isDetails ? details : summary;
+    const onChange = isDetails ? onChangeDetails : onChangeSummary;
     
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
@@ -60,15 +69,67 @@ const EditAnswer: React.FC<EditAnswerProps> = ({
     onChange(newText);
   };
   
-  // Formatting button handlers
-  const handleBold = () => insertFormatting('**');
-  const handleItalic = () => insertFormatting('*');
-  const handleHeading = () => insertFormatting('### ');
-  const handleList = () => insertFormatting('- ', false);
-  const handleCode = () => insertFormatting('`');
+  // Formatting button handlers for both editors
+  const createFormattingHandlers = (isDetails: boolean) => ({
+    handleBold: () => insertFormatting('**', true, isDetails),
+    handleItalic: () => insertFormatting('*', true, isDetails),
+    handleHeading: () => insertFormatting('### ', true, isDetails),
+    handleList: () => insertFormatting('- ', false, isDetails),
+    handleCode: () => insertFormatting('`', true, isDetails),
+  });
+
+  const summaryHandlers = createFormattingHandlers(false);
+  const detailsHandlers = createFormattingHandlers(true);
+  
+  const FormattingToolbar = ({ isDetails }: { isDetails: boolean }) => {
+    const handlers = isDetails ? detailsHandlers : summaryHandlers;
+    
+    return (
+      <div className="flex items-center space-x-1 p-2 bg-gray-50 border-b">
+        <button 
+          onClick={handlers.handleBold}
+          className="p-1 rounded hover:bg-gray-200" 
+          title="Bold"
+        >
+          <Bold size={16} />
+        </button>
+        <button 
+          onClick={handlers.handleItalic}
+          className="p-1 rounded hover:bg-gray-200" 
+          title="Italic"
+        >
+          <Italic size={16} />
+        </button>
+        <button 
+          onClick={handlers.handleHeading}
+          className="p-1 rounded hover:bg-gray-200" 
+          title="Heading"
+        >
+          <Heading size={16} />
+        </button>
+        <button 
+          onClick={handlers.handleList}
+          className="p-1 rounded hover:bg-gray-200" 
+          title="List"
+        >
+          <List size={16} />
+        </button>
+        <button 
+          onClick={handlers.handleCode}
+          className="p-1 rounded hover:bg-gray-200" 
+          title="Code"
+        >
+          <Code size={16} />
+        </button>
+        <div className="text-xs text-gray-400 ml-2">
+          Supports markdown formatting
+        </div>
+      </div>
+    );
+  };
   
   return (
-    <div className="border rounded-lg overflow-hidden">
+    <div className="border rounded-lg overflow-hidden space-y-4">
       {/* Tabs */}
       <div className="flex border-b">
         <button
@@ -93,67 +154,62 @@ const EditAnswer: React.FC<EditAnswerProps> = ({
         </button>
       </div>
       
-      {/* Formatting toolbar - only show when in edit mode */}
-      {activeTab === 'edit' && (
-        <div className="flex items-center space-x-1 p-2 bg-gray-50 border-b">
-          <button 
-            onClick={handleBold}
-            className="p-1 rounded hover:bg-gray-200" 
-            title="Bold"
-          >
-            <Bold size={16} />
-          </button>
-          <button 
-            onClick={handleItalic}
-            className="p-1 rounded hover:bg-gray-200" 
-            title="Italic"
-          >
-            <Italic size={16} />
-          </button>
-          <button 
-            onClick={handleHeading}
-            className="p-1 rounded hover:bg-gray-200" 
-            title="Heading"
-          >
-            <Heading size={16} />
-          </button>
-          <button 
-            onClick={handleList}
-            className="p-1 rounded hover:bg-gray-200" 
-            title="List"
-          >
-            <List size={16} />
-          </button>
-          <button 
-            onClick={handleCode}
-            className="p-1 rounded hover:bg-gray-200" 
-            title="Code"
-          >
-            <Code size={16} />
-          </button>
-          <div className="text-xs text-gray-400 ml-2">
-            Supports markdown formatting
-          </div>
-        </div>
-      )}
-      
       {/* Edit view */}
       {activeTab === 'edit' && (
-        <textarea
-          id="answer-editor"
-          className="w-full p-4 min-h-[200px] focus:outline-none focus:ring-1 focus:ring-blue-500"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Edit the answer here..."
-        />
+        <>
+          {/* Summary Section */}
+          <div className="border rounded-lg">
+            <div className="bg-gray-50 px-4 py-2 border-b">
+              <h3 className="font-medium text-gray-700">Summary</h3>
+            </div>
+            {activeTab === 'edit' && <FormattingToolbar isDetails={false} />}
+            <textarea
+              id="summary-editor"
+              className="w-full p-4 min-h-[100px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+              value={summary}
+              onChange={(e) => onChangeSummary(e.target.value)}
+              placeholder="Edit the summary here..."
+            />
+          </div>
+
+          {/* Details Section */}
+          <div className="border rounded-lg">
+            <div className="bg-gray-50 px-4 py-2 border-b">
+              <h3 className="font-medium text-gray-700">Details</h3>
+            </div>
+            {activeTab === 'edit' && <FormattingToolbar isDetails={true} />}
+            <textarea
+              id="details-editor"
+              className="w-full p-4 min-h-[200px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+              value={details}
+              onChange={(e) => onChangeDetails(e.target.value)}
+              placeholder="Edit the details here..."
+            />
+          </div>
+        </>
       )}
       
-      {/* Preview view - would require ReactMarkdown implementation */}
+      {/* Preview view */}
       {activeTab === 'preview' && (
-        <div className="p-4 min-h-[200px] prose prose-sm max-w-none">
-          {/* This would need ReactMarkdown, but we're just showing raw text for now */}
-          <div className="whitespace-pre-wrap">{value}</div>
-        </div>
+        <>
+          <div className="border rounded-lg">
+            <div className="bg-gray-50 px-4 py-2 border-b">
+              <h3 className="font-medium text-gray-700">Summary</h3>
+            </div>
+            <div className="p-4 prose prose-sm max-w-none">
+              <ReactMarkdown>{summary}</ReactMarkdown>
+            </div>
+          </div>
+
+          <div className="border rounded-lg">
+            <div className="bg-gray-50 px-4 py-2 border-b">
+              <h3 className="font-medium text-gray-700">Details</h3>
+            </div>
+            <div className="p-4 prose prose-sm max-w-none">
+              <ReactMarkdown>{details}</ReactMarkdown>
+            </div>
+          </div>
+        </>
       )}
       
       {/* Actions */}

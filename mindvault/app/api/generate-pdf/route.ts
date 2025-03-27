@@ -97,7 +97,7 @@ function renderChartAsSVG(chartData: Answer['chartData']) {
       .padding(0.1);
     
     const yScale = d3.scaleLinear()
-      .domain([0, d3.max(data) * 1.1 || 0]) // Add 10% padding at the top
+      .domain([0, (d3.max(data) ?? 0) * 1.1]) // Add 10% padding at the top
       .range([innerHeight, 0]);
     
     // Create a group for the main chart content
