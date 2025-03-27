@@ -144,7 +144,7 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     includeTableOfContents: true,
     includeAppendices: true,
     language: 'en',
-    isDetailedView: true
+    isDetailedView: false
   });
   // State for selected question IDs
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>(() => {
