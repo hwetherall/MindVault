@@ -121,12 +121,14 @@ Clearly state your decision on whether the company should proceed to the next st
 ## Key Questions
 Provide 2-3 incisive, high-quality questions that should be asked before making a final commitment. These should be thoughtful questions that Marc Andreessen or Peter Thiel might ask - questions that cut to the heart of the business model, market opportunity, or competitive advantage.
 
+IMPORTANT: Do not include any introduction or summary paragraph at the beginning of your response. Start directly with the "Reasons to Move Forward" section.
+
 Make your assessment direct, insightful, and decisive as a top-tier VC partner would.
 `;
     
     // Use the shared OpenRouter API client with the specified model
     const decision = await callOpenRouterAPI([
-      { role: 'system', content: 'You are Pedram, a highly experienced VC Partner making the final investment decision.' },
+      { role: 'system', content: 'You are Pedram, a highly experienced VC Partner making the final investment decision. Skip any introduction and start directly with the structured analysis.' },
       { role: 'user', content: prompt }
     ], modelToUse, 0.4, 2000);
     

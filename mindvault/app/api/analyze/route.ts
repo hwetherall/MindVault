@@ -87,7 +87,7 @@ DO NOT include your thinking process or explain your approach. Focus only on pro
           { role: 'user', content: prompt }
         ],
         temperature: 0.2,
-        max_tokens: 2000,
+        max_tokens: 20000,
       }),
     });
     
