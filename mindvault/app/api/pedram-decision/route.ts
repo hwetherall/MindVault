@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callOpenRouterAPI } from '../openrouter-client';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * API route to provide the final Pedram decision based on both associate analyses
@@ -8,7 +10,7 @@ export async function POST(req: NextRequest) {
   try {
     // Get the request body
     const body = await req.json();
-    const { financeAnalysis, marketAnalysis, files, model } = body;
+    const { financeAnalysis, marketAnalysis, files, model, benchmarkEnabled, benchmarkCompanyId } = body;
     
     // Use the model specified in the request, or default to grok-3-beta if not provided
     const modelToUse = model || "x-ai/grok-3-beta";
@@ -40,6 +42,41 @@ ${pitchDeckFile.content ? pitchDeckFile.content.substring(0, 3000) + '...' : 'Co
       }
     }
     
+    // Load benchmark data if enabled
+    let benchmarkContent = '';
+    let benchmarkCompanyName = 'the benchmark company';
+    
+    if (benchmarkEnabled) {
+      try {
+        // Use the benchmark.json file from the components directory
+        const benchmarkPath = path.join(process.cwd(), 'app', 'components', 'features', 'investment-memo', 'data', 'benchmark.json');
+        const benchmarkData = JSON.parse(fs.readFileSync(benchmarkPath, 'utf8'));
+        
+        // Get company name from ID (only Stop2 actually works)
+        if (benchmarkCompanyId === 'stop2') {
+          benchmarkCompanyName = 'Stop2';
+        } else if (benchmarkCompanyId === 'industry_average') {
+          benchmarkCompanyName = 'Industry Average';
+        } else if (benchmarkCompanyId === 'learnify') {
+          benchmarkCompanyName = 'Learnify';
+        } else if (benchmarkCompanyId === 'edupath') {
+          benchmarkCompanyName = 'EduPath';
+        } else if (benchmarkCompanyId === 'traininghub') {
+          benchmarkCompanyName = 'TrainingHub';
+        }
+        
+        benchmarkContent = `
+## BENCHMARK DATA
+The following is data about a competitor company called ${benchmarkCompanyName}, which is being used for benchmark comparison against Go1.
+
+${JSON.stringify(benchmarkData, null, 2)}
+`;
+      } catch (error) {
+        console.error('Error loading benchmark data:', error);
+        benchmarkContent = 'Error loading benchmark data.';
+      }
+    }
+    
     // Construct the prompt for the AI
     const prompt = `
 You are Pedram, a highly experienced VC Partner at a prestigious Silicon Valley firm. You are making the final decision about whether to move forward with this investment opportunity.
@@ -54,6 +91,7 @@ ${marketAnalysis}
 
 For context, here is some information from the company's pitch deck:
 ${pitchDeckContent}
+${benchmarkEnabled ? benchmarkContent : ''}
 
 Based on this information, provide your decision on whether this company should move to the next stage. Structure your response as follows:
 
@@ -66,6 +104,16 @@ Based on this information, provide your decision on whether this company should 
 - Provide 3-5 significant concerns or red flags about this investment
 - Be specific, referencing insights from both analyses
 - Focus on the most critical issues that could be deal-breakers
+
+${benchmarkEnabled ? `
+## Benchmark Comparison
+Compare Go1 to ${benchmarkCompanyName} across various criteria:
+- Compare financial metrics (ARR, growth rate, valuation, burn rate, runway)
+- Compare market positioning and strategy
+- Compare funding history and efficiency
+- Identify which company is stronger/weaker in each area
+- Provide a conclusion about their relative competitive positions
+` : ''}
 
 ## Decision
 Clearly state your decision on whether the company should proceed to the next stage. This should be a definitive "Yes" or "No" with a brief explanation of your reasoning.

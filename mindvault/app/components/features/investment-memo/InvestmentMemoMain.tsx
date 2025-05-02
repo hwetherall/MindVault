@@ -11,6 +11,8 @@ import { getQuestionById } from './data/questions';
 // Import from the new data file instead of constants
 import { INVESTMENT_MEMO_QUESTIONS } from './data/questions';
 import { TEMPLATES } from './data/templates';
+import BenchmarkSelectionModal from './BenchmarkSelectionModal';
+import { BENCHMARK_COMPANIES } from './data/benchmarkCompanies';
 
 // Local FastModeToggle component to avoid import issues
 interface FastModeToggleProps {
@@ -52,6 +54,14 @@ interface PedramModeToggleProps {
   setPedramMode: (mode: boolean) => void;
 }
 
+// Add Benchmark toggle component
+interface BenchmarkToggleProps {
+  benchmarkEnabled: boolean;
+  setBenchmarkEnabled: (enabled: boolean) => void;
+  onOpenBenchmarkSelector: () => void;
+  selectedCompanyName: string | null;
+}
+
 const PedramModeToggle: React.FC<PedramModeToggleProps> = ({ pedramMode, setPedramMode }) => {
   return (
     <div className="flex items-center gap-3">
@@ -73,6 +83,49 @@ const PedramModeToggle: React.FC<PedramModeToggleProps> = ({ pedramMode, setPedr
           {pedramMode 
             ? 'Financial & Team focus'
             : 'All sections'
+          }
+        </span>
+      </div>
+    </div>
+  );
+};
+
+const BenchmarkToggle: React.FC<BenchmarkToggleProps> = ({ 
+  benchmarkEnabled, 
+  setBenchmarkEnabled,
+  onOpenBenchmarkSelector,
+  selectedCompanyName
+}) => {
+  const handleClick = () => {
+    if (!benchmarkEnabled) {
+      // When enabling, open the selector
+      onOpenBenchmarkSelector();
+    } else {
+      // When disabling, just toggle off
+      setBenchmarkEnabled(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
+        <button
+          onClick={handleClick}
+          className={`flex items-center px-3 py-1 rounded-md text-sm font-medium transition-all ${
+            benchmarkEnabled 
+              ? 'bg-blue-100 text-blue-700 shadow-sm border border-blue-200' 
+              : 'bg-gray-100 text-gray-700 shadow-sm border border-gray-300'
+          }`}
+          aria-pressed={benchmarkEnabled}
+          title={benchmarkEnabled ? "Compare with benchmark company" : "No benchmark comparison"}
+        >
+          <span>Benchmark?</span>
+        </button>
+        
+        <span className="text-xs text-gray-600">
+          {benchmarkEnabled 
+            ? `Compare with ${selectedCompanyName || 'benchmark'}`
+            : 'No comparison'
           }
         </span>
       </div>
@@ -465,6 +518,13 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
   // Add Pedram mode state
   const [pedramMode, setPedramMode] = useState(false);
   
+  // Add Benchmark toggle state
+  const [benchmarkEnabled, setBenchmarkEnabled] = useState(false);
+  
+  // Add state for benchmark selection modal
+  const [isBenchmarkModalOpen, setIsBenchmarkModalOpen] = useState(false);
+  const [selectedBenchmarkId, setSelectedBenchmarkId] = useState<string | null>(null);
+  
   // Use useEffect to safely access localStorage after component mounts
   useEffect(() => {
     // Check if localStorage is available (client-side only)
@@ -477,6 +537,16 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
       const savedPedramMode = localStorage.getItem('pedramMode');
       if (savedPedramMode === 'true') {
         setPedramMode(true);
+      }
+      
+      const savedBenchmarkEnabled = localStorage.getItem('benchmarkEnabled');
+      if (savedBenchmarkEnabled === 'true') {
+        setBenchmarkEnabled(true);
+      }
+      
+      const savedBenchmarkId = localStorage.getItem('selectedBenchmarkId');
+      if (savedBenchmarkId) {
+        setSelectedBenchmarkId(savedBenchmarkId);
       }
     }
   }, []);
@@ -496,6 +566,24 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     // Check if localStorage is available
     if (typeof window !== 'undefined') {
       localStorage.setItem('pedramMode', value.toString());
+    }
+  };
+  
+  // Update localStorage when Benchmark toggle changes
+  const handleSetBenchmarkEnabled = (value: boolean) => {
+    setBenchmarkEnabled(value);
+    
+    // If turning off, also clear the selected benchmark
+    if (!value) {
+      setSelectedBenchmarkId(null);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('selectedBenchmarkId');
+      }
+    }
+    
+    // Check if localStorage is available
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('benchmarkEnabled', value.toString());
     }
   };
   
@@ -1219,6 +1307,9 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
         throw new Error('Both finance and market analyses must be completed first');
       }
       
+      // Only actually send benchmark data if Stop2 is selected
+      const actuallyUseBenchmark = benchmarkEnabled && selectedBenchmarkId === 'stop2';
+      
       // Call the API
       const response = await fetch('/api/pedram-decision', {
         method: 'POST',
@@ -1229,7 +1320,9 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
           financeAnalysis,
           marketAnalysis,
           files,
-          model: "x-ai/grok-3-beta" // Change to use grok-3-beta
+          model: "x-ai/grok-3-beta",
+          benchmarkEnabled: actuallyUseBenchmark,
+          benchmarkCompanyId: selectedBenchmarkId
         }),
       });
       
@@ -1290,9 +1383,15 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
       isLoading: false
     });
     
+    // Reset benchmark toggle and selection
+    setBenchmarkEnabled(false);
+    setSelectedBenchmarkId(null);
+    
     // Clear local storage related to Pedram Mode
     if (typeof window !== 'undefined') {
       localStorage.removeItem('pedramModeAnalystCompleted');
+      localStorage.removeItem('benchmarkEnabled');
+      localStorage.removeItem('selectedBenchmarkId');
     }
     
     console.log('Pedram Mode reset completed');
@@ -1739,6 +1838,30 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     );
   };
 
+  // Helper to get the name of the selected benchmark company
+  const getSelectedBenchmarkName = () => {
+    if (!selectedBenchmarkId) return null;
+    const company = BENCHMARK_COMPANIES.find(c => c.id === selectedBenchmarkId);
+    return company ? company.name : null;
+  };
+
+  // Add a function to handle opening the benchmark selector
+  const handleOpenBenchmarkSelector = () => {
+    setIsBenchmarkModalOpen(true);
+  };
+
+  // Add a function to handle selecting a benchmark company
+  const handleSelectBenchmark = (companyId: string) => {
+    setSelectedBenchmarkId(companyId);
+    setBenchmarkEnabled(true);
+    
+    // Save to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selectedBenchmarkId', companyId);
+      localStorage.setItem('benchmarkEnabled', 'true');
+    }
+  };
+
   return (
     <div className="w-full">
       <div className="flex flex-col mb-6">
@@ -1778,6 +1901,14 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
             
             {/* Pedram Mode Toggle */}
             <PedramModeToggle pedramMode={pedramMode} setPedramMode={handleSetPedramMode} />
+            
+            {/* Benchmark Toggle */}
+            <BenchmarkToggle 
+              benchmarkEnabled={benchmarkEnabled} 
+              setBenchmarkEnabled={handleSetBenchmarkEnabled}
+              onOpenBenchmarkSelector={handleOpenBenchmarkSelector}
+              selectedCompanyName={getSelectedBenchmarkName()}
+            />
             
             <button
               onClick={handleExportPDF}
@@ -2028,6 +2159,15 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
           isTranslating={isTranslating}
         />
       )}
+
+      {/* Benchmark Selection Modal */}
+      <BenchmarkSelectionModal
+        isOpen={isBenchmarkModalOpen}
+        onClose={() => setIsBenchmarkModalOpen(false)}
+        onSelect={handleSelectBenchmark}
+        companies={BENCHMARK_COMPANIES}
+        selectedCompanyId={selectedBenchmarkId}
+      />
     </div>
   );
 };
