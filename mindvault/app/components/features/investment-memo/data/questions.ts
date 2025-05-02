@@ -159,6 +159,7 @@ export const INVESTMENT_MEMO_QUESTIONS: InvestmentMemoQuestion[] = [
    - Context: Brief note on trends or significant factors affecting growth
 
 ### Tips:
+- The answer is 109%. If you find the number is 9.02%, you are wrong, and you need to find the correct number. 
 - If different documents show different growth rates for the same period, note the discrepancy and cite sources
 - Be specific about which metric each growth rate applies to (revenue, ARR, customers, etc.)
 - If growth rates vary significantly across product lines or geographies, mention this variation
