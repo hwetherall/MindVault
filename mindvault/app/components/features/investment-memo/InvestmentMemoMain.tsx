@@ -13,6 +13,7 @@ import { INVESTMENT_MEMO_QUESTIONS } from './data/questions';
 import { TEMPLATES } from './data/templates';
 import BenchmarkSelectionModal from './BenchmarkSelectionModal';
 import { BENCHMARK_COMPANIES } from './data/benchmarkCompanies';
+import BenchmarkComparisonRenderer from './BenchmarkComparisonRenderer';
 
 // Local FastModeToggle component to avoid import issues
 interface FastModeToggleProps {
@@ -1429,6 +1430,101 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
       return processedText;
     };
     
+    // Check if this is a benchmark comparison section
+    const isBenchmarkSection = (title: string, content: string) => {
+      return title.toLowerCase().includes('benchmark') && content.includes('### Financial Metrics');
+    };
+    
+    // Special renderer for benchmark comparison
+    const renderBenchmarkSection = (title: string, sectionContent: string) => {
+      // Split by subsections (###)
+      const subSections = sectionContent.split('### ').filter(Boolean);
+      
+      return (
+        <div className="space-y-6 mt-2">
+          {subSections.map((subSection, idx) => {
+            const [subTitle, ...subContent] = subSection.split('\n');
+            const subSectionContent = subContent.join('\n').trim();
+            
+            // Find Go1 and competitor blocks
+            const go1Block = subSectionContent.match(/\*\*Go1:\*\*\n([\s\S]*?)(?=\n\n\*\*|$)/);
+            const competitorBlock = subSectionContent.match(/\*\*(?!Go1:)(.+?):\*\*\n([\s\S]*?)(?=\n\n|$)/);
+            
+            return (
+              <div key={idx} className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100 overflow-hidden">
+                <div className="bg-blue-100 px-4 py-2 font-medium text-blue-800">
+                  {subTitle}
+                </div>
+                <div className="p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Go1 column */}
+                    <div className="bg-white p-4 rounded-lg border border-blue-200 shadow-sm">
+                      <h4 className="font-semibold text-blue-800 mb-2">Go1</h4>
+                      <div className="space-y-1">
+                        {go1Block && go1Block[1].split('\n').map((line, lineIdx) => {
+                          if (line.trim().startsWith('-')) {
+                            return (
+                              <div key={lineIdx} className="ml-2" dangerouslySetInnerHTML={{ 
+                                __html: processText(line) 
+                              }} />
+                            );
+                          }
+                          return <p key={lineIdx} className="text-sm">{line}</p>;
+                        })}
+                      </div>
+                    </div>
+                    
+                    {/* Competitor column */}
+                    <div className="bg-white p-4 rounded-lg border border-purple-200 shadow-sm">
+                      {competitorBlock && (
+                        <>
+                          <h4 className="font-semibold text-purple-800 mb-2">
+                            {competitorBlock[1].replace(':', '')}
+                          </h4>
+                          <div className="space-y-1">
+                            {competitorBlock[2].split('\n').map((line, lineIdx) => {
+                              if (line.trim().startsWith('-')) {
+                                return (
+                                  <div key={lineIdx} className="ml-2" dangerouslySetInnerHTML={{ 
+                                    __html: processText(line) 
+                                  }} />
+                                );
+                              }
+                              return <p key={lineIdx} className="text-sm">{line}</p>;
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    };
+    
+    // Special renderer for conclusion part of benchmark
+    const renderBenchmarkConclusion = (content: string) => {
+      if (content.toLowerCase().includes('overall comparison conclusion')) {
+        const conclusionMatch = content.match(/### Overall Comparison Conclusion\n([\s\S]*)/);
+        if (conclusionMatch && conclusionMatch[1]) {
+          return (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <h4 className="font-semibold text-blue-800 mb-2">Overall Comparison</h4>
+              <div className="prose prose-sm">
+                {conclusionMatch[1].split('\n').map((line, idx) => (
+                  <p key={idx} className="text-sm text-blue-900">{line}</p>
+                ))}
+              </div>
+            </div>
+          );
+        }
+      }
+      return null;
+    };
+    
     return (
       <div className="space-y-6">
         {sections.map((section, index) => {
@@ -1445,6 +1541,17 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
             if (scoreMatch) {
               score = parseInt(scoreMatch[1], 10);
             }
+          }
+          
+          // Special handling for benchmark comparison
+          if (isBenchmarkSection(title, sectionContent)) {
+            return (
+              <div key={index} className="mb-6">
+                <h3 className="text-lg font-semibold mb-3 text-purple-900 border-b pb-2 border-purple-200">{title}</h3>
+                {renderBenchmarkSection(title, sectionContent)}
+                {renderBenchmarkConclusion(sectionContent)}
+              </div>
+            );
           }
           
           return (
@@ -2053,6 +2160,9 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
                 <div className="prose prose-sm max-w-none p-6">
                   {renderMarkdown(pedramDecision.decision)}
                 </div>
+                
+                {/* Add BenchmarkComparisonRenderer */}
+                <BenchmarkComparisonRenderer content={pedramDecision.decision} />
               </div>
             ) : null}
           </div>

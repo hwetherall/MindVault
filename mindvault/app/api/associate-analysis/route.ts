@@ -67,28 +67,38 @@ ${questionsAndAnswers}
 For context, here is some information from the company's pitch deck:
 ${pitchDeckContent}
 
-IMPORTANT: Provide your review in a formal, structured format WITHOUT any conversational elements. Do NOT include any introductions like "Dear Senior Partner" or explanatory paragraphs about what you're going to do. 
+IMPORTANT INSTRUCTION:
+- Focus SOLELY on the topic at hand (${category}).
+- Do NOT mention or be concerned about missing information from other domains (like finances, team, product, etc.) outside your specific focus area.
+- If working on Finances, only evaluate financial information without worrying about market data.
+- If working on Market Research, only evaluate market information without worrying about financial metrics.
+- Your job is domain-specific expertise, not cross-domain analysis.
+
+Provide your review in a formal, structured format WITHOUT any conversational elements. Do NOT include any introductions like "Dear Senior Partner" or explanatory paragraphs about what you're going to do. 
 
 Start your analysis immediately with the heading structures below:
 
 ## Sense Check
 Assessment: [Good/Needs Improvement]
-[Direct analysis of logical consistency without any introductory text]
+[Direct analysis of logical consistency without any introductory text, focusing ONLY on ${category} aspects]
 
 ## Completeness Check
 Score: [1-10]/10
-[Analysis of whether there's enough evidence to answer the main question]
-[If the score is below 8, specify what additional information would be needed]
+[Analysis of whether there's enough evidence to answer the main question about ${category}]
+[If the score is below 8, specify what additional ${category} information would be needed]
 
 ## Quality Check
-[Based ONLY on the information provided, your assessment of strengths and risks]
+[Based ONLY on the information provided about ${category}, your assessment of strengths and risks]
 
 Make your analysis focused, concise, and direct. Do not include ANY salutations, introductions, or conclusion paragraphs.
 `;
     
     // Use the shared OpenRouter API client
     const analysis = await callOpenRouterAPI([
-      { role: 'system', content: 'You are a skilled VC associate providing structured analysis of investment opportunities without conversational elements.' },
+      { 
+        role: 'system', 
+        content: 'You are a skilled VC associate providing structured analysis of investment opportunities without conversational elements. Focus ONLY on the specific domain you are analyzing (Finances or Market Research) and do not mention or be concerned about missing information from other domains.'
+      },
       { role: 'user', content: prompt }
     ], 'x-ai/grok-3-beta');
     

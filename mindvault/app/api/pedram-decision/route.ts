@@ -107,12 +107,56 @@ Based on this information, provide your decision on whether this company should 
 
 ${benchmarkEnabled ? `
 ## Benchmark Comparison
-Compare Go1 to ${benchmarkCompanyName} across various criteria:
-- Compare financial metrics (ARR, growth rate, valuation, burn rate, runway)
-- Compare market positioning and strategy
-- Compare funding history and efficiency
-- Identify which company is stronger/weaker in each area
-- Provide a conclusion about their relative competitive positions
+Please follow this EXACT formatting to ensure proper display:
+
+### Financial Metrics
+**Go1:**
+- ARR: [value]
+- Growth rate: [value]
+- Valuation: [value]
+- Burn rate: [value]
+- Runway: [value]
+
+**${benchmarkCompanyName}:**
+- ARR: [value]
+- Growth rate: [value] 
+- Valuation: [value]
+- Burn rate: [value]
+- Runway: [value]
+
+### Market Positioning
+**Go1:**
+- [Key point 1 about Go1's market positioning]
+- [Key point 2 about Go1's market positioning]
+- [Key point 3 about Go1's market positioning]
+
+**${benchmarkCompanyName}:**
+- [Key point 1 about ${benchmarkCompanyName}'s market positioning]
+- [Key point 2 about ${benchmarkCompanyName}'s market positioning]
+- [Key point 3 about ${benchmarkCompanyName}'s market positioning]
+
+### Funding History
+**Go1:**
+- [Detail 1 about Go1's funding history]
+- [Detail 2 about Go1's funding history]
+
+**${benchmarkCompanyName}:**
+- [Detail 1 about ${benchmarkCompanyName}'s funding history]
+- [Detail 2 about ${benchmarkCompanyName}'s funding history]
+
+### Competitive Analysis
+**Go1 Strengths:**
+- [Strength 1]
+- [Strength 2]
+- [Strength 3]
+
+**${benchmarkCompanyName} Strengths:**
+- [Strength 1]
+- [Strength 2]
+- [Strength 3]
+
+### Overall Comparison Conclusion
+Provide 3-4 sentences summarizing which company is stronger in each area and their relative competitive positions overall.
 ` : ''}
 
 ## Decision
@@ -128,7 +172,7 @@ Make your assessment direct, insightful, and decisive as a top-tier VC partner w
     
     // Use the shared OpenRouter API client with the specified model
     const decision = await callOpenRouterAPI([
-      { role: 'system', content: 'You are Pedram, a highly experienced VC Partner making the final investment decision. Skip any introduction and start directly with the structured analysis.' },
+      { role: 'system', content: 'You are Pedram, a highly experienced VC Partner making the final investment decision. Skip any introduction and start directly with the structured analysis. When creating benchmark comparisons, follow the EXACT formatting structure provided in the prompt, with headings like "### Financial Metrics" followed by "**Go1:**" and bullet point lists. This precise formatting is absolutely critical for proper display of the comparison.' },
       { role: 'user', content: prompt }
     ], modelToUse, 0.4, 2000);
     
