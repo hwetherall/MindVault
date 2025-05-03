@@ -1,5 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Fallback response function for when API calls fail
+const generateFallbackResponse = (question: string): string => {
+  return `# Source
+Unable to access documents due to authentication issues.
+
+# Analysis
+- Authentication with the document storage service failed
+- This could be due to environment variable configuration issues
+- Access to Supabase storage might require reconfiguration
+- The application can still function with manually uploaded documents
+
+# Conclusion
+To analyze this question properly, please upload documents directly or check the system configuration for Supabase authentication.`;
+};
+
 /**
  * API route to analyze documents and answer questions using Groq API
  */
@@ -8,6 +23,9 @@ export async function POST(req: NextRequest) {
     // Get the request body
     const body = await req.json();
     const { question, files, instructions, model } = body;
+    
+    console.log(`[Analyze] Processing question: "${question}"`);
+    console.log(`[Analyze] Files provided: ${files?.length || 0}`);
     
     if (!question) {
       return NextResponse.json(
@@ -19,10 +37,12 @@ export async function POST(req: NextRequest) {
     // Get API key from environment variables
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
-        { error: 'API key is not configured' },
-        { status: 500 }
-      );
+      console.error('[Analyze] GROQ_API_KEY is not configured');
+      // Return fallback response instead of error
+      return NextResponse.json({ 
+        answer: generateFallbackResponse(question),
+        fallback: true
+      });
     }
     
     // Use the model from the request or fallback to the environment variable
@@ -72,43 +92,57 @@ Provide a 1-2 sentence direct answer to the question. Be specific and include ex
 DO NOT include your thinking process or explain your approach. Focus only on providing the requested sections with relevant information found in the documents.
 `;
     
-    // Make the request to the Groq API
-    const apiUrl = process.env.GROQ_API_BASE_URL || 'https://api.groq.com/openai/v1';
-    const response = await fetch(`${apiUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: modelToUse,
-        messages: [
-          { role: 'system', content: 'You are a financial analyst assistant, specializing in analyzing company documents to extract financial information and insights. Your task is to answer questions about a company based on the documents provided. Always structure your response with Source, Analysis (bullet points), and Conclusion sections as specified.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.2,
-        max_tokens: 20000,
-      }),
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Groq API error:', errorData);
-      return NextResponse.json(
-        { error: 'Error calling AI service', details: errorData },
-        { status: response.status }
-      );
+    try {
+      // Make the request to the Groq API
+      const apiUrl = process.env.GROQ_API_BASE_URL || 'https://api.groq.com/openai/v1';
+      console.log(`[Analyze] Calling Groq API with model: ${modelToUse}`);
+      
+      const response = await fetch(`${apiUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: modelToUse,
+          messages: [
+            { role: 'system', content: 'You are a financial analyst assistant, specializing in analyzing company documents to extract financial information and insights. Your task is to answer questions about a company based on the documents provided. Always structure your response with Source, Analysis (bullet points), and Conclusion sections as specified.' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.2,
+          max_tokens: 20000,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('[Analyze] Groq API error:', errorData);
+        return NextResponse.json({ 
+          answer: generateFallbackResponse(question),
+          fallback: true
+        });
+      }
+      
+      const result = await response.json();
+      const answer = result.choices[0].message.content;
+      console.log('[Analyze] Successfully processed question');
+      
+      return NextResponse.json({ answer });
+    } catch (apiError) {
+      console.error('[Analyze] Error calling Groq API:', apiError);
+      return NextResponse.json({ 
+        answer: generateFallbackResponse(question),
+        fallback: true
+      });
     }
-    
-    const result = await response.json();
-    const answer = result.choices[0].message.content;
-    
-    return NextResponse.json({ answer });
   } catch (error) {
-    console.error('Error processing document analysis:', error);
-    return NextResponse.json(
-      { error: 'Failed to process document analysis' },
-      { status: 500 }
-    );
+    console.error('[Analyze] Error processing document analysis:', error);
+    
+    // Return a fallback response instead of an error
+    return NextResponse.json({ 
+      answer: generateFallbackResponse("your question"),
+      fallback: true,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 } 

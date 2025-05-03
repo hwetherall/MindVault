@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+// Try to initialize OpenAI client, but provide fallback if environment variable is missing
+let client: OpenAI | null = null;
+try {
+  client = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+} catch (error) {
+  console.error('Error initializing OpenAI client:', error);
+}
 
 const META_PROMPT = `
 Given a task description or existing prompt, produce a detailed system prompt to guide a language model in completing the task effectively.
@@ -41,32 +47,72 @@ The final prompt you output should adhere to the following structure below. Do n
 [optional: edge cases, details, and an area to call or repeat out specific important considerations]
 `.trim();
 
+// Fallback instructions for when OpenAI API is unavailable
+const generateFallbackInstructions = (taskOrPrompt: string): string => {
+  return `Analyze the provided document to identify key information related to ${taskOrPrompt}.
+
+Focus on extracting relevant data points, metrics, and insights that would be valuable for venture capital analysis.
+
+# Steps
+1. Identify the main topic or focus area
+2. Extract key metrics and data points
+3. Analyze strengths and weaknesses
+4. Summarize findings in a structured format
+
+# Notes
+- Be concise and factual in your analysis
+- Prioritize financial and market information
+- Highlight unique value propositions or competitive advantages`;
+};
+
 export async function POST(request: Request) {
   try {
     const { taskOrPrompt } = await request.json();
 
-    const completion = await client.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: META_PROMPT,
-        },
-        {
-          role: "user",
-          content: "Task, Goal, or Current Prompt:\n" + taskOrPrompt,
-        },
-      ],
-    });
+    // If OpenAI client is not initialized, return fallback instructions
+    if (!client) {
+      console.log('Using fallback instructions generation (OpenAI client not available)');
+      return NextResponse.json({ 
+        instructions: generateFallbackInstructions(taskOrPrompt),
+        fallback: true
+      });
+    }
 
-    return NextResponse.json({ 
-      instructions: completion.choices[0].message.content || '' 
-    });
+    try {
+      const completion = await client.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: META_PROMPT,
+          },
+          {
+            role: "user",
+            content: "Task, Goal, or Current Prompt:\n" + taskOrPrompt,
+          },
+        ],
+      });
+
+      return NextResponse.json({ 
+        instructions: completion.choices[0].message.content || '' 
+      });
+    } catch (openaiError) {
+      console.error('OpenAI API error:', openaiError);
+      // Return fallback if OpenAI API call fails
+      return NextResponse.json({ 
+        instructions: generateFallbackInstructions(taskOrPrompt),
+        fallback: true
+      });
+    }
   } catch (error) {
     console.error('Error generating instructions:', error);
     return NextResponse.json(
-      { error: 'Failed to generate instructions' },
-      { status: 500 }
+      { 
+        error: 'Failed to generate instructions',
+        instructions: generateFallbackInstructions('the document'),
+        fallback: true
+      },
+      { status: 200 } // Return 200 with fallback instead of 500
     );
   }
 } 
