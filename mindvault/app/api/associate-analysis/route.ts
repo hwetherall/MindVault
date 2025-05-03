@@ -2,13 +2,39 @@ import { NextRequest, NextResponse } from 'next/server';
 import { callOpenRouterAPI } from '../openrouter-client';
 
 /**
+ * Fallback response when OpenRouter API fails
+ */
+const generateFallbackResponse = (category: string) => {
+  return `## Sense Check
+Assessment: Needs Improvement
+
+Due to technical limitations, I couldn't complete a full analysis. The system is experiencing temporary connectivity issues with our AI provider.
+
+## Completeness Check
+Score: 5/10
+
+Additional information needed:
+- Complete financial metrics (if reviewing Finances)
+- Market size and growth data (if reviewing Market Research)
+- Competitive landscape analysis
+
+## Quality Check
+The available information suggests further investigation is needed. Please try again later or use the Analyst feature as an alternative.`;
+};
+
+/**
  * API route to analyze analyst answers from a VC associate perspective using OpenRouter API
  */
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
+  console.log('[Associate Analysis] Request received');
+  
   try {
     // Get the request body
     const body = await req.json();
     const { category, questions, answers, files } = body;
+    
+    console.log(`[Associate Analysis] Processing ${category} request with ${questions?.length || 0} questions`);
     
     if (!category || !questions || !answers) {
       return NextResponse.json(
@@ -93,24 +119,51 @@ Score: [1-10]/10
 Make your analysis focused, concise, and direct. Do not include ANY salutations, introductions, or conclusion paragraphs.
 `;
     
-    // Use the shared OpenRouter API client
-    const analysis = await callOpenRouterAPI([
-      { 
-        role: 'system', 
-        content: 'You are a skilled VC associate providing structured analysis of investment opportunities without conversational elements. Focus ONLY on the specific domain you are analyzing (Finances or Market Research) and do not mention or be concerned about missing information from other domains.'
-      },
-      { role: 'user', content: prompt }
-    ], 'x-ai/grok-3-beta');
-    
-    return NextResponse.json({ analysis });
+    try {
+      console.log('[Associate Analysis] Calling OpenRouter API');
+      // Use the shared OpenRouter API client
+      const analysis = await callOpenRouterAPI([
+        { 
+          role: 'system', 
+          content: 'You are a skilled VC associate providing structured analysis of investment opportunities without conversational elements. Focus ONLY on the specific domain you are analyzing (Finances or Market Research) and do not mention or be concerned about missing information from other domains.'
+        },
+        { role: 'user', content: prompt }
+      ], 'x-ai/grok-3-beta');
+      
+      const processingTime = (Date.now() - startTime) / 1000;
+      console.log(`[Associate Analysis] Success - Processing time: ${processingTime}s`);
+      
+      return NextResponse.json({ analysis });
+    } catch (openRouterError) {
+      // Handle OpenRouter API errors by providing a fallback response
+      console.error('[Associate Analysis] OpenRouter API error:', openRouterError);
+      
+      // Generate a fallback response
+      const fallbackAnalysis = generateFallbackResponse(category);
+      
+      // Log the fallback response
+      console.log('[Associate Analysis] Providing fallback response due to OpenRouter API error');
+      
+      // Return the fallback response with a 200 status
+      return NextResponse.json({ 
+        analysis: fallbackAnalysis,
+        fallback: true
+      });
+    }
   } catch (error) {
-    console.error('Error processing associate analysis:', error);
+    const processingTime = (Date.now() - startTime) / 1000;
+    console.error(`[Associate Analysis] Error (${processingTime}s):`, error);
+    
     const errorMessage = error instanceof Error ? error.message : 'Failed to process associate analysis';
-    console.error('Error message:', errorMessage);
+    console.error('[Associate Analysis] Error message:', errorMessage);
     
     return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
+      { 
+        error: errorMessage,
+        fallback: true,
+        analysis: generateFallbackResponse(error.category || 'this domain') 
+      },
+      { status: 200 } // Return 200 with fallback content instead of 500
     );
   }
 } 
