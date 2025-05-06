@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileDown, PlusCircle, Pencil, Check, RefreshCw, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileDown, PlusCircle, Pencil, Check, RefreshCw, X, ChevronDown, ChevronUp, FileText, Eye } from 'lucide-react';
 import QuestionItem from './QuestionItem';
 import QuestionSelectionModal from './QuestionSelectionModal';
 import TemplateSelectionModal from './TemplateSelectionModal';
@@ -493,6 +493,47 @@ Provide a 1-2 sentence direct answer summarizing who the main competitors are, b
   }
 };
 
+// Add a new PromptModal component
+interface PromptModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  prompt: string;
+}
+
+const PromptModal: React.FC<PromptModalProps> = ({ isOpen, onClose, title, prompt }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-lg shadow-lg overflow-hidden">
+        <div className="flex justify-between items-center border-b px-6 py-4">
+          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)]">
+          <pre className="whitespace-pre-wrap bg-gray-100 p-4 rounded-lg text-sm font-mono overflow-x-auto">
+            {prompt}
+          </pre>
+        </div>
+        <div className="border-t px-6 py-4 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /**
  * Main component for the Investment Memo feature
  */
@@ -512,6 +553,224 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
     description: string;
     questions: InvestmentMemoQuestion[];
   } | null>(null);
+
+  // Add state for prompt modal
+  const [promptModalOpen, setPromptModalOpen] = useState(false);
+  const [currentPrompt, setCurrentPrompt] = useState("");
+  const [promptModalTitle, setPromptModalTitle] = useState("");
+
+  // Add function to show prompt modal
+  const showPrompt = (prompt: string, title: string) => {
+    setCurrentPrompt(prompt);
+    setPromptModalTitle(title);
+    setPromptModalOpen(true);
+  };
+
+  // Add function to get question prompt
+  const getQuestionPrompt = (question: string, category: string) => {
+    // Get the question details based on category
+    const questionDetails = category === 'Finances' 
+      ? pedramModeFinanceQuestions.find(q => q.question === question)
+      : pedramModeMarketQuestions.find(q => q.question === question);
+    
+    // Construct the prompt similar to processQuestionWithAI
+    let instructions = '';
+    
+    if (category === 'Market Research') {
+      const marketResearchPrompts: Record<string, string> = {
+        "Who are the company's key customers?": `You are tasked with identifying the company's key customers based on the provided documents.
+
+IMPORTANT INSTRUCTIONS:
+1. Focus only on ACTUAL customers, not target customers or prospects.
+2. Look carefully through any PDFs labeled as "Market Report," "Pitch Deck," or similar.
+3. Pay special attention to sections mentioning clients, case studies, or testimonials.
+4. Note both named enterprise customers and any customer segments described.
+5. If possible, identify the importance or revenue contribution of different customers.
+
+Your answer MUST be structured in the following format:
+# Source
+Specify which document(s) and sections you used to find the information about customers.
+
+# Analysis
+- Provide 3-5 bullet points identifying key customer segments or notable clients
+- Note any information about customer concentration or distribution
+- Include information about customer industries or verticals if available
+- Mention any notable customer testimonials or case studies
+
+# Conclusion
+Provide a 1-2 sentence direct answer summarizing who the company's key customers are, both by named accounts and by segment types.`,
+        // ... other market research questions
+      };
+      
+      instructions = marketResearchPrompts[question] || 
+        `You are tasked with answering the following question about a company based on the provided documents: "${question}".
+        Analyze all available documents thoroughly. Focus particularly on any "Go1 Market Info.pdf" document if available.
+        
+        Your answer MUST be structured in the following format:
+        # Source
+        Specify which document(s) and sections you used to find the answer.
+        
+        # Analysis
+        - Provide 3-5 bullet points with key findings from your analysis
+        - Each bullet should be concise and focused on a specific insight
+        - Include relevant figures, dates, or metrics when available
+        
+        # Conclusion
+        Provide a 1-2 sentence direct answer to the question. Be specific and include exact figures when available.`;
+    } else {
+      instructions = questionDetails?.instructions || 
+        `You are tasked with answering the following question about a company based on the provided documents: "${question}".
+        Analyze all available documents thoroughly. Provide a clear, concise, factual answer based only on the information in the documents.
+        If the information is not available in the documents, state this clearly.
+        
+        Your answer MUST be structured in the following format:
+        # Source
+        Specify which document(s) and sections you used to find the answer.
+        
+        # Analysis
+        - Provide 3-5 bullet points with key findings from your analysis
+        - Each bullet should be concise and focused on a specific insight
+        - Include relevant figures, dates, or metrics when available
+        
+        # Conclusion
+        Provide a 1-2 sentence direct answer to the question. Be specific and include exact figures when available.`;
+    }
+    
+    // Create a sample of how the prompt will be formatted
+    return `
+QUESTION: ${question}
+CATEGORY: ${category}
+
+INSTRUCTIONS:
+${instructions}
+
+Here are the documents to analyze:
+[Document contents would be included here]
+
+Your answer MUST be structured in the following format:
+# Source
+Specify which document(s) and sections you used to find the answer.
+
+# Analysis
+- Provide 3-5 bullet points with key findings from your analysis
+- Each bullet should be concise and focused on a specific insight
+- Include relevant figures, dates, or metrics when available
+
+# Conclusion
+Provide a 1-2 sentence direct answer to the question. Be specific and include exact figures when available.`;
+  };
+
+  // Get associate prompt
+  const getAssociatePrompt = (category: string) => {
+    // Get the questions for this category
+    const categoryQuestions = PEDRAM_MODE_QUESTIONS[category as keyof typeof PEDRAM_MODE_QUESTIONS] || [];
+    
+    // Get the main question based on category
+    const mainQuestion = category === 'Finances' 
+      ? 'Is this company financially viable?' 
+      : 'Is this market worthwhile entering?';
+    
+    // Get sample Q&As
+    let questionsAndAnswers = '';
+    categoryQuestions.forEach((question, index) => {
+      const answer = analystQuestionAnswers[question]?.answer || 'No answer provided';
+      
+      questionsAndAnswers += `
+Question ${index + 1}: ${question}
+
+Answer ${index + 1}:
+${answer}
+-------------------
+`;
+    });
+    
+    // Return the associate prompt
+    return `
+MAIN QUESTION: "${mainQuestion}"
+
+You are a highly skilled VC associate at a top-tier firm like Sequoia or A16Z. You've been asked to review an analyst's work on this investment opportunity.
+
+Below are the analyst's findings based on the company's documents:
+
+${questionsAndAnswers}
+
+For context, here is some information from the company's pitch deck:
+[Pitch deck content would be included here]
+
+IMPORTANT INSTRUCTION:
+- Focus SOLELY on the topic at hand (${category}).
+- Do NOT mention or be concerned about missing information from other domains (like finances, team, product, etc.) outside your specific focus area.
+- If working on Finances, only evaluate financial information without worrying about market data.
+- If working on Market Research, only evaluate market information without worrying about financial metrics.
+- Your job is domain-specific expertise, not cross-domain analysis.
+
+Provide your review in a formal, structured format WITHOUT any conversational elements. Do NOT include any introductions like "Dear Senior Partner" or explanatory paragraphs about what you're going to do. 
+
+Start your analysis immediately with the heading structures below:
+
+## Sense Check
+Assessment: [Good/Needs Improvement]
+[Direct analysis of logical consistency without any introductory text, focusing ONLY on ${category} aspects]
+
+## Completeness Check
+Score: [1-10]/10
+[Analysis of whether there's enough evidence to answer the main question about ${category}]
+[If the score is below 8, specify what additional ${category} information would be needed]
+
+## Quality Check
+[Based ONLY on the information provided about ${category}, your assessment of strengths and risks]
+
+Make your analysis focused, concise, and direct. Do not include ANY salutations, introductions, or conclusion paragraphs.`;
+  };
+
+  // Get Pedram's final decision prompt
+  const getPedramPrompt = () => {
+    const financeAnalysis = associateAnalysis['Finances']?.analysis || 'Finance analysis not available';
+    const marketAnalysis = associateAnalysis['Market Research']?.analysis || 'Market analysis not available';
+    
+    return `
+You are Pedram Mokrian, a top venture capitalist and General Partner at an elite VC firm. Known for your sharp analytical skills and strategic insights, you're the final decision maker on all investments.
+
+You've received two detailed analyses from your team on a potential investment opportunity:
+
+1. Financial Analysis:
+${financeAnalysis}
+
+2. Market Research Analysis:
+${marketAnalysis}
+
+TASK (Using OpenAI o1 model):
+Based on these analyses, provide a final investment decision on whether this company should progress to the next stage of investment consideration.
+
+Your response should follow this EXACT format:
+
+## Investment Decision
+[Clear YES or NO to advancing this company, followed by a one-sentence explanation]
+
+## Key Reasons
+- [3-5 bullet points outlining the most compelling reasons for your decision, both positive and negative factors]
+
+## Financial Assessment
+[2-3 paragraphs assessing the financial viability, focusing on metrics like ARR, growth rate, burn rate, and runway]
+
+## Market Assessment
+[2-3 paragraphs evaluating the market opportunity, focusing on TAM, growth trajectory, and competitive positioning]
+
+## Risks & Mitigations
+[2-3 paragraphs identifying the key risks and possible mitigations]
+
+## Next Steps
+[3-5 bullet points with specific action items or information needed before making a final investment]
+
+IMPORTANT:
+- Your analysis should be balanced, highlighting both strengths and concerns
+- Provide specific metrics and figures from the analyses when available
+- Focus on substantive analysis rather than generalities
+- Be direct and decisive in your recommendations
+- If benchmark comparison data is available, include specific comparisons
+
+Your response should read like a crisp, authoritative investment decision from a seasoned venture capitalist - not a general AI assistant.`;
+  };
 
   // Add fast mode state with default value (false)
   const [fastMode, setFastMode] = useState(false);
@@ -1321,7 +1580,7 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
           financeAnalysis,
           marketAnalysis,
           files,
-          model: "x-ai/grok-3-beta",
+          model: "openai/o1",
           benchmarkEnabled: actuallyUseBenchmark,
           benchmarkCompanyId: selectedBenchmarkId
         }),
@@ -1743,6 +2002,20 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
               )}
             </h4>
             <div className="flex gap-2 items-center">
+              {/* Add View Prompt button */}
+              {hasAssociateAnalysis && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    showPrompt(getAssociatePrompt(category), `Associate Prompt - ${category}`);
+                  }}
+                  className="flex items-center px-3 py-1.5 bg-gray-200 text-gray-700 border border-gray-300 rounded-md text-sm font-medium mr-2 hover:bg-gray-300 transition-colors shadow-sm"
+                >
+                  <Eye size={16} className="mr-1" />
+                  <span>View Prompt</span>
+                </button>
+              )}
+              
               {hasAssociateAnalysis ? (
                 <button
                   onClick={(e) => {
@@ -1880,9 +2153,22 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
                             )}
                             <h5 className="font-medium">Question {index + 1}: {question}</h5>
                           </div>
-                          <button className="text-gray-500">
+                          <div className="flex items-center">
+                            {/* Add View Prompt button for each question */}
+                            {hasAnswer && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  showPrompt(getQuestionPrompt(question, category), `Question Prompt: ${question}`);
+                                }}
+                                className="flex items-center px-2 py-1 bg-gray-200 text-gray-700 border border-gray-300 rounded-md text-sm font-medium mr-2 hover:bg-gray-300 transition-colors"
+                              >
+                                <Eye size={14} className="mr-1" />
+                                <span>Prompt</span>
+                              </button>
+                            )}
                             {isQuestionCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
-                          </button>
+                          </div>
                         </div>
                         
                         {!isQuestionCollapsed && (
@@ -2127,21 +2413,34 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold text-purple-800">Should this company go to the next stage?</h2>
               
-              <button
-                onClick={processPedramDecision}
-                disabled={!canAskPedram()}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  !canAskPedram()
-                    ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-                    : 'bg-purple-600 text-white hover:bg-purple-700'
-                }`}
-              >
-                {pedramDecision.isLoading 
-                  ? 'Analyzing...' 
-                  : pedramDecision.decision 
-                    ? 'Update Decision' 
-                    : 'Ask Pedram'}
-              </button>
+              <div className="flex items-center">
+                {/* Add View Prompt button for Pedram */}
+                {pedramDecision.decision && !pedramDecision.isLoading && (
+                  <button
+                    onClick={() => showPrompt(getPedramPrompt(), "Pedram's Decision Prompt")}
+                    className="flex items-center px-3 py-2 bg-gray-200 text-gray-700 border border-gray-300 rounded-md text-sm font-medium mr-3 hover:bg-gray-300 transition-colors"
+                  >
+                    <Eye size={16} className="mr-1" />
+                    <span>View Prompt</span>
+                  </button>
+                )}
+                
+                <button
+                  onClick={processPedramDecision}
+                  disabled={!canAskPedram()}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    !canAskPedram()
+                      ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+                      : 'bg-purple-600 text-white hover:bg-purple-700'
+                  }`}
+                >
+                  {pedramDecision.isLoading 
+                    ? 'Analyzing...' 
+                    : pedramDecision.decision 
+                      ? 'Update Decision' 
+                      : 'Ask Pedram'}
+                </button>
+              </div>
             </div>
             
             {/* Pedram's Decision Display */}
@@ -2277,6 +2576,14 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
         onSelect={handleSelectBenchmark}
         companies={BENCHMARK_COMPANIES}
         selectedCompanyId={selectedBenchmarkId}
+      />
+
+      {/* Add the Prompt Modal */}
+      <PromptModal
+        isOpen={promptModalOpen}
+        onClose={() => setPromptModalOpen(false)}
+        title={promptModalTitle}
+        prompt={currentPrompt}
       />
     </div>
   );
