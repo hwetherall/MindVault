@@ -796,6 +796,7 @@ Your response should follow this EXACT format:
 [3-5 bullet points with specific action items or information needed before making a final investment]
 
 IMPORTANT:
+- If the answer isn't a "Hell yeah", it is a "No". In other words, you should only say "Yes" if you would personally invest in this company.
 - Your analysis should be balanced, highlighting both strengths and concerns
 - Provide specific metrics and figures from the analyses when available
 - Focus on substantive analysis rather than generalities

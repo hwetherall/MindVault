@@ -11,4 +11,7 @@ sensitive-data.txt
 
 # Other files to ignore
 node_modules/
-.DS_Store 
+.DS_Store
+
+# Large media files
+mindvault/Pedram_Agentic_V1.mp4 
