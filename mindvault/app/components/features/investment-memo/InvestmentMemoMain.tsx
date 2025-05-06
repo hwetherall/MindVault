@@ -15,6 +15,34 @@ import BenchmarkSelectionModal from './BenchmarkSelectionModal';
 import { BENCHMARK_COMPANIES } from './data/benchmarkCompanies';
 import BenchmarkComparisonRenderer from './BenchmarkComparisonRenderer';
 
+// Global model information for all components
+const modelInfo = {
+  normal: {
+    id: "deepseek-r1-distill-llama-70b",
+    description: "More detailed analysis",
+    displayName: "The Innovera Tortoise is methodically examining every detail in your documents.",
+    component: "Analyst (Normal Mode)"
+  },
+  fast: {
+    id: "llama-3.2-3b-preview",
+    description: "Faster responses",
+    displayName: "The Innovera Hare is racing through your documents to find quick answers.",
+    component: "Analyst (Fast Mode)"
+  },
+  associate: {
+    id: "x-ai/grok-3-beta",
+    description: "Advanced analysis of analyst findings",
+    displayName: "The Associate is reviewing the analysis with Grok-3.",
+    component: "Associate"
+  },
+  pedram: {
+    id: "openai/o1",
+    description: "Final decision making",
+    displayName: "Pedram is making the final decision with OpenAI o1.",
+    component: "Pedram"
+  }
+};
+
 // Local FastModeToggle component to avoid import issues
 interface FastModeToggleProps {
   fastMode: boolean;
@@ -264,7 +292,7 @@ const QuestionAnalysisResult: React.FC<QuestionAnalysisResultProps> = ({ questio
 /**
  * Process a single question with AI
  */
-const processQuestionWithAI = async (question: string, files: any[], category: string) => {
+const processQuestionWithAI = async (question: string, files: any[], category: string, fastMode: boolean = false) => {
   try {
     // Find the corresponding question ID from our questions database
     let questionId;
@@ -480,6 +508,11 @@ Provide a 1-2 sentence direct answer summarizing who the main competitors are, b
         model: process.env.GROQ_API_MODEL || 'deepseek-r1-distill-llama-70b'
       }),
     });
+    
+    // Log the model being used for Analyst
+    const modelUsed = process.env.GROQ_API_MODEL || 'deepseek-r1-distill-llama-70b';
+    const analystModel = fastMode ? modelInfo.fast : modelInfo.normal;
+    console.log(`%c[${analystModel.component}] Using model: ${modelUsed}`, 'background: #e6f7ff; color: #0066cc; font-weight: bold; padding: 2px 5px; border-radius: 3px;');
     
     if (!response.ok) {
       throw new Error(`Error: ${response.status}`);
@@ -847,20 +880,6 @@ Your response should read like a crisp, authoritative investment decision from a
     }
   };
   
-  // Model information
-  const modelInfo = {
-    normal: {
-      id: "deepseek-r1-distill-llama-70b",
-      description: "More detailed analysis",
-      displayName: "The Innovera Tortoise is methodically examining every detail in your documents."
-    },
-    fast: {
-      id: "llama-3.2-3b-preview",
-      description: "Faster responses",
-      displayName: "The Innovera Hare is racing through your documents to find quick answers."
-    }
-  };
-  
   // Get current model based on mode
   const getCurrentModel = () => fastMode ? modelInfo.fast.id : modelInfo.normal.id;
 
@@ -992,6 +1011,25 @@ Your response should read like a crisp, authoritative investment decision from a
       });
     }
   }, [analystQuestionAnswers]);
+  
+  // Log model information to developer console on component mount
+  useEffect(() => {
+    console.group('%cMindVault AI Model Information', 'font-size: 14px; font-weight: bold; color: #333;');
+    console.log('%cAnalyst (Normal Mode):', 'font-weight: bold; color: #0066cc;', 
+      `Using ${modelInfo.normal.id}`, 
+      `\nDescription: ${modelInfo.normal.description}`);
+    console.log('%cAnalyst (Fast Mode):', 'font-weight: bold; color: #cc6600;', 
+      `Using ${modelInfo.fast.id}`, 
+      `\nDescription: ${modelInfo.fast.description}`);
+    console.log('%cAssociate:', 'font-weight: bold; color: #6600cc;', 
+      `Using ${modelInfo.associate.id}`, 
+      `\nDescription: ${modelInfo.associate.description}`);
+    console.log('%cPedram Decision Maker:', 'font-weight: bold; color: #00995e;', 
+      `Using ${modelInfo.pedram.id}`, 
+      `\nDescription: ${modelInfo.pedram.description}`);
+    console.log('%cCurrent Mode:', 'font-weight: bold;', fastMode ? 'Fast Mode' : 'Normal Mode');
+    console.groupEnd();
+  }, []);
   
   // Toggle collapsed state for a box
   const toggleBox = (category: string) => {
@@ -1406,7 +1444,7 @@ Your response should read like a crisp, authoritative investment decision from a
       // Process each question in parallel
       const promises = questionsToProcess.map(async (question) => {
         try {
-          const answer = await processQuestionWithAI(question, files, category);
+          const answer = await processQuestionWithAI(question, files, category, fastMode);
           
           // Update answer state for this specific question
           setAnalystQuestionAnswers(prev => ({
@@ -1508,6 +1546,9 @@ Your response should read like a crisp, authoritative investment decision from a
         }),
       });
       
+      // Log the model being used for Associate
+      console.log(`%c[${modelInfo.associate.component}] Using model: ${modelInfo.associate.id}`, 'background: #f0e6ff; color: #6600cc; font-weight: bold; padding: 2px 5px; border-radius: 3px;');
+      
       if (!response.ok) {
         throw new Error(`Error: ${response.status}`);
       }
@@ -1585,6 +1626,9 @@ Your response should read like a crisp, authoritative investment decision from a
           benchmarkCompanyId: selectedBenchmarkId
         }),
       });
+      
+      // Log the model being used for Pedram
+      console.log(`%c[${modelInfo.pedram.component}] Using model: ${modelInfo.pedram.id}`, 'background: #e6fff0; color: #00995e; font-weight: bold; padding: 2px 5px; border-radius: 3px;');
       
       if (!response.ok) {
         throw new Error(`Error: ${response.status}`);
