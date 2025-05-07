@@ -36,9 +36,9 @@ const modelInfo = {
     component: "Associate"
   },
   pedram: {
-    id: "openai/o1",
+    id: "google/gemini-2.5-pro-preview",
     description: "Final decision making",
-    displayName: "Pedram is making the final decision with OpenAI o1.",
+    displayName: "Pedram is making the final decision with Google Gemini Pro.",
     component: "Pedram"
   }
 };
@@ -1682,7 +1682,7 @@ Your response should read like a crisp, authoritative investment decision from a
           financeAnalysis,
           marketAnalysis,
           files,
-          model: "openai/o1",
+          model: "google/gemini-2.5-pro-preview",
           benchmarkEnabled: actuallyUseBenchmark,
           benchmarkCompanyId: selectedBenchmarkId
         }),
