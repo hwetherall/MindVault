@@ -77,6 +77,7 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
     message: string;
     onConfirm: () => void;
   } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Load initial data
   useEffect(() => {
@@ -161,10 +162,11 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
       
       if (validFiles.length > 0) {
         setFiles(prev => [...prev, ...validFiles]);
+        showToast('Files uploaded successfully', 'success');
       }
     } catch (error) {
       console.error('Error uploading files:', error);
-      alert('Failed to upload one or more files. Please try again.');
+      showToast('Failed to upload one or more files', 'error');
     }
   };
 
@@ -216,6 +218,37 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
     e.target.value = '';
   };
 
+  /**
+   * Handles drag and drop events
+   */
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      await handleFilesUploaded(droppedFiles);
+    }
+  };
+
   // Update the getDocumentCounts function to use the same logic
   const getDocumentCounts = (files: any[]) => {
     return {
@@ -238,7 +271,13 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
             {/* Left Column - File Management */}
             <div className={`transition-all duration-300 ease-in-out ${isCollapsed ? 'md:col-span-1' : 'md:col-span-4'}`}>
               {/* Document Repository Section */}
-              <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-all duration-200 relative">
+              <div 
+                className={`mb-6 p-4 border ${isDragging ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white'} rounded-lg shadow-sm hover:shadow-md transition-all duration-200 relative`}
+                onDragOver={handleDragOver}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
                 {/* Collapse Toggle Button */}
                 <button
                   onClick={() => setIsCollapsed(!isCollapsed)}
@@ -329,6 +368,16 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
                           <span className="text-green-600 text-sm">Spreadsheets</span>
                           <span className="text-xs text-green-400">(Excel)</span>
                         </button>
+                      </div>
+              
+                      {/* Drag & Drop Zone */}
+                      <div className={`border-2 border-dashed p-4 rounded-lg text-center ${isDragging ? 'border-blue-400 bg-blue-50' : 'border-gray-300 bg-gray-50'}`}>
+                        <p className="text-sm text-gray-600 mb-1">
+                          Drag and drop files here
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Supported formats: PDF, Excel (.xlsx, .xls)
+                        </p>
                       </div>
               
                       {/* Hidden File Inputs */}
