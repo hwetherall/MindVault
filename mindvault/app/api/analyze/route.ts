@@ -110,15 +110,17 @@ Question: ${question}
 Your answer MUST be structured in the following format:
 
 # Source
-Specify which document(s) and sections you used to find the answer.
+List the specific documents and sections you referenced. Do not include headings or subheadings within this section. Use regular text, with bolding for emphasis when needed. For example, use "**Excel/Financial model_SE_Dec_2022.xlsx**" not "## Excel File:"
 
 # Analysis
-- Provide 3-5 bullet points with key findings from your analysis
-- Each bullet should be concise and focused on a specific insight
-- Include relevant figures, dates, or metrics when available
+- Provide 3-5 bullet points with key findings
+- Each bullet should be concise and focused
+- Include relevant figures, dates, or metrics
+- Use bold (**text**) for emphasis of important figures
+- DO NOT use headings or subheadings within the analysis section
 
 # Conclusion
-Provide a 1-2 sentence direct answer to the question. Be specific and include exact figures when available.
+Provide a 1-2 sentence direct answer to the question. Be specific and include exact figures when available. Do not use headings within this section.
 
 DO NOT include your thinking process or explain your approach. Focus only on providing the requested sections with relevant information found in the documents.
 `;
@@ -143,7 +145,16 @@ DO NOT include your thinking process or explain your approach. Focus only on pro
         messages: [
           { 
             role: 'system', 
-            content: `You are a financial analyst assistant, specializing in analyzing ${modelType.toUpperCase()} files to extract information and insights. Your task is to answer questions based ONLY on the ${modelType.toUpperCase()} documents provided. Always structure your response with Source, Analysis (bullet points), and Conclusion sections as specified.` 
+            content: `You are a financial analyst assistant, specializing in analyzing ${modelType.toUpperCase()} files to extract information and insights. Your task is to answer questions based ONLY on the ${modelType.toUpperCase()} documents provided. 
+
+Always structure your response with Source, Analysis (bullet points), and Conclusion sections as specified. 
+
+IMPORTANT FORMATTING RULES:
+1. NEVER include headings or subheadings within your main sections. For example, in the Source section, don't use "## Excel File:" - just use bold formatting like "**Excel file.xlsx**".
+2. In the Analysis section, use bullet points with concise insights. No additional headings within this section.
+3. In the Conclusion section, provide a direct 1-2 sentence answer without any headings.
+4. NEVER include your reasoning process, self-corrections, or thought processes in your response.
+5. Only provide your final analysis in the required format without any intermediate thinking.` 
           },
           { role: 'user', content: prompt }
         ],
@@ -206,10 +217,15 @@ Your task:
 5. Create a comprehensive final answer that incorporates the best elements from both responses.
 6. If one model had no relevant files to analyze, rely more heavily on the response from the other model.
 
-Follow the exact same output format structure:
+IMPORTANT FORMATTING RULES:
+1. Follow the exact same output format structure below
+2. NEVER include headings or subheadings within your main sections
+3. For the Source section, list documents with bolding for emphasis, but no headings
+4. For the Analysis section, use bullet points only, no subheadings
+5. For the Conclusion, provide a direct answer with no additional headings
 
 # Source
-Specify which document(s) and sections you used to find the answer.
+List the specific documents and sections you referenced. Do not include headings or subheadings within this section. Use bold text for emphasis when needed.
 
 # Analysis
 - Provide 3-5 bullet points with key findings from your combined analysis
@@ -217,7 +233,7 @@ Specify which document(s) and sections you used to find the answer.
 - Include relevant figures, dates, or metrics when available
 
 # Conclusion
-Provide a 1-2 sentence direct answer to the question. Be specific and include exact figures when available.
+Provide a 1-2 sentence direct answer to the question. Be specific and include exact figures when available. No headings within this section.
 `;
 
     const response = await fetch(`${apiUrl}/chat/completions`, {
@@ -229,7 +245,7 @@ Provide a 1-2 sentence direct answer to the question. Be specific and include ex
       body: JSON.stringify({
         model: ARBITER_MODEL,
         messages: [
-          { role: 'system', content: 'You are a financial arbitration expert, tasked with evaluating and combining insights from specialized AI models to produce the most accurate and comprehensive response.' },
+          { role: 'system', content: 'You are a financial arbitration expert, tasked with evaluating and combining insights from specialized AI models to produce the most accurate and comprehensive response. Never include headings within each main section of your response. Use plain text with optional bold formatting (**text**) for emphasis, but do not add internal headings or subheadings within Source, Analysis, or Conclusion sections.' },
           { role: 'user', content: arbitrationPrompt }
         ],
         temperature: 0.2,
@@ -285,13 +301,41 @@ export async function POST(req: NextRequest) {
     const recommendedTypes = recommended || [];
     
     try {
-      // Process the question through both specialized models concurrently
-      const [excelResponse, pdfResponse] = await Promise.all([
-        processWithModel(question, files, instructions, 'excel', EXCEL_MODEL, apiKey),
-        processWithModel(question, files, instructions, 'pdf', PDF_MODEL, apiKey)
-      ]);
+      // Process the question through both specialized models but handle errors individually
+      const excelPromise = processWithModel(question, files, instructions, 'excel', EXCEL_MODEL, apiKey)
+        .catch(error => {
+          console.error(`[Analyze] Excel model processing failed:`, error);
+          return `# Source
+Excel model processing failed due to service unavailability.
+
+# Analysis
+- The Excel analysis service is currently unavailable
+- This could be due to temporary API issues
+- The application is still able to analyze PDF documents
+
+# Conclusion
+Unable to analyze Excel documents due to service unavailability. Please rely on the PDF analysis or try again later.`;
+        });
+
+      const pdfPromise = processWithModel(question, files, instructions, 'pdf', PDF_MODEL, apiKey)
+        .catch(error => {
+          console.error(`[Analyze] PDF model processing failed:`, error);
+          return `# Source
+PDF model processing failed due to service unavailability.
+
+# Analysis
+- The PDF analysis service is currently unavailable
+- This could be due to temporary API issues
+- The application is still able to analyze Excel documents
+
+# Conclusion
+Unable to analyze PDF documents due to service unavailability. Please rely on the Excel analysis or try again later.`;
+        });
       
-      console.log('[Analyze] Successfully processed question with both models');
+      // Wait for both promises to settle (either resolve or reject)
+      const [excelResponse, pdfResponse] = await Promise.all([excelPromise, pdfPromise]);
+      
+      console.log('[Analyze] Successfully processed question with available models');
       
       // Use the arbiter model to evaluate and combine the responses
       const finalAnswer = await arbitrateResults(
@@ -300,9 +344,25 @@ export async function POST(req: NextRequest) {
         pdfResponse,
         recommendedTypes,
         apiKey
-      );
+      ).catch(error => {
+        console.error('[Analyze] Arbiter model processing failed:', error);
+        // If arbiter fails, return a combined response ourselves
+        return `# Source
+Combined results from available document analyses.
+
+# Analysis
+- Analysis was performed on available documents
+- Excel analysis: ${excelResponse.includes('failed') ? 'Unavailable due to service issues' : 'Available'}
+- PDF analysis: ${pdfResponse.includes('failed') ? 'Unavailable due to service issues' : 'Available'}
+- Some document types may have been unavailable for analysis
+
+# Conclusion
+${!excelResponse.includes('failed') ? excelResponse.split('# Conclusion')[1].trim() : 
+  !pdfResponse.includes('failed') ? pdfResponse.split('# Conclusion')[1].trim() : 
+  'Analysis was limited due to service availability issues. Please try again later.'}`;
+      });
       
-      console.log('[Analyze] Successfully arbitrated model responses');
+      console.log('[Analyze] Successfully processed responses');
       
       return NextResponse.json({ answer: finalAnswer });
     } catch (apiError) {

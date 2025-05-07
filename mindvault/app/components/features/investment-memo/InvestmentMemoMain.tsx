@@ -230,9 +230,46 @@ interface AnalystQuestionAnswer {
 interface QuestionAnalysisResultProps {
   question: string;
   answer: AnalystQuestionAnswer;
+  renderMarkdown: (content: string) => React.ReactNode;
 }
 
-const QuestionAnalysisResult: React.FC<QuestionAnalysisResultProps> = ({ question, answer }) => {
+const QuestionAnalysisResult: React.FC<QuestionAnalysisResultProps> = ({ question, answer, renderMarkdown }) => {
+  
+  // Function to ensure consistent formatting within sections
+  const processSection = (title: string, content: string) => {
+    const lines = content.trim().split('\n');
+    let processedContent = '';
+    
+    if (title === 'Source') {
+      // Convert any initial dash or bullet into proper bullet format
+      const firstLine = lines[0].trim();
+      if (firstLine.startsWith('- ') || firstLine.startsWith('• ')) {
+        processedContent = '• ' + firstLine.substring(2) + '\n' + lines.slice(1).join('\n');
+      } else {
+        // Ensure the first line is formatted like a bullet point for consistency
+        processedContent = '• ' + firstLine + '\n' + lines.slice(1).join('\n');
+      }
+    } else if (title === 'Analysis') {
+      // Make sure each line is a bullet point in the Analysis section
+      processedContent = lines.map(line => {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) return '';
+        if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('• ')) {
+          return trimmedLine; // Already a bullet point
+        }
+        return '- ' + trimmedLine; // Convert to bullet point
+      }).join('\n');
+    } else if (title === 'Conclusion') {
+      // Keep the conclusion content as is, as the renderMarkdown function now handles the styling
+      processedContent = content;
+    } else {
+      // For any other section, keep as is
+      processedContent = content;
+    }
+    
+    return processedContent;
+  };
+  
   return (
     <div className="border border-gray-200 rounded-md overflow-hidden mb-4">
       <div className="p-3 bg-gray-50 border-b border-gray-200">
@@ -253,30 +290,17 @@ const QuestionAnalysisResult: React.FC<QuestionAnalysisResultProps> = ({ questio
               if (idx === 0) return null; // Skip empty first part
               
               const [title, ...content] = section.split('\n');
-              const sectionContent = content.join('\n').trim();
+              let sectionContent = content.join('\n').trim();
+              
+              // Process the section content for consistent formatting
+              sectionContent = processSection(title, sectionContent);
               
               return (
                 <div key={idx} className="mb-4">
-                  <h3 className="text-md font-semibold mb-2">{title}</h3>
-                  {title === 'Analysis' ? (
-                    <ul className="list-disc pl-5 space-y-1">
-                      {sectionContent.split('\n').map((bullet, bulletIdx) => {
-                        // Only render bullet points (lines starting with -)
-                        if (bullet.trim().startsWith('-')) {
-                          return (
-                            <li key={bulletIdx} className="text-sm">
-                              {bullet.trim().substring(1).trim()}
-                            </li>
-                          );
-                        }
-                        return null;
-                      })}
-                    </ul>
-                  ) : (
-                    <div className="text-sm">
-                      {sectionContent}
-                    </div>
-                  )}
+                  <h3 className="text-md font-semibold mb-2 text-gray-800">{title}</h3>
+                  <div className="prose prose-sm max-w-none">
+                    {renderMarkdown(sectionContent)}
+                  </div>
                 </div>
               );
             })}
@@ -345,6 +369,8 @@ IMPORTANT INSTRUCTIONS:
 3. Pay special attention to sections mentioning clients, case studies, or testimonials.
 4. Note both named enterprise customers and any customer segments described.
 5. If possible, identify the importance or revenue contribution of different customers.
+6. NEVER include your reasoning, self-corrections, or thought process in your response.
+7. Only provide the required response format with your final answer.
 
 Your answer MUST be structured in the following format:
 # Source
@@ -367,6 +393,8 @@ IMPORTANT INSTRUCTIONS:
 3. Identify both the current market size and projected future size.
 4. Calculate or extract the CAGR (Compound Annual Growth Rate) if available.
 5. Note whether these figures are global or for specific regions.
+6. NEVER include your reasoning, self-corrections, or thought process in your response.
+7. Only provide the required response format with your final answer.
 
 Your answer MUST be structured in the following format:
 # Source
@@ -390,6 +418,8 @@ IMPORTANT INSTRUCTIONS:
 3. Identify industry-specific regulations relevant to the company's operations.
 4. Note how the company plans to address or is already addressing these challenges.
 5. Consider both current and upcoming regulatory changes.
+6. NEVER include your reasoning, self-corrections, or thought process in your response.
+7. Only provide the required response format with your final answer.
 
 Your answer MUST be structured in the following format:
 # Source
@@ -413,6 +443,8 @@ IMPORTANT INSTRUCTIONS:
 3. Identify how these trends are affecting the market and competition.
 4. Note specifically how the company is responding to or leveraging these trends.
 5. Consider both current trends and projected future developments.
+6. NEVER include your reasoning, self-corrections, or thought process in your response.
+7. Only provide the required response format with your final answer.
 
 Your answer MUST be structured in the following format:
 # Source
@@ -436,6 +468,8 @@ IMPORTANT INSTRUCTIONS:
 3. For each competitor mentioned, identify their relative positioning and strengths.
 4. Then, use perplexity/sonar to search for the top 5 current competitors to Go1.
 5. Compare the information from both document analysis and web search.
+6. NEVER include your reasoning, self-corrections, or thought process in your response.
+7. Only provide the required response format with your final answer.
 
 Your answer MUST be structured in the following format:
 # Source
@@ -456,6 +490,10 @@ Provide a 1-2 sentence direct answer summarizing who the main competitors are, b
         `You are tasked with answering the following question about a company based on the provided documents: "${question}".
         Analyze all available documents thoroughly. Focus particularly on any "Go1 Market Info.pdf" document if available.
         
+        IMPORTANT INSTRUCTIONS:
+        1. NEVER include your reasoning, self-corrections, or thought process in your response.
+        2. Only provide the required response format with your final answer.
+        
         Your answer MUST be structured in the following format:
         # Source
         Specify which document(s) and sections you used to find the answer.
@@ -473,6 +511,10 @@ Provide a 1-2 sentence direct answer summarizing who the main competitors are, b
         `You are tasked with answering the following question about a company based on the provided documents: "${question}".
         Analyze all available documents thoroughly. Provide a clear, concise, factual answer based only on the information in the documents.
         If the information is not available in the documents, state this clearly.
+        
+        IMPORTANT INSTRUCTIONS:
+        1. NEVER include your reasoning, self-corrections, or thought process in your response.
+        2. Only provide the required response format with your final answer.
         
         Your answer MUST be structured in the following format:
         # Source
@@ -619,6 +661,8 @@ IMPORTANT INSTRUCTIONS:
 3. Pay special attention to sections mentioning clients, case studies, or testimonials.
 4. Note both named enterprise customers and any customer segments described.
 5. If possible, identify the importance or revenue contribution of different customers.
+6. NEVER include your reasoning, self-corrections, or thought process in your response.
+7. Only provide the required response format with your final answer.
 
 Your answer MUST be structured in the following format:
 # Source
@@ -639,6 +683,10 @@ Provide a 1-2 sentence direct answer summarizing who the company's key customers
         `You are tasked with answering the following question about a company based on the provided documents: "${question}".
         Analyze all available documents thoroughly. Focus particularly on any "Go1 Market Info.pdf" document if available.
         
+        IMPORTANT INSTRUCTIONS:
+        1. NEVER include your reasoning, self-corrections, or thought process in your response.
+        2. Only provide the required response format with your final answer.
+        
         Your answer MUST be structured in the following format:
         # Source
         Specify which document(s) and sections you used to find the answer.
@@ -655,6 +703,10 @@ Provide a 1-2 sentence direct answer summarizing who the company's key customers
         `You are tasked with answering the following question about a company based on the provided documents: "${question}".
         Analyze all available documents thoroughly. Provide a clear, concise, factual answer based only on the information in the documents.
         If the information is not available in the documents, state this clearly.
+        
+        IMPORTANT INSTRUCTIONS:
+        1. NEVER include your reasoning, self-corrections, or thought process in your response.
+        2. Only provide the required response format with your final answer.
         
         Your answer MUST be structured in the following format:
         # Source
@@ -736,6 +788,8 @@ IMPORTANT INSTRUCTION:
 - If working on Finances, only evaluate financial information without worrying about market data.
 - If working on Market Research, only evaluate market information without worrying about financial metrics.
 - Your job is domain-specific expertise, not cross-domain analysis.
+- NEVER include your reasoning process, self-corrections, or thought processes in your response.
+- Only provide your final analysis in the required format without any intermediate thinking.
 
 Provide your review in a formal, structured format WITHOUT any conversational elements. Do NOT include any introductions like "Dear Senior Partner" or explanatory paragraphs about what you're going to do. 
 
@@ -774,6 +828,12 @@ ${marketAnalysis}
 
 TASK (Using OpenAI o1 model):
 Based on these analyses, provide a final investment decision on whether this company should progress to the next stage of investment consideration.
+
+IMPORTANT INSTRUCTIONS:
+- NEVER include your reasoning process, self-corrections, or thought processes in your response.
+- Only provide your final analysis in the required format without any intermediate thinking.
+- Do not write messages like "Let me analyze this..." or "Based on the information provided..."
+- Start directly with the format below.
 
 Your response should follow this EXACT format:
 
@@ -1706,9 +1766,6 @@ Your response should read like a crisp, authoritative investment decision from a
   const renderMarkdown = (content: string) => {
     if (!content) return null;
     
-    // Split by section headers (##)
-    const sections = content.split('## ').filter(Boolean);
-    
     // Process the markdown text to convert simple markdown to JSX
     const processText = (text: string) => {
       // Replace **bold** with styled spans
@@ -1726,194 +1783,65 @@ Your response should read like a crisp, authoritative investment decision from a
       // Create links
       processedText = processedText.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" class="text-blue-600 underline hover:text-blue-800" target="_blank">$1</a>');
       
-      // Convert bullet points
-      if (text.trim().startsWith('-')) {
-        return `<li class="mb-1 text-purple-900">${processedText.substring(1).trim()}</li>`;
-      }
-      
       return processedText;
     };
     
-    // Check if this is a benchmark comparison section
-    const isBenchmarkSection = (title: string, content: string) => {
-      return title.toLowerCase().includes('benchmark') && content.includes('### Financial Metrics');
-    };
+    // Process the lines of content, ensuring consistent formatting for lists
+    const lines = content.split('\n');
+    const processedLines: string[] = [];
+    let inList = false;
     
-    // Special renderer for benchmark comparison
-    const renderBenchmarkSection = (title: string, sectionContent: string) => {
-      // Split by subsections (###)
-      const subSections = sectionContent.split('### ').filter(Boolean);
+    // Handle content differently based on the section title
+    const title = content.split('\n')[0]?.startsWith('#') ? content.split('\n')[0].substring(1).trim() : '';
+    
+    if (lines.length > 0) {
+      // Add appropriate wrapper for the section content
+      processedLines.push('<div class="bg-purple-50 p-3 rounded-md border border-purple-100">');
       
-      return (
-        <div className="space-y-6 mt-2">
-          {subSections.map((subSection, idx) => {
-            const [subTitle, ...subContent] = subSection.split('\n');
-            const subSectionContent = subContent.join('\n').trim();
-            
-            // Find Go1 and competitor blocks
-            const go1Block = subSectionContent.match(/\*\*Go1:\*\*\n([\s\S]*?)(?=\n\n\*\*|$)/);
-            const competitorBlock = subSectionContent.match(/\*\*(?!Go1:)(.+?):\*\*\n([\s\S]*?)(?=\n\n|$)/);
-            
-            return (
-              <div key={idx} className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100 overflow-hidden">
-                <div className="bg-blue-100 px-4 py-2 font-medium text-blue-800">
-                  {subTitle}
-                </div>
-                <div className="p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Go1 column */}
-                    <div className="bg-white p-4 rounded-lg border border-blue-200 shadow-sm">
-                      <h4 className="font-semibold text-blue-800 mb-2">Go1</h4>
-                      <div className="space-y-1">
-                        {go1Block && go1Block[1].split('\n').map((line, lineIdx) => {
-                          if (line.trim().startsWith('-')) {
-                            return (
-                              <div key={lineIdx} className="ml-2" dangerouslySetInnerHTML={{ 
-                                __html: processText(line) 
-                              }} />
-                            );
-                          }
-                          return <p key={lineIdx} className="text-sm">{line}</p>;
-                        })}
-                      </div>
-                    </div>
-                    
-                    {/* Competitor column */}
-                    <div className="bg-white p-4 rounded-lg border border-purple-200 shadow-sm">
-                      {competitorBlock && (
-                        <>
-                          <h4 className="font-semibold text-purple-800 mb-2">
-                            {competitorBlock[1].replace(':', '')}
-                          </h4>
-                          <div className="space-y-1">
-                            {competitorBlock[2].split('\n').map((line, lineIdx) => {
-                              if (line.trim().startsWith('-')) {
-                                return (
-                                  <div key={lineIdx} className="ml-2" dangerouslySetInnerHTML={{ 
-                                    __html: processText(line) 
-                                  }} />
-                                );
-                              }
-                              return <p key={lineIdx} className="text-sm">{line}</p>;
-                            })}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      );
-    };
-    
-    // Special renderer for conclusion part of benchmark
-    const renderBenchmarkConclusion = (content: string) => {
-      if (content.toLowerCase().includes('overall comparison conclusion')) {
-        const conclusionMatch = content.match(/### Overall Comparison Conclusion\n([\s\S]*)/);
-        if (conclusionMatch && conclusionMatch[1]) {
-          return (
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <h4 className="font-semibold text-blue-800 mb-2">Overall Comparison</h4>
-              <div className="prose prose-sm">
-                {conclusionMatch[1].split('\n').map((line, idx) => (
-                  <p key={idx} className="text-sm text-blue-900">{line}</p>
-                ))}
-              </div>
-            </div>
-          );
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Skip empty lines
+        if (!line) {
+          if (inList) {
+            inList = false;
+            processedLines.push('</ul>');
+          }
+          processedLines.push('<div class="h-2"></div>');
+          continue;
+        }
+        
+        // Handle all types of bullet points (-, •, *)
+        if (line.startsWith('-') || line.startsWith('•') || line.startsWith('*')) {
+          const bulletContent = line.substring(1).trim();
+          
+          if (!inList) {
+            inList = true;
+            processedLines.push('<ul class="list-disc pl-5 space-y-1">');
+          }
+          
+          processedLines.push(`<li class="ml-1 text-purple-900">${processText(bulletContent)}</li>`);
+        } else {
+          if (inList) {
+            inList = false;
+            processedLines.push('</ul>');
+          }
+          
+          // For non-bullet point text
+          processedLines.push(`<p class="text-gray-700 mb-1">${processText(line)}</p>`);
         }
       }
-      return null;
-    };
+      
+      // Close any open list
+      if (inList) {
+        processedLines.push('</ul>');
+      }
+      
+      // Close the section wrapper
+      processedLines.push('</div>');
+    }
     
-    return (
-      <div className="space-y-6">
-        {sections.map((section, index) => {
-          const [title, ...content] = section.split('\n');
-          const sectionContent = content.join('\n').trim();
-          
-          // Check if this is a completeness check section with a score
-          const isCompletenessCheck = title.toLowerCase().includes('completeness');
-          let score: number | null = null;
-          
-          if (isCompletenessCheck) {
-            // Try to extract score (1-10)
-            const scoreMatch = sectionContent.match(/\b([1-9]|10)(\s*\/\s*10)?\b/);
-            if (scoreMatch) {
-              score = parseInt(scoreMatch[1], 10);
-            }
-          }
-          
-          // Special handling for benchmark comparison
-          if (isBenchmarkSection(title, sectionContent)) {
-            return (
-              <div key={index} className="mb-6">
-                <h3 className="text-lg font-semibold mb-3 text-purple-900 border-b pb-2 border-purple-200">{title}</h3>
-                {renderBenchmarkSection(title, sectionContent)}
-                {renderBenchmarkConclusion(sectionContent)}
-              </div>
-            );
-          }
-          
-          return (
-            <div key={index} className="mb-6 bg-white rounded-lg p-4 shadow-sm border-l-4 border-purple-400 hover:border-purple-600">
-              <h3 className="text-lg font-semibold mb-3 text-purple-900 border-b pb-2 border-purple-200">{title}</h3>
-              
-              {isCompletenessCheck && score !== null && (
-                <div className={`inline-flex items-center px-3 py-1.5 rounded-full mb-3 ${
-                  score >= 8 ? 'bg-green-100 text-green-800 border border-green-300' : 
-                  score >= 5 ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' : 
-                  'bg-red-100 text-red-800 border border-red-300'
-                }`}>
-                  <span className="font-medium mr-1">Score:</span> 
-                  <span className="font-bold">{score}/10</span>
-                </div>
-              )}
-              
-              <div className="text-sm space-y-2">
-                {sectionContent.split('\n').map((line, lineIdx) => {
-                  // For bullet point lists
-                  if (line.trim().startsWith('-')) {
-                    // Find consecutive bullet points to group them in a list
-                    let bulletPoints = [line];
-                    let j = lineIdx + 1;
-                    while (j < sectionContent.split('\n').length && sectionContent.split('\n')[j].trim().startsWith('-')) {
-                      bulletPoints.push(sectionContent.split('\n')[j]);
-                      j++;
-                    }
-                    
-                    // Only render the list if this is the first bullet point in a group
-                    if (lineIdx === 0 || !sectionContent.split('\n')[lineIdx - 1].trim().startsWith('-')) {
-                      return (
-                        <ul key={lineIdx} className="list-disc pl-5 space-y-1 bg-purple-50 p-2 rounded-md border border-purple-100">
-                          {bulletPoints.map((bullet, bulletIdx) => (
-                            <div key={bulletIdx} dangerouslySetInnerHTML={{ __html: processText(bullet) }} />
-                          ))}
-                        </ul>
-                      );
-                    }
-                    return null; // Skip bullets that are already rendered as part of a list
-                  }
-                  
-                  // For normal paragraphs
-                  if (line.trim() !== '') {
-                    return (
-                      <p key={lineIdx} className="whitespace-pre-wrap text-gray-700 leading-relaxed" 
-                         dangerouslySetInnerHTML={{ __html: processText(line) }} />
-                    );
-                  }
-                  
-                  return null;
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
+    return <div dangerouslySetInnerHTML={{ __html: processedLines.join('') }} />;
   };
 
   // Create hardcoded questions for Pedram Mode that don't depend on user selections
@@ -2236,25 +2164,9 @@ Your response should read like a crisp, authoritative investment decision from a
                                   return (
                                     <div key={idx} className="mb-4">
                                       <h3 className="text-md font-semibold mb-2">{title}</h3>
-                                      {title === 'Analysis' ? (
-                                        <ul className="list-disc pl-5 space-y-1">
-                                          {sectionContent.split('\n').map((bullet, bulletIdx) => {
-                                            // Only render bullet points (lines starting with -)
-                                            if (bullet.trim().startsWith('-')) {
-                                              return (
-                                                <li key={bulletIdx} className="text-sm">
-                                                  {bullet.trim().substring(1).trim()}
-                                                </li>
-                                              );
-                                            }
-                                            return null;
-                                          })}
-                                        </ul>
-                                      ) : (
-                                        <div className="text-sm">
-                                          {sectionContent}
+                                      <div className="prose prose-sm max-w-none">
+                                        {renderMarkdown(sectionContent)}
                                         </div>
-                                      )}
                                     </div>
                                   );
                                 })}

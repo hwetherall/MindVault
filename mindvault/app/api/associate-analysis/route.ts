@@ -99,6 +99,8 @@ IMPORTANT INSTRUCTION:
 - If working on Finances, only evaluate financial information without worrying about market data.
 - If working on Market Research, only evaluate market information without worrying about financial metrics.
 - Your job is domain-specific expertise, not cross-domain analysis.
+- NEVER use headings or subheadings within each main section. Write in plain text with optional bold formatting.
+- DO NOT use "###" or "##" for headings within the main sections.
 
 Provide your review in a formal, structured format WITHOUT any conversational elements. Do NOT include any introductions like "Dear Senior Partner" or explanatory paragraphs about what you're going to do. 
 
@@ -106,15 +108,15 @@ Start your analysis immediately with the heading structures below:
 
 ## Sense Check
 Assessment: [Good/Needs Improvement]
-[Direct analysis of logical consistency without any introductory text, focusing ONLY on ${category} aspects]
+[Direct analysis of logical consistency without any internal headings, focusing ONLY on ${category} aspects]
 
 ## Completeness Check
 Score: [1-10]/10
-[Analysis of whether there's enough evidence to answer the main question about ${category}]
+[Analysis of whether there's enough evidence to answer the main question about ${category}, without any internal headings]
 [If the score is below 8, specify what additional ${category} information would be needed]
 
 ## Quality Check
-[Based ONLY on the information provided about ${category}, your assessment of strengths and risks]
+[Based ONLY on the information provided about ${category}, your assessment of strengths and risks, without any internal headings]
 
 Make your analysis focused, concise, and direct. Do not include ANY salutations, introductions, or conclusion paragraphs.
 `;
@@ -125,7 +127,7 @@ Make your analysis focused, concise, and direct. Do not include ANY salutations,
       const analysis = await callOpenRouterAPI([
         { 
           role: 'system', 
-          content: 'You are a skilled VC associate providing structured analysis of investment opportunities without conversational elements. Focus ONLY on the specific domain you are analyzing (Finances or Market Research) and do not mention or be concerned about missing information from other domains.'
+          content: 'You are a skilled VC associate providing structured analysis of investment opportunities without conversational elements. Focus ONLY on the specific domain you are analyzing (Finances or Market Research) and do not mention or be concerned about missing information from other domains. NEVER include your reasoning process, self-corrections, or thought processes in your response. Only provide your final analysis in the required format without any intermediate thinking.'
         },
         { role: 'user', content: prompt }
       ], 'x-ai/grok-3-beta');
