@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileDown, PlusCircle, Pencil, Check, RefreshCw, X, ChevronDown, ChevronUp, FileText, Eye } from 'lucide-react';
+import { FileDown, PlusCircle, Pencil, Check, RefreshCw, X, ChevronDown, ChevronUp, FileText, Eye, CheckCircle, MessageSquare, Clock, DollarSign, GanttChart, Send, FileSpreadsheet } from 'lucide-react';
 import QuestionItem from './QuestionItem';
 import QuestionSelectionModal from './QuestionSelectionModal';
 import TemplateSelectionModal from './TemplateSelectionModal';
@@ -14,32 +14,50 @@ import { TEMPLATES } from './data/templates';
 import BenchmarkSelectionModal from './BenchmarkSelectionModal';
 import { BENCHMARK_COMPANIES } from './data/benchmarkCompanies';
 import BenchmarkComparisonRenderer from './BenchmarkComparisonRenderer';
+import WorkflowIndicator, { WorkflowStepState } from './WorkflowIndicator';
+import IterationHistory from './IterationHistory';
+
+// Define WorkflowStatus interface before it's used
+interface WorkflowStatus {
+  [category: string]: {
+    analyst: WorkflowStepState;
+    associate: WorkflowStepState;
+    followUp: WorkflowStepState;
+    iterations: {
+      index: number;
+      questions: string[];
+      timestamp?: string;
+      isComplete: boolean;
+    }[];
+    activeIteration: number;
+  };
+}
 
 // Global model information for all components
 const modelInfo = {
   normal: {
-    id: "deepseek-r1-distill-llama-70b",
-    description: "More detailed analysis",
-    displayName: "The Innovera Tortoise is methodically examining every detail in your documents.",
-    component: "Analyst (Normal Mode)"
+    id: 'anthropic/claude-3.7-sonnet',
+    component: 'Analyst',
+    displayName: 'Claude 3.7 Sonnet',
+    description: 'Analyst analysis and evaluation using Claude 3.7 Sonnet'
   },
   fast: {
-    id: "llama-3.2-3b-preview",
-    description: "Faster responses",
-    displayName: "The Innovera Hare is racing through your documents to find quick answers.",
-    component: "Analyst (Fast Mode)"
+    id: 'anthropic/claude-3-haiku',
+    component: 'Analyst',
+    displayName: 'Quick Analysis (Claude 3 Haiku)',
+    description: 'Faster analysis with Claude 3 Haiku. Lower quality but quicker responses.'
   },
   associate: {
-    id: "x-ai/grok-3-beta",
-    description: "Advanced analysis of analyst findings",
-    displayName: "The Associate is reviewing the analysis with Grok-3.",
-    component: "Associate"
+    id: 'anthropic/claude-3.7-sonnet',
+    component: 'Associate',
+    displayName: 'Claude 3.7 Sonnet',
+    description: 'Associate analysis and evaluation using Claude 3.7 Sonnet'
   },
   pedram: {
-    id: "google/gemini-2.5-pro-preview",
-    description: "Final decision making",
-    displayName: "Pedram is making the final decision with Google Gemini Pro.",
-    component: "Pedram"
+    id: 'anthropic/claude-3.7-sonnet:thinking',
+    component: 'Partner',
+    displayName: 'Pedram (Claude 3.7 Sonnet with Thinking)',
+    description: 'Final decision maker with Claude 3.7 Sonnet thinking model'
   }
 };
 
@@ -222,6 +240,8 @@ interface AnalystQuestionAnswer {
   answer: string;
   isLoading: boolean;
   error?: string;
+  isFollowUp?: boolean;
+  iterationIndex?: number; // 0 for original, 1+ for follow-ups
 }
 
 /**
@@ -231,9 +251,51 @@ interface QuestionAnalysisResultProps {
   question: string;
   answer: AnalystQuestionAnswer;
   renderMarkdown: (content: string) => React.ReactNode;
+  onSaveAnswer?: (question: string, answer: string, category?: string) => void;
+  category?: string;
 }
 
-const QuestionAnalysisResult: React.FC<QuestionAnalysisResultProps> = ({ question, answer, renderMarkdown }) => {
+const QuestionAnalysisResult: React.FC<QuestionAnalysisResultProps> = ({ 
+  question, 
+  answer, 
+  renderMarkdown, 
+  onSaveAnswer,
+  category 
+}) => {
+  // Change initial state to true to make questions collapsed by default
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  // Add state for edit mode
+  const [isEditing, setIsEditing] = useState(false);
+  // Add state for edited content
+  const [editedAnswer, setEditedAnswer] = useState('');
+  
+  // Function to toggle collapsed state
+  const toggleCollapsed = () => {
+    // Don't toggle if in edit mode
+    if (isEditing) return;
+    setIsCollapsed(!isCollapsed);
+  };
+
+  // Function to enable edit mode
+  const handleEdit = () => {
+    setEditedAnswer(answer.answer);
+    setIsEditing(true);
+    // Ensure content is expanded when editing
+    setIsCollapsed(false);
+  };
+
+  // Function to save edits
+  const handleSave = () => {
+    if (onSaveAnswer) {
+      onSaveAnswer(question, editedAnswer, category);
+    }
+    setIsEditing(false);
+  };
+
+  // Function to cancel editing
+  const handleCancel = () => {
+    setIsEditing(false);
+  };
   
   // Function to ensure consistent formatting within sections
   const processSection = (title: string, content: string) => {
@@ -270,47 +332,230 @@ const QuestionAnalysisResult: React.FC<QuestionAnalysisResultProps> = ({ questio
     return processedContent;
   };
   
+  // Determine if this is a follow-up question
+  const isFollowUp = answer.isFollowUp || false;
+  
+  // Set appropriate styling based on whether it's a follow-up question
+  const headerBgColor = isFollowUp ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200';
+  const headerTextColor = isFollowUp ? 'text-amber-900' : 'text-gray-800';
+  const borderColor = isFollowUp ? 'border-amber-200' : 'border-gray-200';
+  
+  // Determine the status indicator to show
+  const getStatusIndicator = () => {
+    if (answer.isLoading) {
+      return (
+        <div className="flex items-center space-x-1">
+          <div className="animate-spin h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+          <span className="text-xs text-blue-600">Analyzing</span>
+        </div>
+      );
+    } else if (answer.error) {
+      return (
+        <div className="flex items-center space-x-1">
+          <span className="text-xs bg-red-100 text-red-800 px-1.5 py-0.5 rounded-full">Error</span>
+        </div>
+      );
+    } else if (answer.answer) {
+      // Extract the conclusion if available
+      let conclusion = '';
+      if (answer.answer) {
+        const conclusionMatch = answer.answer.match(/# Conclusion\n([\s\S]*?)(?=\n#|$)/);
+        if (conclusionMatch && conclusionMatch[1]) {
+          conclusion = conclusionMatch[1].trim();
+          // Limit the length
+          if (conclusion.length > 60) {
+            conclusion = conclusion.substring(0, 60) + '...';
+          }
+        }
+      }
+      
+      return (
+        <div className="flex items-center space-x-1">
+          <span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full flex items-center">
+            <CheckCircle size={12} className="mr-1" />
+            Answered
+          </span>
+          {isCollapsed && conclusion && (
+            <span className="text-xs text-gray-500 ml-2 italic hidden sm:inline max-w-[200px] truncate">{conclusion}</span>
+          )}
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex items-center space-x-1">
+          <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">Pending</span>
+        </div>
+      );
+    }
+  };
+  
   return (
-    <div className="border border-gray-200 rounded-md overflow-hidden mb-4">
-      <div className="p-3 bg-gray-50 border-b border-gray-200">
-        <p className="font-medium">{question}</p>
+    <div className={`border ${borderColor} rounded-md overflow-hidden mb-4`}>
+      <div 
+        className={`p-3 ${headerBgColor} border-b ${borderColor} ${isEditing ? '' : 'cursor-pointer'} flex justify-between items-center`} 
+        onClick={toggleCollapsed}
+      >
+        {/* Question text on the left */}
+        <div className="flex items-center pr-2 flex-grow truncate">
+          {isFollowUp && (
+            <span className="mr-2 px-2 py-0.5 bg-amber-200 text-amber-800 text-xs font-medium rounded flex-shrink-0">
+              Follow-up
+            </span>
+          )}
+          <p className={`font-medium ${headerTextColor} truncate`}>{question}</p>
+        </div>
+        
+        {/* Status indicator and chevron on the right */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Status indicator */}
+          <div className="flex-shrink-0">
+            {getStatusIndicator()}
+          </div>
+          
+          {/* Edit button - only show when answer exists and not loading */}
+          {!isCollapsed && answer.answer && !answer.isLoading && !isEditing && onSaveAnswer && (
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEdit();
+              }}
+              className="p-1 text-blue-600 hover:text-blue-800"
+              title="Edit answer"
+            >
+              <Pencil size={16} />
+            </button>
+          )}
+          
+          {/* Chevron */}
+          <div className="flex-shrink-0">
+            {isCollapsed ? (
+              <ChevronDown size={18} className="text-gray-500" />
+            ) : (
+              <ChevronUp size={18} className="text-gray-500" />
+            )}
+          </div>
+        </div>
       </div>
       
-      <div className="p-4">
-        {answer.isLoading ? (
-          <div className="flex items-center space-x-2">
-            <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-            <span className="text-blue-600">Analyzing documents...</span>
-          </div>
-        ) : answer.error ? (
-          <div className="text-red-600">{answer.error}</div>
-        ) : answer.answer ? (
-          <div className="text-gray-800 prose prose-sm max-w-none">
-            {answer.answer.split('# ').map((section, idx) => {
-              if (idx === 0) return null; // Skip empty first part
-              
-              const [title, ...content] = section.split('\n');
-              let sectionContent = content.join('\n').trim();
-              
-              // Process the section content for consistent formatting
-              sectionContent = processSection(title, sectionContent);
-              
-              return (
-                <div key={idx} className="mb-4">
-                  <h3 className="text-md font-semibold mb-2 text-gray-800">{title}</h3>
-                  <div className="prose prose-sm max-w-none">
-                    {renderMarkdown(sectionContent)}
+      {!isCollapsed && (
+        <div className="p-4">
+          {answer.isLoading ? (
+            <div className="flex items-center space-x-2">
+              <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+              <span className="text-blue-600">Analyzing documents...</span>
+            </div>
+          ) : answer.error ? (
+            <div className="text-red-600">{answer.error}</div>
+          ) : answer.answer ? (
+            <>
+              {isEditing ? (
+                <div className="space-y-4">
+                  <textarea
+                    value={editedAnswer}
+                    onChange={(e) => setEditedAnswer(e.target.value)}
+                    className="w-full h-64 p-2 border border-gray-300 rounded-md font-mono text-sm"
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={handleCancel}
+                      className="px-3 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    >
+                      Save
+                    </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="text-gray-500">Waiting for analysis...</div>
-        )}
-      </div>
+              ) : (
+                <div className="text-gray-800 prose prose-sm max-w-none">
+                  {answer.answer.split('# ').map((section, idx) => {
+                    if (idx === 0) return null; // Skip empty first part
+                    
+                    const [title, ...content] = section.split('\n');
+                    let sectionContent = content.join('\n').trim();
+                    
+                    // Process the section content for consistent formatting
+                    sectionContent = processSection(title, sectionContent);
+                    
+                    return (
+                      <div key={idx} className="mb-4">
+                        <h3 className="text-md font-semibold mb-2 text-gray-800">{title}</h3>
+                        <div className="prose prose-sm max-w-none">
+                          {renderMarkdown(sectionContent)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-gray-500">Waiting for analysis...</div>
+          )}
+        </div>
+      )}
     </div>
   );
+};
+
+/**
+ * Clean AI response by removing thinking sections and keeping only structured answer
+ */
+const cleanAIResponse = (response: string): string => {
+  // Handle empty responses
+  if (!response || response.trim() === '') {
+    return '';
+  }
+
+  let cleanedResponse = response;
+  
+  // Extract content from <answer>...</answer> tags if present (Claude thinking model format)
+  const answerTagMatch = cleanedResponse.match(/<answer>([\s\S]*?)<\/answer>/);
+  if (answerTagMatch && answerTagMatch[1]) {
+    cleanedResponse = answerTagMatch[1].trim();
+    console.log("Extracted content from <answer> tags");
+  }
+  
+  // Remove <think>...</think> sections if present
+  cleanedResponse = cleanedResponse.replace(/<think>[\s\S]*?<\/think>/g, '');
+  
+  // Check for sectioned format (Source, Analysis, Conclusion)
+  const hasSourceHeading = cleanedResponse.includes('# Source');
+  
+  if (hasSourceHeading) {
+    // Remove any text before the first section heading (# Source)
+    const sourceIndex = cleanedResponse.indexOf('# Source');
+    if (sourceIndex !== -1) {
+      cleanedResponse = cleanedResponse.substring(sourceIndex);
+    }
+    
+    // Check if we have all required sections
+    const hasAnalysis = cleanedResponse.includes('# Analysis');
+    const hasConclusion = cleanedResponse.includes('# Conclusion');
+    
+    // Log warning if missing any section
+    if (!hasAnalysis || !hasConclusion) {
+      console.warn('AI response is missing expected sections');
+    }
+  } else {
+    // This might be a different format (like Pedram's decision with ## section headings)
+    // Look for any section heading starting with ## 
+    const firstSectionMatch = cleanedResponse.match(/##\s+[^\n]+/);
+    if (firstSectionMatch) {
+      const firstSectionIndex = cleanedResponse.indexOf(firstSectionMatch[0]);
+      if (firstSectionIndex > 0) {
+        // Remove any thinking content before the first proper section
+        cleanedResponse = cleanedResponse.substring(firstSectionIndex);
+        console.log("Trimmed thinking content before first section heading");
+      }
+    }
+  }
+  
+  return cleanedResponse.trim();
 };
 
 /**
@@ -441,7 +686,7 @@ IMPORTANT INSTRUCTIONS:
 1. Focus specifically on the "Go1 Market Info.pdf" document.
 2. Look for explicit mentions of trends, technological shifts, or innovations.
 3. Identify how these trends are affecting the market and competition.
-4. Note specifically how the company is responding to or leveraging these trends.
+4. Note specifically how the company is responding to or leveraging each trend.
 5. Consider both current trends and projected future developments.
 6. NEVER include your reasoning, self-corrections, or thought process in your response.
 7. Only provide the required response format with your final answer.
@@ -561,7 +806,11 @@ Provide a 1-2 sentence direct answer summarizing who the main competitors are, b
     }
     
     const result = await response.json();
-    return result.answer;
+    
+    // Clean the response to remove thinking sections and keep only structured answer
+    const cleanedAnswer = cleanAIResponse(result.answer);
+    
+    return cleanedAnswer;
   } catch (error) {
     console.error('Error processing question:', error);
     throw error;
@@ -801,11 +1050,20 @@ Assessment: [Good/Needs Improvement]
 
 ## Completeness Check
 Score: [1-10]/10
-[Analysis of whether there's enough evidence to answer the main question about ${category}]
-[If the score is below 8, specify what additional ${category} information would be needed]
+[Thorough analysis of information completeness with clear justification for score]
+[List specific information gaps or inconsistencies]
+[Identify key metrics or data points that are missing]
+[If score is below 8, be explicit about what critical information is needed]
 
 ## Quality Check
 [Based ONLY on the information provided about ${category}, your assessment of strengths and risks]
+
+## Recommended Next Steps
+[Based on your analysis above, recommend ONE of the following options:]
+${category === 'Finances' 
+  ? '1. If score is 8 or higher AND the information is logically consistent: "Proceed to Partner Review - Financial analysis is sufficient for investment decision."'
+  : '1. If score is 8 or higher AND the information is logically consistent: "Proceed to Partner Review - Market analysis is sufficient for investment decision."'}
+2. If score is below 8 OR information is inconsistent: "Additional Analyst Research Required" followed by up to THREE specific follow-up questions you would ask the analyst to address the most critical information gaps.
 
 Make your analysis focused, concise, and direct. Do not include ANY salutations, introductions, or conclusion paragraphs.`;
   };
@@ -1032,6 +1290,12 @@ Your response should read like a crisp, authoritative investment decision from a
     decision: '',
     isLoading: false
   });
+  
+  // Add state for tracking follow-up questions
+  const [followUpQuestions, setFollowUpQuestions] = useState<Record<string, string[]>>({});
+  
+  // Add state for tracking whether questions have been sent to analyst
+  const [sentToAnalyst, setSentToAnalyst] = useState<Record<string, boolean>>({});
 
   // Initialize question collapse state when answers are updated
   useEffect(() => {
@@ -1482,6 +1746,18 @@ Your response should read like a crisp, authoritative investment decision from a
   // Function to process multiple questions at once
   const processQuestionsForCategory = async (category: string) => {
     try {
+      // Update workflow status
+      setWorkflowStatus(prev => ({
+        ...prev,
+        [category]: {
+          ...prev[category],
+          analyst: { 
+            status: 'active', 
+            iteration: prev[category].analyst.iteration 
+          }
+        }
+      }));
+      
       setAnalysisInProgress(prev => ({ ...prev, [category]: true }));
       
       // Get questions for the category
@@ -1490,11 +1766,25 @@ Your response should read like a crisp, authoritative investment decision from a
       // Initialize loading state for all questions
       const initialState: Record<string, AnalystQuestionAnswer> = {};
       questionsToProcess.forEach(question => {
-        initialState[question] = {
-          question,
-          answer: '',
-          isLoading: true
-        };
+        // Check if this is a new question or an existing one
+        const existingAnswer = analystQuestionAnswers[question];
+        
+        // If it's a follow-up question that was already initialized in sendQuestionsToAnalyst
+        if (existingAnswer && existingAnswer.isFollowUp) {
+          initialState[question] = {
+            ...existingAnswer,
+            isLoading: true // Set to loading now that we're processing it
+          };
+        } else {
+          // It's an original question or a follow-up being processed for the first time
+          initialState[question] = {
+            question,
+            answer: '',
+            isLoading: true,
+            isFollowUp: existingAnswer?.isFollowUp || false,
+            iterationIndex: existingAnswer?.iterationIndex || 0 // Default to 0 for original questions
+          };
+        }
       });
       
       setAnalystQuestionAnswers(prev => ({
@@ -1508,28 +1798,48 @@ Your response should read like a crisp, authoritative investment decision from a
           const answer = await processQuestionWithAI(question, files, category, fastMode);
           
           // Update answer state for this specific question
-          setAnalystQuestionAnswers(prev => ({
-            ...prev,
-            [question]: {
+          setAnalystQuestionAnswers(prev => {
+            // Get the current record for this question
+            const current = prev[question] || {
               question,
-              answer,
-              isLoading: false
-            }
-          }));
+              isLoading: false,
+              isFollowUp: false,
+              iterationIndex: 0
+            };
+            
+            return {
+              ...prev,
+              [question]: {
+                ...current,
+                answer,
+                isLoading: false
+              }
+            };
+          });
           
           return { question, answer, error: null };
         } catch (error) {
           console.error(`Error processing question "${question}":`, error);
           
-          setAnalystQuestionAnswers(prev => ({
-            ...prev,
-            [question]: {
+          setAnalystQuestionAnswers(prev => {
+            // Get the current record for this question
+            const current = prev[question] || {
               question,
-              answer: '',
               isLoading: false,
-              error: 'Failed to process this question. Please try again.'
-            }
-          }));
+              isFollowUp: false,
+              iterationIndex: 0
+            };
+            
+            return {
+              ...prev,
+              [question]: {
+                ...current,
+                answer: '',
+                isLoading: false,
+                error: 'Failed to process this question. Please try again.'
+              }
+            };
+          });
           
           return { question, error };
         }
@@ -1545,16 +1855,51 @@ Your response should read like a crisp, authoritative investment decision from a
       const updatedCompletions = { ...analystCompleted, [category]: true };
       setAnalystCompleted(updatedCompletions);
       
-      // Save to localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('pedramModeAnalystCompleted', JSON.stringify(updatedCompletions));
-      }
+      // Update workflow status to complete
+      setWorkflowStatus(prev => {
+        // Get the current iteration index
+        const currentIteration = prev[category].activeIteration;
+        
+        // Update the iterations array to mark the current iteration as complete
+        const updatedIterations = [...prev[category].iterations];
+        if (updatedIterations[currentIteration]) {
+          updatedIterations[currentIteration] = {
+            ...updatedIterations[currentIteration],
+            isComplete: true
+          };
+        }
+        
+        return {
+          ...prev,
+          [category]: {
+            ...prev[category],
+            analyst: { 
+              status: 'complete', 
+              iteration: prev[category].analyst.iteration 
+            },
+            iterations: updatedIterations
+          }
+        };
+      });
       
       // Auto-expand the results section
       setExpandedAnalysis(prev => ({ ...prev, [category]: true }));
       
     } catch (error) {
       console.error(`Error processing questions for ${category}:`, error);
+      
+      // Update workflow status to error
+      setWorkflowStatus(prev => ({
+        ...prev,
+        [category]: {
+          ...prev[category],
+          analyst: { 
+            status: 'error', 
+            iteration: prev[category].analyst.iteration 
+          }
+        }
+      }));
+      
       setAnalysisInProgress(prev => ({ ...prev, [category]: false }));
     }
   };
@@ -1581,6 +1926,18 @@ Your response should read like a crisp, authoritative investment decision from a
   // Function to process associate analysis
   const processAssociateAnalysis = async (category: string) => {
     try {
+      // Update workflow status
+      setWorkflowStatus(prev => ({
+        ...prev,
+        [category]: {
+          ...prev[category],
+          associate: { 
+            status: 'active', 
+            iteration: prev[category].associate.iteration 
+          }
+        }
+      }));
+      
       // Update state to show loading
       setAssociateAnalysis(prev => ({
         ...prev,
@@ -1589,9 +1946,29 @@ Your response should read like a crisp, authoritative investment decision from a
           isLoading: true
         }
       }));
-
+      
       // Get the questions for this category
       const categoryQuestions = PEDRAM_MODE_QUESTIONS[category as keyof typeof PEDRAM_MODE_QUESTIONS] || [];
+      
+      // Prepare consolidated answers - group by original question and follow-ups
+      const consolidatedAnswers: Record<string, any> = {};
+      
+      // Group all answers by their question
+      categoryQuestions.forEach(question => {
+        const answer = analystQuestionAnswers[question];
+        if (answer) {
+          if (answer.isFollowUp) {
+            // This is a follow-up question, add it to the consolidated structure
+            consolidatedAnswers[question] = {
+              ...answer,
+              consolidated: true
+            };
+          } else {
+            // Original question
+            consolidatedAnswers[question] = answer;
+          }
+        }
+      });
       
       // Call the API
       const response = await fetch('/api/associate-analysis', {
@@ -1602,7 +1979,7 @@ Your response should read like a crisp, authoritative investment decision from a
         body: JSON.stringify({
           category,
           questions: categoryQuestions,
-          answers: analystQuestionAnswers,
+          answers: consolidatedAnswers, // Send the consolidated answers
           files
         }),
       });
@@ -1616,11 +1993,67 @@ Your response should read like a crisp, authoritative investment decision from a
       
       const result = await response.json();
       
+      // Clean the response to remove thinking sections
+      const cleanedAnalysis = cleanAIResponse(result.analysis);
+      
+      // Extract follow-up questions if present
+      const extractedQuestions = extractFollowUpQuestions(cleanedAnalysis);
+      if (extractedQuestions.length > 0) {
+        setFollowUpQuestions(prev => ({
+          ...prev,
+          [category]: extractedQuestions
+        }));
+        // Reset the sent status for this category
+        setSentToAnalyst(prev => ({
+          ...prev,
+          [category]: false
+        }));
+        
+        // Update workflow status for follow-up questions available
+        setWorkflowStatus(prev => ({
+          ...prev,
+          [category]: {
+            ...prev[category],
+            associate: { 
+              status: 'complete', 
+              iteration: prev[category].associate.iteration 
+            },
+            followUp: { 
+              status: 'pending', 
+              iteration: prev[category].followUp.iteration 
+            }
+          }
+        }));
+      } else {
+        // No follow-up questions, mark as complete
+        setWorkflowStatus(prev => ({
+          ...prev,
+          [category]: {
+            ...prev[category],
+            associate: { 
+              status: 'complete', 
+              iteration: prev[category].associate.iteration 
+            },
+            followUp: { 
+              status: 'complete', 
+              iteration: prev[category].followUp.iteration 
+            }
+          }
+        }));
+        
+        // Clear any existing follow-up questions for this category
+        setFollowUpQuestions(prev => {
+          const updated = { ...prev };
+          delete updated[category];
+          return updated;
+        });
+      }
+      
       // Update state with the analysis
       setAssociateAnalysis(prev => ({
         ...prev,
         [category]: {
-          analysis: result.analysis,
+          analysis: cleanedAnalysis,
           isLoading: false
         }
       }));
@@ -1630,6 +2063,19 @@ Your response should read like a crisp, authoritative investment decision from a
       
     } catch (error) {
       console.error(`Error processing associate analysis for ${category}:`, error);
+      
+      // Update workflow status to error
+      setWorkflowStatus(prev => ({
+        ...prev,
+        [category]: {
+          ...prev[category],
+          associate: { 
+            status: 'error', 
+            iteration: prev[category].associate.iteration 
+          }
+        }
+      }));
+      
       setAssociateAnalysis(prev => ({
         ...prev,
         [category]: {
@@ -1648,6 +2094,12 @@ Your response should read like a crisp, authoritative investment decision from a
     
     // Process the associate analysis
     processAssociateAnalysis(category);
+    
+    // Switch to associate view
+    setActiveWorkflowStep(prev => ({
+      ...prev,
+      [category]: 'associate'
+    }));
     
     console.log(`Ask Associate clicked for ${category}`);
   };
@@ -1682,7 +2134,7 @@ Your response should read like a crisp, authoritative investment decision from a
           financeAnalysis,
           marketAnalysis,
           files,
-          model: "google/gemini-2.5-pro-preview",
+          model: modelInfo.pedram.id,
           benchmarkEnabled: actuallyUseBenchmark,
           benchmarkCompanyId: selectedBenchmarkId
         }),
@@ -1697,9 +2149,12 @@ Your response should read like a crisp, authoritative investment decision from a
       
       const result = await response.json();
       
+      // Clean the decision to remove thinking sections
+      const cleanedDecision = cleanAIResponse(result.decision);
+      
       // Update state with the decision
       setPedramDecision({
-        decision: result.decision,
+        decision: cleanedDecision,
         isLoading: false
       });
       
@@ -1724,8 +2179,45 @@ Your response should read like a crisp, authoritative investment decision from a
 
   // Function to reset Pedram Mode analysis and answers
   const resetPedramMode = () => {
+    // Reset workflow status
+    setWorkflowStatus({
+      'Finances': {
+        analyst: { status: 'pending', iteration: 0 },
+        associate: { status: 'pending', iteration: 0 },
+        followUp: { status: 'pending', iteration: 0 },
+        iterations: [{ index: 0, questions: [], isComplete: false }],
+        activeIteration: 0
+      },
+      'Market Research': {
+        analyst: { status: 'pending', iteration: 0 },
+        associate: { status: 'pending', iteration: 0 },
+        followUp: { status: 'pending', iteration: 0 },
+        iterations: [{ index: 0, questions: [], isComplete: false }],
+        activeIteration: 0
+      }
+    });
+    
     // Reset analyst question answers
     setAnalystQuestionAnswers({});
+    
+    // Reset PEDRAM_MODE_QUESTIONS to original state (remove follow-up questions)
+    // Clone the original questions
+    PEDRAM_MODE_QUESTIONS.Finances = [
+      "What is the current Annual Recurring Revenue (ARR) of the company?",
+      "What is the Year-over-Year (YoY) growth rate?",
+      "What is the target valuation for the company?",
+      "What is the current monthly cash burn rate?",
+      "How much runway does the company have?",
+      "What is the company's funding history?"
+    ];
+    
+    PEDRAM_MODE_QUESTIONS['Market Research'] = [
+      "Who are the company's key customers?",
+      "What is the total addressable market (TAM) for the company's product or service, and what is the projected growth rate of this market over the next 5-10 years?",
+      "What regulatory or legal factors could impact the company's operations or the market as a whole, and how is the company positioned to navigate these challenges?",
+      "What are the key trends or technological advancements shaping the market, and how is the company leveraging or adapting to these trends?",
+      "Who are the main competitors?"
+    ];
     
     // Reset analysis completion status
     setAnalystCompleted({ Finances: false, 'Market Research': false });
@@ -1748,6 +2240,10 @@ Your response should read like a crisp, authoritative investment decision from a
       isLoading: false
     });
     
+    // Reset follow-up questions and sent status
+    setFollowUpQuestions({});
+    setSentToAnalyst({});
+    
     // Reset benchmark toggle and selection
     setBenchmarkEnabled(false);
     setSelectedBenchmarkId(null);
@@ -1759,7 +2255,7 @@ Your response should read like a crisp, authoritative investment decision from a
       localStorage.removeItem('selectedBenchmarkId');
     }
     
-    console.log('Pedram Mode reset completed');
+    console.log('Pedram Mode reset completed - All questions and answers cleared, including follow-ups');
   };
 
   // Helper function to render markdown-like content
@@ -1871,16 +2367,53 @@ Your response should read like a crisp, authoritative investment decision from a
       return processedText;
     };
     
+    // Check if this is a thinking model output and extract the final answer
+    // The thinking model may include <answer>...</answer> tags or similar
+    let cleanedContent = content;
+    
+    // Handle Claude thinking model specific formatting
+    if (content.includes("<answer>")) {
+      const answerMatch = content.match(/<answer>([\s\S]*?)<\/answer>/);
+      if (answerMatch && answerMatch[1]) {
+        cleanedContent = answerMatch[1].trim();
+        console.log("Extracted answer from thinking model output");
+      }
+    }
+    
+    // If we have thinking content with no tags but starts with thinking/reasoning before the structure
+    // Look for the first proper section heading (## Reasons to Move Forward)
+    if (!cleanedContent.startsWith("## Reasons to Move Forward") && cleanedContent.includes("## Reasons to Move Forward")) {
+      const startIndex = cleanedContent.indexOf("## Reasons to Move Forward");
+      if (startIndex > 0) {
+        cleanedContent = cleanedContent.substring(startIndex);
+        console.log("Trimmed thinking content to start with first section");
+      }
+    }
+    
     // Extract sections using regex to match "## Section Title" patterns
     const sections: {title: string, content: string}[] = [];
     const sectionRegex = /##\s+([^\n]+)([\s\S]*?)(?=\n##|$)/g;
     
     let match;
-    while ((match = sectionRegex.exec(content)) !== null) {
+    while ((match = sectionRegex.exec(cleanedContent)) !== null) {
       sections.push({
         title: match[1].trim(),
         content: match[2].trim()
       });
+    }
+
+    // Add better error handling for when no sections are found
+    if (sections.length === 0) {
+      console.error("No properly formatted sections found in Pedram's decision");
+      return (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          <p className="font-semibold mb-2">Error rendering decision</p>
+          <p>The decision couldn't be properly formatted. Please try again.</p>
+          <div className="mt-4 p-3 bg-white rounded border border-red-100 text-gray-700 max-h-60 overflow-auto text-sm">
+            <pre className="whitespace-pre-wrap">{content.substring(0, 500)}...</pre>
+          </div>
+        </div>
+      );
     }
     
     const processedSections = sections.map(section => {
@@ -1910,6 +2443,11 @@ Your response should read like a crisp, authoritative investment decision from a
           headerClass = 'bg-blue-100 text-blue-800 border-b border-blue-200';
           iconHtml = '<span class="mr-2">❓</span>';
           break;
+        case 'Benchmark Comparison':
+          sectionClass = 'bg-indigo-50 border-indigo-200 mb-4';
+          headerClass = 'bg-indigo-100 text-indigo-800 border-b border-indigo-200';
+          iconHtml = '<span class="mr-2">📊</span>';
+          break;
         default:
           sectionClass = 'bg-gray-50 border-gray-200 mb-4';
           headerClass = 'bg-gray-100 text-gray-800 border-b border-gray-200';
@@ -1929,6 +2467,22 @@ Your response should read like a crisp, authoritative investment decision from a
             contentHtml.push('</ul>');
           }
           contentHtml.push('<div class="h-2"></div>');
+          continue;
+        }
+        
+        // Handle subsection headers (### Title)
+        if (line.startsWith('### ')) {
+          if (inList) {
+            inList = false;
+            contentHtml.push('</ul>');
+          }
+          
+          // Add a special class for benchmark subsections
+          const subsectionClass = section.title === 'Benchmark Comparison' 
+            ? 'mt-4 mb-2 text-indigo-700 font-semibold border-b border-indigo-200 pb-1' 
+            : 'mt-4 mb-2 text-gray-700 font-semibold';
+          
+          contentHtml.push(`<h4 class="${subsectionClass}">${line.substring(4)}</h4>`);
           continue;
         }
         
@@ -1961,7 +2515,12 @@ Your response should read like a crisp, authoritative investment decision from a
             contentHtml.push('</ul>');
           }
           
-          contentHtml.push(`<p class="text-gray-800 my-2">${processText(line)}</p>`);
+          // Special handling for benchmark comparison bold headers
+          if (line.startsWith('**') && line.endsWith(':**')) {
+            contentHtml.push(`<p class="text-indigo-700 font-semibold mt-3 mb-1">${line}</p>`);
+          } else {
+            contentHtml.push(`<p class="text-gray-800 my-2">${processText(line)}</p>`);
+          }
         }
       }
       
@@ -1988,147 +2547,136 @@ Your response should read like a crisp, authoritative investment decision from a
   
   // Enhanced function for rendering Associate analysis with section-specific styling
   const renderAssociateAnalysis = (content: string) => {
-    if (!content) return null;
-    
-    // Process the markdown text to convert simple markdown to JSX - same as original
+    // Function to process text for markdown and highlighting
     const processText = (text: string) => {
-      // Auto-enhance numbers and percentages
-      const enhancedText = text.replace(/(\$\d+(?:\.\d+)?(?:K|M|B)?|\d+(?:\.\d+)?%|\d+(?:\,\d+)+)/g, '<span class="font-semibold text-purple-900">$1</span>');
+      // Replace ** with <strong> for bold text
+      let processed = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
       
-      // Replace **bold** with styled spans
-      let processedText = enhancedText.replace(/\*\*(.*?)\*\*/g, '<span class="font-bold text-purple-800">$1</span>');
+      // Add color to score based on value
+      processed = processed.replace(
+        /Score:\s*(\d+)\/10/g, 
+        (match, score) => {
+          const numScore = parseInt(score, 10);
+          let colorClass = 'text-red-600';
+          
+          if (numScore >= 8) {
+            colorClass = 'text-green-600';
+          } else if (numScore >= 5) {
+            colorClass = 'text-amber-600';
+          }
+          
+          return `Score: <span class="${colorClass} font-semibold">${score}/10</span>`;
+        }
+      );
       
-      // Replace __underline__ with styled spans
-      processedText = processedText.replace(/__(.*?)__/g, '<span class="underline decoration-purple-500 decoration-2">$1</span>');
+      // Highlight "Proceed to Partner Review" in green
+      processed = processed.replace(
+        /(Proceed to Partner Review[^"]*)/g,
+        '<span class="text-green-600 font-semibold">$1</span>'
+      );
       
-      // Replace *italic* with styled spans
-      processedText = processedText.replace(/\*(.*?)\*/g, '<span class="italic text-purple-700">$1</span>');
+      // Highlight "Additional Analyst Research Required" in amber
+      processed = processed.replace(
+        /(Additional Analyst Research Required)/g,
+        '<span class="text-amber-600 font-semibold">$1</span>'
+      );
       
-      // Replace `code` with styled spans
-      processedText = processedText.replace(/`(.*?)`/g, '<span class="bg-gray-100 text-purple-800 px-1 py-0.5 rounded font-mono text-sm">$1</span>');
+      // Convert markdown-style bullet points to HTML
+      processed = processed.replace(/^\s*-\s+(.*)$/gm, '<li>$1</li>');
+      processed = processed.replace(/(<li>.*<\/li>\n)+/g, '<ul class="list-disc pl-5 space-y-1">$&</ul>');
       
-      // Create links
-      processedText = processedText.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" class="text-blue-600 underline hover:text-blue-800" target="_blank">$1</a>');
+      // Convert numbered list items
+      processed = processed.replace(/^\s*(\d+)\.\s+(.*)$/gm, '<li>$2</li>');
       
-      return processedText;
+      // Replace newlines with <br> tags
+      processed = processed.replace(/\n/g, '<br>');
+      
+      return processed;
     };
     
-    // Extract sections using regex to match "## Section Title" patterns
-    const sections: {title: string, content: string}[] = [];
-    const sectionRegex = /##\s+([^\n]+)([\s\S]*?)(?=\n##|$)/g;
+    // Split the content by heading (##)
+    const sections = content.split(/^## /m).filter(Boolean);
     
-    let match;
-    while ((match = sectionRegex.exec(content)) !== null) {
-      sections.push({
-        title: match[1].trim(),
-        content: match[2].trim()
-      });
-    }
-    
-    const processedSections = sections.map(section => {
-      // Determine styling based on section title
-      let sectionClass = '';
-      let headerClass = '';
-      let iconHtml = '';
-      
-      switch(section.title) {
-        case 'Sense Check':
-          sectionClass = 'bg-purple-50 border-purple-200 mb-4';
-          headerClass = 'bg-purple-100 text-purple-800 border-b border-purple-200';
-          iconHtml = '<span class="mr-2">🔍</span>';
-          break;
-        case 'Completeness Check':
-          sectionClass = 'bg-blue-50 border-blue-200 mb-4';
-          headerClass = 'bg-blue-100 text-blue-800 border-b border-blue-200';
-          iconHtml = '<span class="mr-2">📋</span>';
+    return (
+      <div className="space-y-6">
+        {sections.map((section, idx) => {
+          const [title, ...contentParts] = section.split('\n');
+          let sectionContent = contentParts.join('\n').trim();
           
-          // Extract score if present
-          const scoreMatch = section.content.match(/Score:\s*\[(\d+)(?:-\d+)?\]\/10/);
-          if (scoreMatch) {
-            const score = parseInt(scoreMatch[1]);
-            let scoreColor = score >= 8 ? 'text-green-600' : score >= 5 ? 'text-amber-600' : 'text-red-600';
-            section.content = section.content.replace(
-              /Score:\s*\[(\d+)(?:-\d+)?\]\/10/, 
-              `Score: <span class="font-bold ${scoreColor}">[${scoreMatch[1]}]/10</span>`
-            );
-          }
-          break;
-        case 'Quality Check':
-          sectionClass = 'bg-indigo-50 border-indigo-200 mb-4';
-          headerClass = 'bg-indigo-100 text-indigo-800 border-b border-indigo-200';
-          iconHtml = '<span class="mr-2">⭐</span>';
-          break;
-        default:
-          sectionClass = 'bg-gray-50 border-gray-200 mb-4';
-          headerClass = 'bg-gray-100 text-gray-800 border-b border-gray-200';
-      }
-      
-      // Process bullet points and paragraphs
-      const lines = section.content.split('\n');
-      const contentHtml: string[] = [];
-      let inList = false;
-      
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        
-        if (!line) {
-          if (inList) {
-            inList = false;
-            contentHtml.push('</ul>');
-          }
-          contentHtml.push('<div class="h-2"></div>');
-          continue;
-        }
-        
-        // Handle assessment or score lines specifically
-        if (line.startsWith('Assessment:') || line.startsWith('Score:')) {
-          if (inList) {
-            inList = false;
-            contentHtml.push('</ul>');
-          }
-          contentHtml.push(`<p class="text-gray-800 font-medium my-2">${processText(line)}</p>`);
-          continue;
-        }
-        
-        // Handle bullet points
-        if (line.startsWith('-') || line.startsWith('•') || line.startsWith('*')) {
-          const bulletContent = line.substring(1).trim();
+          // Determine section styling
+          let bgColor = 'bg-white';
+          let borderColor = 'border-gray-200';
+          let textColor = 'text-gray-800';
+          let headingColor = 'text-gray-900';
           
-          if (!inList) {
-            inList = true;
-            contentHtml.push('<ul class="list-disc pl-5 space-y-1 my-2">');
+          // Apply special styling based on section title
+          if (title === 'Sense Check') {
+            if (sectionContent.includes('Needs Improvement')) {
+              bgColor = 'bg-red-50';
+              borderColor = 'border-red-200';
+              headingColor = 'text-red-800';
+            } else {
+              bgColor = 'bg-green-50';
+              borderColor = 'border-green-200';
+              headingColor = 'text-green-800';
+            }
+          } else if (title === 'Completeness Check') {
+            const scoreMatch = sectionContent.match(/Score:\s*(\d+)\/10/);
+            if (scoreMatch) {
+              const score = parseInt(scoreMatch[1], 10);
+              if (score >= 8) {
+                bgColor = 'bg-green-50';
+                borderColor = 'border-green-200';
+                headingColor = 'text-green-800';
+              } else if (score >= 5) {
+                bgColor = 'bg-amber-50';
+                borderColor = 'border-amber-200';
+                headingColor = 'text-amber-800';
+              } else {
+                bgColor = 'bg-red-50';
+                borderColor = 'border-red-200';
+                headingColor = 'text-red-800';
+              }
+            }
+          } else if (title === 'Recommended Next Steps') {
+            if (sectionContent.includes('Proceed to Partner Review')) {
+              bgColor = 'bg-green-50';
+              borderColor = 'border-green-200';
+              headingColor = 'text-green-800';
+            } else {
+              bgColor = 'bg-amber-50';
+              borderColor = 'border-amber-200';
+              headingColor = 'text-amber-800';
+            }
           }
           
-          contentHtml.push(`<li class="ml-1 text-indigo-800">${processText(bulletContent)}</li>`);
-        } else {
-          if (inList) {
-            inList = false;
-            contentHtml.push('</ul>');
-          }
+          // Check if we have follow-up questions in this section
+          const hasFollowUpQuestions = title === 'Recommended Next Steps' && 
+                                      sectionContent.includes('Additional Analyst Research Required');
           
-          contentHtml.push(`<p class="text-gray-800 my-2">${processText(line)}</p>`);
-        }
-      }
-      
-      if (inList) {
-        contentHtml.push('</ul>');
-      }
-      
-      // Build the full section HTML
-      return `
-        <div class="rounded-lg border overflow-hidden ${sectionClass} shadow-sm">
-          <div class="flex items-center font-semibold p-3 ${headerClass}">
-            ${iconHtml}${section.title}
-          </div>
-          <div class="p-4">
-            ${contentHtml.join('')}
-          </div>
-        </div>
-      `;
-    });
-    
-    // Return the processed HTML
-    return <div dangerouslySetInnerHTML={{ __html: processedSections.join('') }} />;
+          return (
+            <div key={idx} className={`border ${borderColor} rounded-lg overflow-hidden`}>
+              <div className={`${bgColor} px-4 py-3 border-b ${borderColor}`}>
+                <h3 className={`font-semibold ${headingColor}`}>{title}</h3>
+              </div>
+              <div className={`p-4 ${bgColor} ${textColor}`}>
+                <div dangerouslySetInnerHTML={{ __html: processText(sectionContent) }} />
+                
+                {/* Add special UI element for follow-up questions section */}
+                {hasFollowUpQuestions && (
+                  <div className="mt-3 pt-3 border-t border-amber-200">
+                    <p className="text-amber-800 italic text-sm">
+                      These follow-up questions are generated by the Associate to fill in critical information gaps.
+                      Click "Send questions to analyst" below to have them researched.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   // Create hardcoded questions for Pedram Mode that don't depend on user selections
@@ -2217,260 +2765,388 @@ Your response should read like a crisp, authoritative investment decision from a
 
   // For Pedram Mode box rendering
   const renderPedramModeBox = (category: string) => {
-    // Use the hardcoded questions for Pedram Mode instead of filtered questions
-    const displayedQuestions = category === 'Finances' 
-      ? pedramModeFinanceQuestions
-      : pedramModeMarketQuestions;
-    
-    const isAnalystComplete = analystCompleted[category] || false;
-    const isAnalyzing = analysisInProgress[category] || false;
-    
-    // Track collapse state for sections
-    const analystSectionId = `${category}-analyst-section`;
-    const isAnalystSectionCollapsed = collapsedBoxes[analystSectionId] || false;
-    
-    const associateSectionId = `${category}-associate`;
-    const isAssociateSectionCollapsed = collapsedBoxes[associateSectionId] || false;
-    
-    // Get associate analysis data
-    const associateData = associateAnalysis[category];
-    const isAssociateAnalyzing = associateData?.isLoading || false;
-    const hasAssociateAnalysis = associateData?.analysis && !associateData.isLoading;
+    // Skip if not in Pedram mode or this category is not in PEDRAM_MODE_QUESTIONS
+    if (!pedramMode || !PEDRAM_MODE_QUESTIONS[category as keyof typeof PEDRAM_MODE_QUESTIONS]) {
+      return null;
+    }
     
     // Get questions for this category
     const categoryQuestions = PEDRAM_MODE_QUESTIONS[category as keyof typeof PEDRAM_MODE_QUESTIONS] || [];
     
+    // Get workflow status
+    const workflowState = {
+      analyst: {
+        status: analystCompleted[category] ? 'complete' as const : analysisInProgress[category] ? 'active' as const : 'pending' as const,
+        iteration: followUpQuestions[category]?.length || 0
+      },
+      associate: {
+        status: associateAnalysis[category]?.analysis ? 'complete' as const : associateAnalysis[category]?.isLoading ? 'active' as const : 'pending' as const,
+        iteration: followUpQuestions[category]?.length || 0
+      },
+      followUp: {
+        status: sentToAnalyst[category] ? 'complete' as const : followUpQuestions[category]?.length ? 'active' as const : 'pending' as const,
+        iteration: followUpQuestions[category]?.length || 0
+      }
+    };
+    
+    // Get current active iteration
+    const activeIteration = 0; // Default to the original analysis
+    
+    // Toggle expanded state of this section
+    const toggleExpanded = () => toggleAnalysisSection(category);
+    
+    const hasAnswers = categoryQuestions.some(question => 
+      analystQuestionAnswers[question]?.answer && !analystQuestionAnswers[question]?.isLoading
+    );
+    
+    const anyLoading = categoryQuestions.some(question => 
+      analystQuestionAnswers[question]?.isLoading
+    );
+    
+    // Determine if the associate analysis section is active
+    const canShowAssociate = analystCompleted[category];
+    
+    // Check if there are any follow-up questions
+    const hasFollowUp = followUpQuestions[category]?.length > 0;
+    
+    // Get iterations for this category
+    const iterations = workflowStatus[category]?.iterations || [];
+    
+    // Get the current active step
+    const currentStep = activeWorkflowStep[category] || 'analyst';
+    
+    // Render box content based on the active step
+    let contentToRender;
+    
+    // Iteration history component
+    const iterationHistoryComponent = iterations.length > 1 && (
+      <IterationHistory 
+        iterations={iterations}
+        activeIteration={activeIteration}
+        onSelectIteration={(index) => handleSelectIteration(category, index)}
+      />
+    );
+    
     return (
-      <div key={category} className="mb-8 border-2 rounded-lg shadow-sm bg-white overflow-hidden">
-        {/* Main question for this category */}
-        <div className="p-5 border-b-2">
-          <h3 className="text-xl font-medium">{category}: {pedramModeMainQuestions[category]}</h3>
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6 overflow-hidden">
+        {/* Header */}
+        <div 
+          className={`flex items-center justify-between p-4 ${collapsedBoxes[category] ? '' : 'border-b border-gray-200'}`}
+          onClick={toggleExpanded}
+        >
+          <div className="flex items-center">
+            <div className="mr-3">
+              {category === 'Finances' ? (
+                <DollarSign className="h-5 w-5 text-blue-600" />
+              ) : (
+                <GanttChart className="h-5 w-5 text-green-600" />
+              )}
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">{category}</h3>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button 
+              className="text-gray-400 hover:text-gray-600"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleBox(category);
+              }}
+            >
+              {collapsedBoxes[category] ? (
+                <ChevronDown className="h-5 w-5" />
+              ) : (
+                <ChevronUp className="h-5 w-5" />
+              )}
+            </button>
+          </div>
         </div>
         
-        {/* Associate Says section */}
-        <div className="border-b-2">
-          <div 
-            className={`flex justify-between items-center p-4 cursor-pointer ${
-              hasAssociateAnalysis ? 'bg-purple-100' : 'bg-gray-50'
-            }`}
-            onClick={() => toggleBox(associateSectionId)}
-          >
-            <h4 className="text-lg font-medium flex items-center">
-              <span className={hasAssociateAnalysis ? "text-purple-800" : "text-gray-800"}>Associate Says:</span>
-              {hasAssociateAnalysis && (
-                <span className="ml-2 px-2 py-0.5 bg-purple-200 text-purple-800 text-xs font-medium rounded-full">Rich Analysis</span>
-              )}
-            </h4>
-            <div className="flex gap-2 items-center">
-              {/* Add View Prompt button */}
-              {hasAssociateAnalysis && (
+        {!collapsedBoxes[category] && (
+          <div className="p-4">
+            {/* Workflow indicator */}
+            <WorkflowIndicator 
+              category={category}
+              analystState={workflowState.analyst}
+              associateState={workflowState.associate}
+              followUpState={workflowState.followUp}
+              onReset={() => resetWorkflowForCategory(category)}
+              onStepClick={(step) => handleWorkflowStepClick(category, step)}
+              activeStep={currentStep}
+            />
+            
+            {/* Iteration history if there are multiple iterations */}
+            {iterationHistoryComponent}
+            
+            {/* Action buttons */}
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              {!analystCompleted[category] && !analysisInProgress[category] && (
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    showPrompt(getAssociatePrompt(category), `Associate Prompt - ${category}`);
-                  }}
-                  className="flex items-center px-3 py-1.5 bg-gray-200 text-gray-700 border border-gray-300 rounded-md text-sm font-medium mr-2 hover:bg-gray-300 transition-colors shadow-sm"
+                  onClick={() => handleAskAnalyst(category)}
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
                 >
-                  <Eye size={16} className="mr-1" />
-                  <span>View Prompt</span>
+                  {hasAnswers ? <CheckCircle size={16} className="mr-2" /> : <FileText size={16} className="mr-2" />}
+                  {hasAnswers ? 'Complete Analysis' : 'Ask Analyst'}
                 </button>
               )}
               
-              {hasAssociateAnalysis ? (
+              {analysisInProgress[category] && (
+                <div className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md bg-blue-100 text-blue-800">
+                  <div className="animate-spin mr-2 h-4 w-4 border-2 border-current border-t-transparent rounded-full"></div>
+                  Processing...
+                </div>
+              )}
+              
+              {canShowAssociate && (
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAskAssociate(category);
-                  }}
-                  className="flex items-center px-3 py-1.5 bg-purple-200 text-purple-800 border border-purple-300 rounded-md text-sm font-medium mr-3 hover:bg-purple-300 transition-colors shadow-sm"
-                >
-                  <RefreshCw size={16} className="mr-1" />
-                  <span>Ask Again?</span>
-                </button>
-              ) : (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAskAssociate(category);
-                  }}
-                  disabled={!isAnalystComplete || isAssociateAnalyzing}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all mr-3 shadow-sm ${
-                    !isAnalystComplete || isAssociateAnalyzing
-                      ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-                      : 'bg-purple-200 text-purple-800 border border-purple-300 hover:bg-purple-300'
+                  onClick={() => handleAskAssociate(category)}
+                  disabled={associateAnalysis[category]?.isLoading}
+                  className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                    associateAnalysis[category]?.isLoading
+                      ? 'bg-purple-100 text-purple-400 cursor-not-allowed'
+                      : associateAnalysis[category]?.analysis
+                        ? 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200'
+                        : 'bg-purple-600 text-white hover:bg-purple-700'
                   }`}
                 >
-                  {isAssociateAnalyzing 
-                    ? 'Analyzing...' 
-                    : 'Ask Daniel'}
+                  {associateAnalysis[category]?.isLoading ? (
+                    <>
+                      <div className="animate-spin mr-2 h-4 w-4 border-2 border-current border-t-transparent rounded-full"></div>
+                      Evaluating...
+                    </>
+                  ) : associateAnalysis[category]?.analysis ? (
+                    <>
+                      <RefreshCw size={16} className="mr-2" />
+                      Re-evaluate
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare size={16} className="mr-2" />
+                      Ask Associate
+                    </>
+                  )}
                 </button>
               )}
-              {isAssociateSectionCollapsed ? <ChevronDown size={24} className="text-purple-800" /> : <ChevronUp size={24} className="text-purple-800" />}
-            </div>
-          </div>
-          {!isAssociateSectionCollapsed && (
-            <div className="p-6 bg-white bg-gradient-to-br from-white to-purple-50">
-              {isAssociateAnalyzing ? (
-                <div className="flex items-center space-x-3 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                  <div className="animate-spin h-5 w-5 border-2 border-purple-600 border-t-transparent rounded-full"></div>
-                  <span className="text-purple-800 font-medium">Associate is reviewing the analysis...</span>
-                </div>
-              ) : associateData?.error ? (
-                <div className="text-red-600 p-4 bg-red-50 rounded-lg border border-red-200">{associateData.error}</div>
-              ) : hasAssociateAnalysis ? (
-                <div className="prose prose-sm max-w-none">
-                  {renderAssociateAnalysis(associateData.analysis)}
-                </div>
-              ) : (
-                <p className="text-gray-600 italic bg-purple-50 p-4 rounded-lg border border-purple-100">
-                  {isAnalystComplete 
-                    ? "Click 'Ask Associate' to get the associate's perspective on the analyst's findings."
-                    : "Complete the analyst's analysis first to enable the associate's review."
-                  }
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-        
-        {/* Analyst Says section */}
-        <div>
-          <div 
-            className="flex justify-between items-center p-4 cursor-pointer bg-gray-50"
-            onClick={() => toggleBox(analystSectionId)}
-          >
-            <h4 className="text-lg font-medium">Analyst Says:</h4>
-            <div className="flex gap-2 items-center">
-              {isAnalystComplete ? (
+              
+              {hasFollowUp && !sentToAnalyst[category] && (
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAskAnalyst(category);
-                  }}
-                  className="flex items-center px-3 py-1.5 bg-blue-100 text-blue-700 border border-blue-200 rounded-md text-sm font-medium mr-3 hover:bg-blue-200 transition-colors shadow-sm"
+                  onClick={() => sendQuestionsToAnalyst(category)}
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md bg-amber-600 text-white hover:bg-amber-700"
                 >
-                  <RefreshCw size={16} className="mr-1" />
-                  <span>Ask Again?</span>
-                </button>
-              ) : (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAskAnalyst(category);
-                  }}
-                  disabled={isAnalyzing}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all mr-3 ${
-                    isAnalyzing 
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200'
-                  }`}
-                >
-                  {isAnalyzing 
-                    ? 'Analyzing...' 
-                    : 'Ask Harry'}
+                  <MessageSquare size={16} className="mr-2" />
+                  Send Follow-up Questions
                 </button>
               )}
-              {isAnalystSectionCollapsed ? <ChevronDown size={24} /> : <ChevronUp size={24} />}
+              
+              {/* Add "View Analysis Prompts" button */}
+              <button
+                onClick={() => showPrompt(getQuestionPrompt(categoryQuestions[0], category), `Analyst Prompt (${category})`)}
+                className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200"
+              >
+                <Eye size={16} className="mr-2" />
+                View Prompts
+              </button>
             </div>
-          </div>
-          
-          {!isAnalystSectionCollapsed && (
-            <div className="p-4 bg-white">
-              {isAnalyzing ? (
-                <div className="flex items-center space-x-2 p-4">
-                  <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-                  <span className="text-blue-600">Analyzing documents...</span>
+
+            {/* Content changes based on active step */}
+            {currentStep === 'analyst' && (
+              <div className="space-y-4 mt-6">
+                {/* Analysis Questions & Results */}
+                <div>
+                  <h3 className="text-md font-medium text-gray-700 mb-3">Analysis Questions</h3>
+                  {categoryQuestions.map((question, index) => (
+                    <div 
+                      key={`${category}-question-${index}`} 
+                      className="mb-4"
+                    >
+                      <QuestionAnalysisResult
+                        question={question}
+                        answer={analystQuestionAnswers[question] || { isLoading: false, answer: '', question }}
+                        renderMarkdown={renderMarkdown}
+                        onSaveAnswer={handleSaveManualAnswer}
+                        category={category}
+                      />
+                    </div>
+                  ))}
                 </div>
-              ) : !isAnalystComplete ? (
-                <p className="text-gray-500 italic">Click "Ask Analyst" to analyze the documents and answer questions.</p>
-              ) : (
+              </div>
+            )}
+            
+            {/* Associate Analysis */}
+            {currentStep === 'associate' && canShowAssociate && (
+              <div className="mt-6">
+                <div className="flex items-center mb-3">
+                  <h3 className="text-md font-medium text-gray-700">Associate Evaluation</h3>
+                  {associateAnalysis[category]?.analysis && (
+                    <span className="ml-2 bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">
+                      <CheckCircle size={12} className="inline mr-1" />
+                      Complete
+                    </span>
+                  )}
+                </div>
+                
+                {associateAnalysis[category]?.isLoading ? (
+                  <div className="flex items-center space-x-2 text-blue-600">
+                    <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                    <span>Associate is evaluating the analysis...</span>
+                  </div>
+                ) : associateAnalysis[category]?.analysis ? (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    {renderAssociateAnalysis(associateAnalysis[category]?.analysis)}
+                  </div>
+                ) : (
+                  <div className="text-gray-500 italic">
+                    No evaluation available. Click "Ask Associate" to get an evaluation.
+                  </div>
+                )}
+                
+                {/* Add "View Evaluation Prompt" button */}
+                {associateAnalysis[category]?.analysis && (
+                  <button
+                    onClick={() => showPrompt(getAssociatePrompt(category), `Associate Prompt (${category})`)}
+                    className="mt-3 inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200"
+                  >
+                    <Eye size={14} className="mr-2" />
+                    View Evaluation Prompt
+                  </button>
+                )}
+              </div>
+            )}
+            
+            {/* Follow-up Questions */}
+            {currentStep === 'followUp' && hasFollowUp && (
+              <div className="mt-6">
+                <h3 className="text-md font-medium text-gray-700 mb-3">Follow-up Questions</h3>
                 <div className="space-y-4">
-                  {categoryQuestions.map((question, index) => {
-                    const answer = analystQuestionAnswers[question] || {
-                      question,
-                      answer: '',
-                      isLoading: false
-                    };
-                    
-                    const questionId = `${category}-question-${index}`;
-                    const isQuestionCollapsed = collapsedBoxes[questionId] || false;
-                    const hasAnswer = !!answer.answer && !answer.isLoading;
+                  {followUpQuestions[category]?.map((question, index) => {
+                    // Get answer if it exists
+                    const existingAnswer = analystQuestionAnswers[question];
                     
                     return (
-                      <div 
-                        key={index} 
-                        className={`border rounded-lg overflow-hidden ${hasAnswer ? 'border-green-200' : 'border-gray-200'}`}
-                      >
-                        <div 
-                          className={`flex justify-between items-center p-3 cursor-pointer border-b ${
-                            hasAnswer ? 'bg-green-50' : 'bg-gray-50'
-                          }`}
-                          onClick={() => toggleBox(questionId)}
+                    <div key={index} className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <p className="text-sm font-medium text-amber-800 flex-grow">{question}</p>
+                        <button
+                          onClick={() => removeFollowUpQuestion(category, index)}
+                          className="text-amber-700 hover:text-amber-900 ml-2"
+                          title="Remove this question"
                         >
-                          <div className="flex items-center">
-                            {hasAnswer && (
-                              <Check size={16} className="text-green-500 mr-2" />
-                            )}
-                            <h5 className="font-medium">Question {index + 1}: {question}</h5>
+                          <X size={16} />
+                        </button>
+                      </div>
+                      
+                      {/* Manual answer field */}
+                      {!sentToAnalyst[category] && (
+                        <div className="mt-3">
+                          <label className="block text-xs font-medium text-amber-700 mb-1">
+                            Manual Answer
+                          </label>
+                          <textarea
+                            value={manualAnswers[question] || ''}
+                            onChange={(e) => setManualAnswers(prev => ({
+                              ...prev,
+                              [question]: e.target.value
+                            }))}
+                            placeholder="Type your answer here..."
+                            className="w-full px-3 py-2 border border-amber-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            rows={3}
+                          />
+                          <button
+                            onClick={() => handleSaveManualAnswer(question, manualAnswers[question] || '', category)}
+                            className="mt-2 inline-flex items-center px-2 py-1 text-xs font-medium rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300"
+                            disabled={!manualAnswers[question]?.trim()}
+                          >
+                            <Check size={12} className="mr-1" />
+                            Save Answer
+                          </button>
+                        </div>
+                      )}
+                      
+                      {/* Show answer if it exists */}
+                      {existingAnswer?.answer && (
+                        <div className="mt-3 bg-white p-3 rounded-md border border-amber-200">
+                          <div className="flex items-center mb-1">
+                            <span className="text-xs font-medium text-amber-800">
+                              {existingAnswer.isFollowUp ? 'Follow-up Answer' : 'Original Answer'}
+                            </span>
                           </div>
-                          <div className="flex items-center">
-                            {/* Add View Prompt button for each question */}
-                            {hasAnswer && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  showPrompt(getQuestionPrompt(question, category), `Question Prompt: ${question}`);
-                                }}
-                                className="flex items-center px-2 py-1 bg-gray-200 text-gray-700 border border-gray-300 rounded-md text-sm font-medium mr-2 hover:bg-gray-300 transition-colors"
-                              >
-                                <Eye size={14} className="mr-1" />
-                                <span>Prompt</span>
-                              </button>
-                            )}
-                            {isQuestionCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
-                          </div>
+                          {renderMarkdown(existingAnswer.answer)}
+                        </div>
+                      )}
+                    </div>
+                  )})}
+                </div>
+                
+                {/* Answer action buttons */}
+                {!sentToAnalyst[category] && followUpQuestions[category]?.length > 0 && (
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <button
+                      onClick={() => sendQuestionsToAnalyst(category)}
+                      className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md bg-amber-600 text-white hover:bg-amber-700"
+                    >
+                      <Send size={16} className="mr-2" />
+                      Send All to Analyst AI
+                    </button>
+                    
+                    <button
+                      onClick={() => processFollowUpWithAnalyst(category)}
+                      className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                    >
+                      <MessageSquare size={16} className="mr-2" />
+                      Process with Analyst AI
+                    </button>
+                  </div>
+                )}
+                
+                {/* Add Analyze Answers button and results section */}
+                {sentToAnalyst[category] && analystCompleted[category] && (
+                  <div className="mt-4">
+                    {!followUpAnalysisResults[category]?.analysis && !followUpAnalysisInProgress[category] && (
+                      <button
+                        onClick={() => analyzeFollowUpAnswers(category)}
+                        className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                      >
+                        <FileSpreadsheet size={16} className="mr-2" />
+                        Analyze Answers
+                      </button>
+                    )}
+                    
+                    {followUpAnalysisInProgress[category] && (
+                      <div className="mt-4 flex items-center px-3 py-2 text-sm font-medium rounded-md bg-blue-100 text-blue-800 w-fit">
+                        <div className="animate-spin mr-2 h-4 w-4 border-2 border-current border-t-transparent rounded-full"></div>
+                        Analyzing Follow-up Answers...
+                      </div>
+                    )}
+                    
+                    {followUpAnalysisResults[category]?.analysis && (
+                      <div className="mt-4">
+                        <h4 className="font-medium text-blue-800 mb-2">Follow-up Analysis:</h4>
+                        <div className="bg-white p-4 rounded-lg border border-blue-200">
+                          {renderMarkdown(followUpAnalysisResults[category].analysis)}
                         </div>
                         
-                        {!isQuestionCollapsed && (
-                          <div className="p-3">
-                            {answer.isLoading ? (
-                              <div className="flex items-center space-x-2">
-                                <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-                                <span className="text-blue-600">Analyzing documents...</span>
-                              </div>
-                            ) : answer.error ? (
-                              <div className="text-red-600">{answer.error}</div>
-                            ) : answer.answer ? (
-                              <div className="text-gray-800 prose prose-sm max-w-none">
-                                {answer.answer.split('# ').map((section, idx) => {
-                                  if (idx === 0) return null; // Skip empty first part
-                                  
-                                  const [title, ...content] = section.split('\n');
-                                  const sectionContent = content.join('\n').trim();
-                                  
-                                  return (
-                                    <div key={idx} className="mb-4">
-                                      <h3 className="text-md font-semibold mb-2">{title}</h3>
-                                      <div className="prose prose-sm max-w-none">
-                                        {renderMarkdown(sectionContent)}
-                                        </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <div className="text-gray-500">Waiting for analysis...</div>
-                            )}
-                          </div>
-                        )}
+                        <button
+                          onClick={() => handleReEvaluate(category)}
+                          className="mt-4 inline-flex items-center px-3 py-2 text-sm font-medium rounded-md bg-purple-600 text-white hover:bg-purple-700"
+                        >
+                          <RefreshCw size={16} className="mr-2" />
+                          Re-Evaluate
+                        </button>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+                    )}
+                    
+                    {followUpAnalysisResults[category]?.error && (
+                      <div className="text-red-600 mt-2">
+                        {followUpAnalysisResults[category].error}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -2499,8 +3175,615 @@ Your response should read like a crisp, authoritative investment decision from a
     }
   };
 
+  // Function to extract follow-up questions from Associate analysis
+  const extractFollowUpQuestions = (analysis: string): string[] => {
+    if (!analysis) return [];
+    
+    // Check if analysis contains "Additional Analyst Research Required"
+    if (!analysis.includes('Additional Analyst Research Required')) {
+      return [];
+    }
+    
+    try {
+      // Look for the numbered questions after "Additional Analyst Research Required"
+      const questionsSection = analysis.split('Additional Analyst Research Required')[1];
+      const questions: string[] = [];
+      
+      // Match numbered list items (e.g., "1. What is the ARR?")
+      const questionRegex = /\d+\.\s+([^\n]+)/g;
+      let match;
+      
+      while ((match = questionRegex.exec(questionsSection)) !== null) {
+        if (match[1] && match[1].trim()) {
+          questions.push(match[1].trim());
+        }
+        
+        // Limit to 3 questions
+        if (questions.length >= 3) break;
+      }
+      
+      return questions;
+    } catch (error) {
+      console.error('Error extracting follow-up questions:', error);
+      return [];
+    }
+  };
+
+  // Function to send follow-up questions to the analyst
+  const sendQuestionsToAnalyst = (category: string) => {
+    const questions = followUpQuestions[category] || [];
+    if (questions.length === 0) return;
+    
+    // Calculate the current iteration index
+    // Find the maximum iterationIndex from existing answers
+    let maxIterationIndex = 0;
+    Object.values(analystQuestionAnswers).forEach(answer => {
+      if (answer.iterationIndex !== undefined && answer.iterationIndex > maxIterationIndex) {
+        maxIterationIndex = answer.iterationIndex;
+      }
+    });
+    const currentIterationIndex = maxIterationIndex + 1;
+    
+    // Add the follow-up questions to the existing category questions
+    const updatedQuestions = [
+      ...PEDRAM_MODE_QUESTIONS[category as keyof typeof PEDRAM_MODE_QUESTIONS] || [],
+      ...questions
+    ];
+    
+    // Update PEDRAM_MODE_QUESTIONS object
+    PEDRAM_MODE_QUESTIONS[category as keyof typeof PEDRAM_MODE_QUESTIONS] = updatedQuestions;
+    
+    // Mark questions as follow-ups in the tracking state
+    questions.forEach(question => {
+      // Initialize the question in analystQuestionAnswers with follow-up metadata
+      setAnalystQuestionAnswers(prev => ({
+        ...prev,
+        [question]: {
+          question,
+          answer: '',
+          isLoading: false, // Not loading yet, will be set when processing starts
+          isFollowUp: true,
+          iterationIndex: currentIterationIndex
+        }
+      }));
+    });
+    
+    // Mark as sent
+    setSentToAnalyst(prev => ({
+      ...prev,
+      [category]: true
+    }));
+    
+    // Update workflow status
+    setWorkflowStatus(prev => {
+      // Create a new iteration in the iterations array
+      const updatedIterations = [...prev[category].iterations];
+      updatedIterations.push({
+        index: currentIterationIndex,
+        questions: questions,
+        timestamp: new Date().toISOString(),
+        isComplete: false
+      });
+      
+      return {
+        ...prev,
+        [category]: {
+          ...prev[category],
+          analyst: { 
+            status: 'pending', 
+            iteration: currentIterationIndex 
+          },
+          associate: { 
+            status: 'pending', 
+            iteration: prev[category].associate.iteration 
+          },
+          followUp: { 
+            status: 'complete', 
+            iteration: prev[category].followUp.iteration 
+          },
+          iterations: updatedIterations,
+          activeIteration: currentIterationIndex
+        }
+      };
+    });
+    
+    console.log(`Sent ${questions.length} follow-up questions to analyst for ${category}. Iteration: ${currentIterationIndex}`);
+
+    // Immediately process the follow-up questions with the Analyst
+    processQuestionsForCategory(category);
+  };
+
+  // Function to switch between iterations
+  const handleSelectIteration = (category: string, iterationIndex: number) => {
+    setWorkflowStatus(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        activeIteration: iterationIndex
+      }
+    }));
+  };
+
+  // Function to reset workflow state for a category
+  const resetWorkflowForCategory = (category: string) => {
+    setWorkflowStatus(prev => ({
+      ...prev,
+      [category]: {
+        analyst: { status: 'pending', iteration: 0 },
+        associate: { status: 'pending', iteration: 0 },
+        followUp: { status: 'pending', iteration: 0 },
+        iterations: [{ index: 0, questions: [], isComplete: false }],
+        activeIteration: 0
+      }
+    }));
+    
+    // Reset other related state
+    setFollowUpQuestions(prev => {
+      const updated = { ...prev };
+      delete updated[category];
+      return updated;
+    });
+    
+    setSentToAnalyst(prev => ({
+      ...prev,
+      [category]: false
+    }));
+    
+    // Reset category questions to original set (remove follow-up questions)
+    if (category === 'Finances') {
+      PEDRAM_MODE_QUESTIONS.Finances = [
+        "What is the current Annual Recurring Revenue (ARR) of the company?",
+        "What is the Year-over-Year (YoY) growth rate?",
+        "What is the target valuation for the company?",
+        "What is the current monthly cash burn rate?",
+        "How much runway does the company have?",
+        "What is the company's funding history?"
+      ];
+    } else if (category === 'Market Research') {
+      PEDRAM_MODE_QUESTIONS['Market Research'] = [
+        "Who are the company's key customers?",
+        "What is the total addressable market (TAM) for the company's product or service, and what is the projected growth rate of this market over the next 5-10 years?",
+        "What regulatory or legal factors could impact the company's operations or the market as a whole, and how is the company positioned to navigate these challenges?",
+        "What are the key trends or technological advancements shaping the market, and how is the company leveraging or adapting to these trends?",
+        "Who are the main competitors?"
+      ];
+    }
+    
+    // Reset analyst completion status for this category
+    setAnalystCompleted(prev => ({
+      ...prev,
+      [category]: false
+    }));
+    
+    // Reset associate analysis
+    setAssociateAnalysis(prev => {
+      const updated = { ...prev };
+      delete updated[category];
+      return updated;
+    });
+    
+    // Remove answers for this category's questions
+    const categoryQuestions = PEDRAM_MODE_QUESTIONS[category as keyof typeof PEDRAM_MODE_QUESTIONS] || [];
+    const updatedAnswers = { ...analystQuestionAnswers };
+    
+    categoryQuestions.forEach(question => {
+      if (updatedAnswers[question]) {
+        delete updatedAnswers[question];
+      }
+    });
+    
+    setAnalystQuestionAnswers(updatedAnswers);
+    
+    console.log(`Reset workflow for ${category}`);
+  };
+
+  // Add workflow tracking state
+  const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus>({
+    'Finances': {
+      analyst: { status: 'pending', iteration: 0 },
+      associate: { status: 'pending', iteration: 0 },
+      followUp: { status: 'pending', iteration: 0 },
+      iterations: [{ index: 0, questions: [], isComplete: false }],
+      activeIteration: 0
+    },
+    'Market Research': {
+      analyst: { status: 'pending', iteration: 0 },
+      associate: { status: 'pending', iteration: 0 },
+      followUp: { status: 'pending', iteration: 0 },
+      iterations: [{ index: 0, questions: [], isComplete: false }],
+      activeIteration: 0
+    }
+  });
+
+  // Track the active workflow step for each category
+  const [activeWorkflowStep, setActiveWorkflowStep] = useState<Record<string, 'analyst' | 'associate' | 'followUp'>>({
+    'Finances': 'analyst',
+    'Market Research': 'analyst'
+  });
+
+  // Handle workflow step click
+  const handleWorkflowStepClick = (category: string, step: 'analyst' | 'associate' | 'followUp') => {
+    // Only allow clicking on steps that are not pending
+    const stepStatus = workflowStatus[category][step].status;
+    if (stepStatus === 'pending') return;
+    
+    setActiveWorkflowStep(prev => ({
+      ...prev,
+      [category]: step
+    }));
+  };
+
+  // Add a function to remove a specific follow-up question
+  const removeFollowUpQuestion = (categoryName: string, questionIndex: number) => {
+    setFollowUpQuestions(prev => {
+      // Get the current questions for this category
+      const questions = [...(prev[categoryName] || [])];
+      
+      // Remove the question at the specified index
+      questions.splice(questionIndex, 1);
+      
+      // If there are no more questions, remove the category entirely
+      if (questions.length === 0) {
+        const updatedFollowUpQuestions = { ...prev };
+        delete updatedFollowUpQuestions[categoryName];
+        return updatedFollowUpQuestions;
+      }
+      
+      // Otherwise, update with the filtered questions
+      return {
+        ...prev,
+        [categoryName]: questions
+      };
+    });
+  };
+
+  // Add new state for follow-up analysis
+  const [followUpAnalysisInProgress, setFollowUpAnalysisInProgress] = useState<Record<string, boolean>>({
+    'Finances': false,
+    'Market Research': false
+  });
+
+  const [followUpAnalysisResults, setFollowUpAnalysisResults] = useState<Record<string, { 
+    analysis: string; 
+    isLoading: boolean; 
+    error?: string 
+  }>>({});
+
+  // Function to analyze follow-up answers
+  const analyzeFollowUpAnswers = async (category: string) => {
+    try {
+      // Update state to show loading
+      setFollowUpAnalysisInProgress(prev => ({ ...prev, [category]: true }));
+      
+      setFollowUpAnalysisResults(prev => ({
+        ...prev,
+        [category]: {
+          analysis: '',
+          isLoading: true
+        }
+      }));
+      
+      // Get the follow-up questions for this category
+      const followUpQuestionsForCategory = followUpQuestions[category] || [];
+      
+      // Prepare data object with all questions and answers
+      const questionsData = {
+        question: `Analyze the follow-up questions and answers for ${category}`,
+        files,
+        model: "default" // This will use both PDF_MODEL and EXCEL_MODEL internally
+      };
+      
+      // Call the analyze API endpoint
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(questionsData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      // Clean the response to remove thinking sections
+      const cleanedAnalysis = cleanAIResponse(result.answer);
+      
+      // Update state with the analysis
+      setFollowUpAnalysisResults(prev => ({
+        ...prev,
+        [category]: {
+          analysis: cleanedAnalysis,
+          isLoading: false
+        }
+      }));
+      
+      // Update workflow status for follow-up analysis completed
+      setWorkflowStatus(prev => ({
+        ...prev,
+        [category]: {
+          ...prev[category],
+          followUp: { 
+            status: 'complete', 
+            iteration: prev[category].followUp.iteration 
+          }
+        }
+      }));
+      
+      // Set the followUpAnalysisInProgress to false
+      setFollowUpAnalysisInProgress(prev => ({ ...prev, [category]: false }));
+      
+      return cleanedAnalysis;
+    } catch (error) {
+      console.error(`Error analyzing follow-up answers for ${category}:`, error);
+      
+      // Update state to show error
+      setFollowUpAnalysisResults(prev => ({
+        ...prev,
+        [category]: {
+          analysis: '',
+          isLoading: false,
+          error: 'Failed to analyze follow-up answers. Please try again.'
+        }
+      }));
+      
+      // Update workflow status for error
+      setWorkflowStatus(prev => ({
+        ...prev,
+        [category]: {
+          ...prev[category],
+          followUp: { 
+            status: 'error', 
+            iteration: prev[category].followUp.iteration 
+          }
+        }
+      }));
+      
+      // Set the followUpAnalysisInProgress to false
+      setFollowUpAnalysisInProgress(prev => ({ ...prev, [category]: false }));
+      
+      return null;
+    }
+  };
+
+  // Function to handle Re-Evaluate click
+  const handleReEvaluate = async (category: string) => {
+    try {
+      // Get the follow-up questions and answers
+      const followUpQuestionsForCategory = followUpQuestions[category] || [];
+      
+      // Get the follow-up answers
+      const followUpAnswersForCategory: Record<string, any> = {};
+      followUpQuestionsForCategory.forEach(question => {
+        if (analystQuestionAnswers[question]) {
+          followUpAnswersForCategory[question] = analystQuestionAnswers[question];
+        }
+      });
+      
+      // Get the original questions and answers
+      const originalQuestions = PEDRAM_MODE_QUESTIONS[category as keyof typeof PEDRAM_MODE_QUESTIONS]
+        .filter(q => !followUpQuestionsForCategory.includes(q));
+      
+      const originalAnswers: Record<string, any> = {};
+      originalQuestions.forEach(question => {
+        if (analystQuestionAnswers[question]) {
+          originalAnswers[question] = analystQuestionAnswers[question];
+        }
+      });
+      
+      // Call process-follow-up API to re-evaluate with both sets of questions
+      const response = await fetch('/api/process-follow-up', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          category,
+          originalQuestions,
+          followUpQuestions: followUpQuestionsForCategory,
+          originalAnswers,
+          followUpAnswers: followUpAnswersForCategory
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      // Update associate analysis with the consolidated analysis
+      setAssociateAnalysis(prev => ({
+        ...prev,
+        [category]: {
+          analysis: result.analysis,
+          isLoading: false
+        }
+      }));
+      
+      // Switch back to the associate view
+      setActiveWorkflowStep(prev => ({
+        ...prev,
+        [category]: 'associate'
+      }));
+      
+      // Auto-expand associate section
+      toggleBox(`${category}-associate`);
+      
+      console.log(`Re-evaluated analysis for ${category} with follow-up answers`);
+    } catch (error) {
+      console.error(`Error re-evaluating for ${category}:`, error);
+    }
+  };
+
+  // Add new state for manual answers
+  const [manualAnswers, setManualAnswers] = useState<Record<string, string>>({});
+
+  // Function to handle saving manual answers
+  const handleSaveManualAnswer = (question: string, answer: string, category: string) => {
+    // Update the manualAnswers state
+    setManualAnswers(prev => ({
+      ...prev,
+      [question]: answer
+    }));
+    
+    // Store this answer in the analystQuestionAnswers state with follow-up metadata
+    setAnalystQuestionAnswers(prev => ({
+      ...prev,
+      [question]: {
+        question,
+        answer,
+        isLoading: false,
+        isFollowUp: true,
+        iterationIndex: workflowStatus[category].activeIteration || 0
+      }
+    }));
+    
+    console.log(`Saved manual answer for question: ${question}`);
+  };
+
+  // Function to process only follow-up questions with the Analyst
+  const processFollowUpWithAnalyst = async (category: string) => {
+    try {
+      const questions = followUpQuestions[category] || [];
+      if (questions.length === 0) return;
+      
+      // Calculate the current iteration index
+      const currentIterationIndex = workflowStatus[category].activeIteration || 0;
+      
+      // Mark as sent
+      setSentToAnalyst(prev => ({
+        ...prev,
+        [category]: true
+      }));
+      
+      // Process each follow-up question
+      for (const question of questions) {
+        // Skip if there's already a non-empty answer
+        if (analystQuestionAnswers[question]?.answer) continue;
+        
+        console.log(`Processing follow-up question: ${question}`);
+        
+        // Update state to show loading
+        setAnalystQuestionAnswers(prev => ({
+          ...prev,
+          [question]: {
+            ...prev[question],
+            isLoading: true,
+            isFollowUp: true,
+            iterationIndex: currentIterationIndex
+          }
+        }));
+        
+        try {
+          // Prepare file contents for API
+          const fileContents = files.map(file => {
+            return {
+              name: file.name,
+              type: file.type,
+              content: file.content || 'Content not available'
+            };
+          });
+          
+          // Add specific instructions to ensure we get a direct answer without thinking
+          const instructions = `
+You are answering a specific follow-up question in an investment analysis.
+Focus ONLY on answering the question directly based on the documents.
+DO NOT include your reasoning process or thinking steps.
+DO NOT explain your methodology.
+DO NOT include any meta-analysis about how you're approaching the question.
+`;
+          
+          // Call the analyze API endpoint with explicit instructions
+          const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              question: question,
+              files: fileContents,
+              instructions: instructions,
+              // Send recommended file types hint to help the arbiter
+              recommended: ['excel', 'pdf'] 
+            })
+          });
+          
+          console.log(`%c[Follow-Up Analysis] Processing question "${question}" using all models (PDF, Excel, and Arbiter)`, 
+            'background: #e6f7ff; color: #0066cc; font-weight: bold; padding: 2px 5px; border-radius: 3px;');
+          
+          if (!response.ok) {
+            throw new Error(`Error: ${response.status}`);
+          }
+          
+          const result = await response.json();
+          
+          // Clean the answer to remove thinking sections and keep only structured content
+          const cleanAnswer = cleanAIResponse(result.answer);
+          
+          // Update state with the clean answer
+          setAnalystQuestionAnswers(prev => ({
+            ...prev,
+            [question]: {
+              ...prev[question],
+              answer: cleanAnswer,
+              isLoading: false,
+              error: undefined
+            }
+          }));
+        } catch (error) {
+          console.error(`Error processing follow-up question: ${question}`, error);
+          
+          // Update state with the error
+          setAnalystQuestionAnswers(prev => ({
+            ...prev,
+            [question]: {
+              ...prev[question],
+              isLoading: false,
+              error: `Failed to process question: ${error}`
+            }
+          }));
+        }
+      }
+      
+      // Mark the category as complete
+      setAnalystCompleted(prev => ({
+        ...prev,
+        [category]: true
+      }));
+      
+      // Check if all follow-up questions have been answered
+      const allAnswered = questions.every(q => analystQuestionAnswers[q]?.answer);
+      
+      if (allAnswered) {
+        // Update workflow status
+        setWorkflowStatus(prev => ({
+          ...prev,
+          [category]: {
+            ...prev[category],
+            analyst: { 
+              status: 'complete', 
+              iteration: currentIterationIndex 
+            },
+            followUp: { 
+              status: 'complete', 
+              iteration: prev[category].followUp.iteration 
+            }
+          }
+        }));
+      }
+      
+      console.log(`Completed processing follow-up questions for ${category}`);
+    } catch (error) {
+      console.error(`Error in processFollowUpWithAnalyst for ${category}:`, error);
+    }
+  };
+
+  // Return statement at the end of the component
   return (
-    <div className="w-full">
+    <div className="max-w-5xl mx-auto pb-12">
       <div className="flex flex-col mb-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -2655,7 +3938,14 @@ Your response should read like a crisp, authoritative investment decision from a
           {/* Top-level question for Pedram Mode with Ask Pedram button */}
           <div className="mb-8 p-5 bg-purple-50 border-2 border-purple-200 rounded-lg">
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-purple-800">Should this company go to the next stage?</h2>
+              <div className="flex items-center">
+                <h2 className="text-xl font-semibold text-purple-800">Should this company go to the next stage?</h2>
+                {modelInfo.pedram.id.includes(":thinking") && (
+                  <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
+                    Thinking Model
+                  </span>
+                )}
+              </div>
               
               <div className="flex items-center">
                 {/* Add View Prompt button for Pedram */}
@@ -2675,23 +3965,40 @@ Your response should read like a crisp, authoritative investment decision from a
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                     !canAskPedram()
                       ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-                      : 'bg-purple-600 text-white hover:bg-purple-700'
+                      : pedramDecision.isLoading
+                        ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                        : 'bg-purple-600 text-white hover:bg-purple-700'
                   }`}
                 >
                   {pedramDecision.isLoading 
-                    ? 'Analyzing...' 
+                    ? (
+                      <span className="flex items-center">
+                        <div className="animate-spin mr-2 h-4 w-4 border-2 border-current border-t-transparent rounded-full"></div>
+                        Analyzing...
+                      </span>
+                    ) 
                     : pedramDecision.decision 
-                      ? 'Update Decision' 
-                      : 'Ask Pedram'}
+                      ? 'Refresh Decision' 
+                      : 'Ask Partner'}
                 </button>
               </div>
             </div>
             
+            {/* Descriptive text about the function */}
+            {!pedramDecision.isLoading && !pedramDecision.decision && !pedramDecision.error && (
+              <p className="mt-2 text-sm text-purple-600">
+                The Partner will review the financial and market analyses to determine if this investment opportunity should proceed to the next stage.
+              </p>
+            )}
+            
             {/* Pedram's Decision Display */}
             {pedramDecision.isLoading ? (
-              <div className="flex items-center space-x-2 mt-4 p-4 bg-white rounded-lg border border-purple-200">
-                <div className="animate-spin h-5 w-5 border-2 border-purple-600 border-t-transparent rounded-full"></div>
-                <span className="text-purple-600">Pedram is making the final decision...</span>
+              <div className="flex flex-col items-center space-y-4 mt-6 p-6 bg-white rounded-lg border border-purple-200">
+                <div className="animate-spin h-8 w-8 border-3 border-purple-600 border-t-transparent rounded-full"></div>
+                <p className="text-purple-600 font-medium">Partner is making the final investment decision...</p>
+                {modelInfo.pedram.id.includes(":thinking") && (
+                  <p className="text-sm text-purple-500 italic">Using the thinking model to provide a detailed investment analysis</p>
+                )}
               </div>
             ) : pedramDecision.error ? (
               <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">
@@ -2699,7 +4006,7 @@ Your response should read like a crisp, authoritative investment decision from a
                 <p>{pedramDecision.error}</p>
               </div>
             ) : pedramDecision.decision ? (
-              <div className="mt-4 bg-white rounded-lg border border-purple-200 overflow-hidden">
+              <div className="mt-4 bg-white rounded-lg border border-purple-200 overflow-hidden shadow-md">
                 <div className="prose prose-sm max-w-none p-6">
                   {renderPedramDecision(pedramDecision.decision)}
                 </div>

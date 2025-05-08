@@ -24,21 +24,22 @@ export const pedramAnswerService = {
    * @returns Promise with the response
    */
   sendMessage: async (prompt: string, files: File[], model?: string): Promise<Response> => {
-    // Use the standard answerService but ignore the model parameter for now
-    // The model parameter is used in the component but answerService uses fastMode boolean
-    return answerService.sendMessage(prompt, files, false);
+    // Use the standard answerService with the provided model or default
+    return answerService.sendMessage(prompt, files, false, model);
   },
 
   /**
    * Sends a message to a high quality model for generating complete analysis
    * 
    * @param prompt The prompt to send
-   * @param model Optional model name to use (ignored currently)
+   * @param model Optional model name to use
    * @returns Promise with the response
    */
   sendHighQualityMessage: async (prompt: string, model?: string): Promise<Response> => {
-    // Call regular sendMessage with empty files array since we're just generating a memo
-    // from already processed data, not analyzing files directly
-    return answerService.sendMessage(prompt, [], false);
+    // Use anthropic/claude-3.7-sonnet:thinking by default for high quality responses
+    const modelToUse = model || "anthropic/claude-3.7-sonnet:thinking";
+    
+    // Call regular sendMessage with empty files array and the specified model
+    return answerService.sendMessage(prompt, [], false, modelToUse);
   }
 }; 

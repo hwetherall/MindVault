@@ -33,6 +33,23 @@ export async function callOpenRouterAPI(
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
       
+      // Determine if we're using a thinking model
+      const isThinkingModel = model.includes(':thinking');
+      
+      // Create the request body with appropriate configuration
+      const requestBody: any = {
+        model,
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+      };
+      
+      // Add special configuration for thinking models
+      if (isThinkingModel) {
+        requestBody.stop_sequences = ["</answer>"];
+        requestBody.top_p = 0.9;
+      }
+      
       // Make the request to the OpenRouter API
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -42,12 +59,7 @@ export async function callOpenRouterAPI(
           'HTTP-Referer': 'https://mindvault.app',
           'X-Title': 'MindVault Investment Memo'
         },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature,
-          max_tokens: maxTokens,
-        }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal
       });
       
@@ -71,7 +83,23 @@ export async function callOpenRouterAPI(
       }
       
       const result = await response.json();
-      return result.choices[0].message.content;
+      const responseContent = result.choices[0].message.content;
+      
+      // For thinking models, extract the final answer if available
+      if (isThinkingModel) {
+        // Look for <answer>...</answer> tags
+        const answerMatch = responseContent.match(/<answer>([\s\S]*?)<\/answer>/);
+        if (answerMatch && answerMatch[1]) {
+          console.log("Extracted final answer from thinking model output");
+          return answerMatch[1].trim();
+        }
+        
+        // If no tags but we have recognizable structure, return as is
+        // The rendering function will handle further cleanup
+        console.log("Thinking model response doesn't contain explicit answer tags");
+      }
+      
+      return responseContent;
       
     } catch (error) {
       lastError = error;

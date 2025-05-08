@@ -12,8 +12,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { financeAnalysis, marketAnalysis, files, model, benchmarkEnabled, benchmarkCompanyId } = body;
     
-    // Use the model specified in the request, or default to grok-3-beta if not provided
-    const modelToUse = model || "x-ai/grok-3-beta";
+    // Use the model specified in the request, or default to Claude 3.7 if not provided
+    const modelToUse = model || "anthropic/claude-3.7-sonnet:thinking";
     
     console.log(`Using model: ${modelToUse} for Pedram decision`);
     
@@ -170,11 +170,19 @@ IMPORTANT: Do not include any introduction or summary paragraph at the beginning
 Make your assessment direct, insightful, and decisive as a top-tier VC partner would.
 `;
     
+    // Specific system message for Claude thinking model
+    const systemMessage = modelToUse.includes(':thinking')
+      ? 'You are Pedram, a highly experienced VC Partner making the final investment decision. Skip any introduction and start directly with the structured analysis, using the exact heading format provided in the user prompt. For any benchmark comparisons, maintain the precise formatting structure with proper headings and bullet points.'
+      : 'You are Pedram, a highly experienced VC Partner making the final investment decision. Skip any introduction and start directly with the structured analysis. When creating benchmark comparisons, follow the EXACT formatting structure provided in the prompt, with headings like "### Financial Metrics" followed by "**Go1:**" and bullet point lists. This precise formatting is absolutely critical for proper display of the comparison.';
+
     // Use the shared OpenRouter API client with the specified model
+    // Increase max tokens for thinking model to capture all thought process
+    const maxTokens = modelToUse.includes(':thinking') ? 4000 : 2000;
+    
     const decision = await callOpenRouterAPI([
-      { role: 'system', content: 'You are Pedram, a highly experienced VC Partner making the final investment decision. Skip any introduction and start directly with the structured analysis. When creating benchmark comparisons, follow the EXACT formatting structure provided in the prompt, with headings like "### Financial Metrics" followed by "**Go1:**" and bullet point lists. This precise formatting is absolutely critical for proper display of the comparison.' },
+      { role: 'system', content: systemMessage },
       { role: 'user', content: prompt }
-    ], modelToUse, 0.4, 2000);
+    ], modelToUse, 0.4, maxTokens);
     
     return NextResponse.json({ decision });
   } catch (error) {

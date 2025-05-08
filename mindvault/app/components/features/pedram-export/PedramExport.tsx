@@ -203,7 +203,7 @@ an investor make an informed decision about this opportunity.
       `;
 
       // Call the high-quality LLM to generate the memo
-      const response = await pedramAnswerService.sendHighQualityMessage(memoPrompt, 'deepseek-r1-distill-llama-70b');
+      const response = await pedramAnswerService.sendHighQualityMessage(memoPrompt, 'anthropic/claude-3.7-sonnet:thinking');
       
       // Update state with the generated memo
       setProgress(prev => ({ 

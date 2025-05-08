@@ -255,9 +255,9 @@ function estimateTokens(text, model = "deepseek-r1-distill-llama-70b") {
 }
 
 export const answerService = {
-  async sendMessage(message, files = [], fastMode = false) {
+  async sendMessage(message, files = [], fastMode = false, customModel = null) {
     try {
-      console.log(`Processing request with ${files.length} files, fastMode: ${fastMode}`);
+      console.log(`Processing request with ${files.length} files, fastMode: ${fastMode}, customModel: ${customModel}`);
       
       // Start timing the request
       const startTime = Date.now();
@@ -501,8 +501,8 @@ export const answerService = {
       console.log("Sending request to AI API...");
       
       try {
-        // Select model based on fast mode
-        const model = fastMode ? "llama-3.1-8b-instant" : "deepseek-r1-distill-llama-70b";
+        // Select model based on custom model parameter or fall back to fast mode selection
+        const model = customModel || (fastMode ? "llama-3.1-8b-instant" : "deepseek-r1-distill-llama-70b");
         console.log(`Using model: ${model}`);
         
         const response = await callLlm([
@@ -643,7 +643,7 @@ export const answerService = {
         return {
           text: "I apologize, but I encountered an issue while analyzing your documents. This could be due to the complexity or size of the files. You might try asking about a more specific aspect of the documents.",
           error: apiError.message,
-          modelUsed: model,
+          modelUsed: customModel || model,
           timeTaken: Date.now() - startTime,
           messageLength: estimateTokens(fullMessage, model),
           answerLength: 0,
@@ -659,7 +659,7 @@ export const answerService = {
       return {
         text: "I'm sorry, but I encountered a technical issue while processing your request. Please try again or ask a more specific question about your documents.",
         error: error.message,
-        modelUsed: fastMode ? "llama-3.1-8b-instant" : "deepseek-r1-distill-llama-70b",
+        modelUsed: customModel || (fastMode ? "llama-3.1-8b-instant" : "deepseek-r1-distill-llama-70b"),
         timeTaken: Date.now() - startTime,
         messageLength: estimateTokens(message, model),
         answerLength: 0,
