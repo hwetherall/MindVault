@@ -1844,6 +1844,293 @@ Your response should read like a crisp, authoritative investment decision from a
     return <div dangerouslySetInnerHTML={{ __html: processedLines.join('') }} />;
   };
 
+  // Enhanced function for rendering Pedram decision with section-specific styling
+  const renderPedramDecision = (content: string) => {
+    if (!content) return null;
+    
+    // Process the markdown text to convert simple markdown to JSX - same as original
+    const processText = (text: string) => {
+      // Auto-enhance numbers and percentages
+      const enhancedText = text.replace(/(\$\d+(?:\.\d+)?(?:K|M|B)?|\d+(?:\.\d+)?%|\d+(?:\,\d+)+)/g, '<span class="font-semibold text-purple-900">$1</span>');
+      
+      // Replace **bold** with styled spans
+      let processedText = enhancedText.replace(/\*\*(.*?)\*\*/g, '<span class="font-bold text-purple-800">$1</span>');
+      
+      // Replace __underline__ with styled spans
+      processedText = processedText.replace(/__(.*?)__/g, '<span class="underline decoration-purple-500 decoration-2">$1</span>');
+      
+      // Replace *italic* with styled spans
+      processedText = processedText.replace(/\*(.*?)\*/g, '<span class="italic text-purple-700">$1</span>');
+      
+      // Replace `code` with styled spans
+      processedText = processedText.replace(/`(.*?)`/g, '<span class="bg-gray-100 text-purple-800 px-1 py-0.5 rounded font-mono text-sm">$1</span>');
+      
+      // Create links
+      processedText = processedText.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" class="text-blue-600 underline hover:text-blue-800" target="_blank">$1</a>');
+      
+      return processedText;
+    };
+    
+    // Extract sections using regex to match "## Section Title" patterns
+    const sections: {title: string, content: string}[] = [];
+    const sectionRegex = /##\s+([^\n]+)([\s\S]*?)(?=\n##|$)/g;
+    
+    let match;
+    while ((match = sectionRegex.exec(content)) !== null) {
+      sections.push({
+        title: match[1].trim(),
+        content: match[2].trim()
+      });
+    }
+    
+    const processedSections = sections.map(section => {
+      // Determine styling based on section title
+      let sectionClass = '';
+      let headerClass = '';
+      let iconHtml = '';
+      
+      switch(section.title) {
+        case 'Reasons to Move Forward':
+          sectionClass = 'bg-green-50 border-green-200 mb-4';
+          headerClass = 'bg-green-100 text-green-800 border-b border-green-200';
+          iconHtml = '<span class="mr-2">✅</span>';
+          break;
+        case 'Reasons Not to Move Forward':
+          sectionClass = 'bg-amber-50 border-amber-200 mb-4';
+          headerClass = 'bg-amber-100 text-amber-800 border-b border-amber-200';
+          iconHtml = '<span class="mr-2">⚠️</span>';
+          break;
+        case 'Decision':
+          sectionClass = 'bg-purple-50 border-purple-200 mb-4';
+          headerClass = 'bg-purple-100 text-purple-800 border-b border-purple-200';
+          iconHtml = '<span class="mr-2">🎯</span>';
+          break;
+        case 'Key Questions':
+          sectionClass = 'bg-blue-50 border-blue-200 mb-4';
+          headerClass = 'bg-blue-100 text-blue-800 border-b border-blue-200';
+          iconHtml = '<span class="mr-2">❓</span>';
+          break;
+        default:
+          sectionClass = 'bg-gray-50 border-gray-200 mb-4';
+          headerClass = 'bg-gray-100 text-gray-800 border-b border-gray-200';
+      }
+      
+      // Process bullet points and paragraphs
+      const lines = section.content.split('\n');
+      const contentHtml: string[] = [];
+      let inList = false;
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        if (!line) {
+          if (inList) {
+            inList = false;
+            contentHtml.push('</ul>');
+          }
+          contentHtml.push('<div class="h-2"></div>');
+          continue;
+        }
+        
+        // Handle numbered or bullet points
+        if (line.match(/^\d+\.\s/) || line.startsWith('-') || line.startsWith('•') || line.startsWith('*')) {
+          const isNumbered = line.match(/^\d+\.\s/);
+          const listItemContent = isNumbered 
+            ? line.replace(/^\d+\.\s/, '') 
+            : line.substring(1).trim();
+          
+          if (!inList) {
+            inList = true;
+            const listType = isNumbered ? 'ol' : 'ul';
+            const listClass = isNumbered 
+              ? 'list-decimal pl-5 space-y-1 my-2' 
+              : 'list-disc pl-5 space-y-1 my-2';
+            contentHtml.push(`<${listType} class="${listClass}">`);
+          }
+          
+          const itemClass = section.title === 'Reasons to Move Forward' 
+            ? 'text-green-800' 
+            : section.title === 'Reasons Not to Move Forward' 
+              ? 'text-amber-800' 
+              : 'text-gray-800';
+          
+          contentHtml.push(`<li class="${itemClass} ml-1">${processText(listItemContent)}</li>`);
+        } else {
+          if (inList) {
+            inList = false;
+            contentHtml.push('</ul>');
+          }
+          
+          contentHtml.push(`<p class="text-gray-800 my-2">${processText(line)}</p>`);
+        }
+      }
+      
+      if (inList) {
+        contentHtml.push('</ul>');
+      }
+      
+      // Build the full section HTML
+      return `
+        <div class="rounded-lg border overflow-hidden ${sectionClass} shadow-sm">
+          <div class="flex items-center font-semibold p-3 ${headerClass}">
+            ${iconHtml}${section.title}
+          </div>
+          <div class="p-4">
+            ${contentHtml.join('')}
+          </div>
+        </div>
+      `;
+    });
+    
+    // Return the processed HTML
+    return <div dangerouslySetInnerHTML={{ __html: processedSections.join('') }} />;
+  };
+  
+  // Enhanced function for rendering Associate analysis with section-specific styling
+  const renderAssociateAnalysis = (content: string) => {
+    if (!content) return null;
+    
+    // Process the markdown text to convert simple markdown to JSX - same as original
+    const processText = (text: string) => {
+      // Auto-enhance numbers and percentages
+      const enhancedText = text.replace(/(\$\d+(?:\.\d+)?(?:K|M|B)?|\d+(?:\.\d+)?%|\d+(?:\,\d+)+)/g, '<span class="font-semibold text-purple-900">$1</span>');
+      
+      // Replace **bold** with styled spans
+      let processedText = enhancedText.replace(/\*\*(.*?)\*\*/g, '<span class="font-bold text-purple-800">$1</span>');
+      
+      // Replace __underline__ with styled spans
+      processedText = processedText.replace(/__(.*?)__/g, '<span class="underline decoration-purple-500 decoration-2">$1</span>');
+      
+      // Replace *italic* with styled spans
+      processedText = processedText.replace(/\*(.*?)\*/g, '<span class="italic text-purple-700">$1</span>');
+      
+      // Replace `code` with styled spans
+      processedText = processedText.replace(/`(.*?)`/g, '<span class="bg-gray-100 text-purple-800 px-1 py-0.5 rounded font-mono text-sm">$1</span>');
+      
+      // Create links
+      processedText = processedText.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" class="text-blue-600 underline hover:text-blue-800" target="_blank">$1</a>');
+      
+      return processedText;
+    };
+    
+    // Extract sections using regex to match "## Section Title" patterns
+    const sections: {title: string, content: string}[] = [];
+    const sectionRegex = /##\s+([^\n]+)([\s\S]*?)(?=\n##|$)/g;
+    
+    let match;
+    while ((match = sectionRegex.exec(content)) !== null) {
+      sections.push({
+        title: match[1].trim(),
+        content: match[2].trim()
+      });
+    }
+    
+    const processedSections = sections.map(section => {
+      // Determine styling based on section title
+      let sectionClass = '';
+      let headerClass = '';
+      let iconHtml = '';
+      
+      switch(section.title) {
+        case 'Sense Check':
+          sectionClass = 'bg-purple-50 border-purple-200 mb-4';
+          headerClass = 'bg-purple-100 text-purple-800 border-b border-purple-200';
+          iconHtml = '<span class="mr-2">🔍</span>';
+          break;
+        case 'Completeness Check':
+          sectionClass = 'bg-blue-50 border-blue-200 mb-4';
+          headerClass = 'bg-blue-100 text-blue-800 border-b border-blue-200';
+          iconHtml = '<span class="mr-2">📋</span>';
+          
+          // Extract score if present
+          const scoreMatch = section.content.match(/Score:\s*\[(\d+)(?:-\d+)?\]\/10/);
+          if (scoreMatch) {
+            const score = parseInt(scoreMatch[1]);
+            let scoreColor = score >= 8 ? 'text-green-600' : score >= 5 ? 'text-amber-600' : 'text-red-600';
+            section.content = section.content.replace(
+              /Score:\s*\[(\d+)(?:-\d+)?\]\/10/, 
+              `Score: <span class="font-bold ${scoreColor}">[${scoreMatch[1]}]/10</span>`
+            );
+          }
+          break;
+        case 'Quality Check':
+          sectionClass = 'bg-indigo-50 border-indigo-200 mb-4';
+          headerClass = 'bg-indigo-100 text-indigo-800 border-b border-indigo-200';
+          iconHtml = '<span class="mr-2">⭐</span>';
+          break;
+        default:
+          sectionClass = 'bg-gray-50 border-gray-200 mb-4';
+          headerClass = 'bg-gray-100 text-gray-800 border-b border-gray-200';
+      }
+      
+      // Process bullet points and paragraphs
+      const lines = section.content.split('\n');
+      const contentHtml: string[] = [];
+      let inList = false;
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        if (!line) {
+          if (inList) {
+            inList = false;
+            contentHtml.push('</ul>');
+          }
+          contentHtml.push('<div class="h-2"></div>');
+          continue;
+        }
+        
+        // Handle assessment or score lines specifically
+        if (line.startsWith('Assessment:') || line.startsWith('Score:')) {
+          if (inList) {
+            inList = false;
+            contentHtml.push('</ul>');
+          }
+          contentHtml.push(`<p class="text-gray-800 font-medium my-2">${processText(line)}</p>`);
+          continue;
+        }
+        
+        // Handle bullet points
+        if (line.startsWith('-') || line.startsWith('•') || line.startsWith('*')) {
+          const bulletContent = line.substring(1).trim();
+          
+          if (!inList) {
+            inList = true;
+            contentHtml.push('<ul class="list-disc pl-5 space-y-1 my-2">');
+          }
+          
+          contentHtml.push(`<li class="ml-1 text-indigo-800">${processText(bulletContent)}</li>`);
+        } else {
+          if (inList) {
+            inList = false;
+            contentHtml.push('</ul>');
+          }
+          
+          contentHtml.push(`<p class="text-gray-800 my-2">${processText(line)}</p>`);
+        }
+      }
+      
+      if (inList) {
+        contentHtml.push('</ul>');
+      }
+      
+      // Build the full section HTML
+      return `
+        <div class="rounded-lg border overflow-hidden ${sectionClass} shadow-sm">
+          <div class="flex items-center font-semibold p-3 ${headerClass}">
+            ${iconHtml}${section.title}
+          </div>
+          <div class="p-4">
+            ${contentHtml.join('')}
+          </div>
+        </div>
+      `;
+    });
+    
+    // Return the processed HTML
+    return <div dangerouslySetInnerHTML={{ __html: processedSections.join('') }} />;
+  };
+
   // Create hardcoded questions for Pedram Mode that don't depend on user selections
   const pedramModeFinanceQuestions: InvestmentMemoQuestion[] = [
     {
@@ -2032,7 +2319,7 @@ Your response should read like a crisp, authoritative investment decision from a
                 <div className="text-red-600 p-4 bg-red-50 rounded-lg border border-red-200">{associateData.error}</div>
               ) : hasAssociateAnalysis ? (
                 <div className="prose prose-sm max-w-none">
-                  {renderMarkdown(associateData.analysis)}
+                  {renderAssociateAnalysis(associateData.analysis)}
                 </div>
               ) : (
                 <p className="text-gray-600 italic bg-purple-50 p-4 rounded-lg border border-purple-100">
@@ -2414,7 +2701,7 @@ Your response should read like a crisp, authoritative investment decision from a
             ) : pedramDecision.decision ? (
               <div className="mt-4 bg-white rounded-lg border border-purple-200 overflow-hidden">
                 <div className="prose prose-sm max-w-none p-6">
-                  {renderMarkdown(pedramDecision.decision)}
+                  {renderPedramDecision(pedramDecision.decision)}
                 </div>
                 
                 {/* Add BenchmarkComparisonRenderer */}
