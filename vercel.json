@@ -1,0 +1,12 @@
+{
+  "buildCommand": "cd mindvault && npm install && npm run build",
+  "outputDirectory": "mindvault/.next",
+  "framework": "nextjs",
+  "installCommand": "cd mindvault && npm install",
+  "functions": {
+    "app/api/**/*": {
+      "maxDuration": 60
+    }
+  }
+}
+

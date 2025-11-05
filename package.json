@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "build": "cd mindvault && npm run build",
+    "install": "cd mindvault && npm install"
+  },
   "dependencies": {
     "@sparticuz/chromium": "^133.0.0",
     "groq-sdk": "^0.16.0",
