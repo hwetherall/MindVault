@@ -1,5 +1,5 @@
 {
-  "installCommand": "npm install && npm install react-syntax-highlighter @types/react-syntax-highlighter",
+  "installCommand": "npm ci",
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",

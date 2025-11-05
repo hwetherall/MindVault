@@ -186,9 +186,12 @@ export function prepareDocumentsForQuestion(
     return [];
   }
 
+  // Merge options with defaults
+  const opts = { ...DEFAULT_OPTIONS, ...options };
+
   // For small documents, return as-is
   const totalSize = files.reduce((sum, file) => sum + (file.content?.length || 0), 0);
-  if (totalSize <= options.maxChunkSize || totalSize <= 10000) {
+  if (totalSize <= opts.maxChunkSize || totalSize <= 10000) {
     return files;
   }
 
@@ -196,7 +199,7 @@ export function prepareDocumentsForQuestion(
   const preparedFiles: DocumentFile[] = [];
 
   for (const file of files) {
-    const chunks = chunkDocument(file, options);
+    const chunks = chunkDocument(file, opts);
     const relevantChunks = selectRelevantChunks(chunks, question, 3);
 
     if (relevantChunks.length > 0) {

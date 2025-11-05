@@ -1,10 +1,10 @@
 {
   "buildCommand": "cd mindvault && npm run build",
-  "installCommand": "cd mindvault && npm install && npm install react-syntax-highlighter @types/react-syntax-highlighter",
+  "installCommand": "cd mindvault && npm ci",
   "outputDirectory": "mindvault/.next",
   "framework": "nextjs",
   "functions": {
-    "app/api/**/*": {
+    "mindvault/app/api/**/*": {
       "maxDuration": 60
     }
   }
