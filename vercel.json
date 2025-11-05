@@ -1,10 +1,10 @@
 {
   "buildCommand": "npm run build",
   "installCommand": "npm install",
-  "outputDirectory": "mindvault/.next",
+  "outputDirectory": ".next",
   "framework": "nextjs",
   "functions": {
-    "mindvault/app/api/**/*": {
+    "app/api/**/*": {
       "maxDuration": 60
     }
   }
