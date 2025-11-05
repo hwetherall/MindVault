@@ -598,25 +598,32 @@ const uploadSpreadsheet = async (file) => {
  */
 const getFiles = async () => {
   try {
-    console.log('Fetching all files from database');
+    console.log('[getFiles] Fetching all files from database');
 
+    // Explicitly select all columns including content
     const { data, error } = await supabase
       .from('documents')
-      .select('*')
+      .select('id, title, name, file_type, file_size, content, structured_data, public_url, created_at')
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching files:', error);
+      console.error('[getFiles] Error fetching files:', error);
       throw error;
     }
 
-    console.log(`Retrieved ${data.length} files from database`);
+    console.log(`[getFiles] Retrieved ${data.length} files from database`);
     
-    return data.map(file => {
+    const mappedFiles = data.map((file, index) => {
+      const contentLength = file.content ? file.content.length : 0;
+      const hasContent = Boolean(file.content && contentLength > 0);
+      
+      console.log(`[getFiles] File ${index + 1}: ${file.title || file.name || 'Unnamed'}, type: ${file.file_type || 'unknown'}, content length: ${contentLength}, hasContent: ${hasContent}`);
+      
+      if (!hasContent) {
+        console.warn(`[getFiles] WARNING: File ${file.title || file.name} has no content! Content field: ${file.content === null ? 'null' : file.content === undefined ? 'undefined' : 'empty string'}`);
+      }
+      
       if (file.file_type && file.file_type.includes('spreadsheet')) {
-        // Log for debugging
-        console.log(`Processing spreadsheet: ${file.title}, content length: ${file.content ? file.content.length : 0}`);
-        
         // Return as Spreadsheet type
         return {
           id: file.id,
@@ -629,9 +636,6 @@ const getFiles = async () => {
           url: file.public_url
         };
       } else {
-        // Log for debugging
-        console.log(`Processing document: ${file.title}, content length: ${file.content ? file.content.length : 0}`);
-        
         // Return as Document type
         return {
           id: file.id,
@@ -644,8 +648,14 @@ const getFiles = async () => {
         };
       }
     });
+    
+    const totalContentLength = mappedFiles.reduce((sum, f) => sum + (f.content?.length || 0), 0);
+    console.log(`[getFiles] Total content length across all files: ${totalContentLength} characters`);
+    console.log(`[getFiles] Returning ${mappedFiles.length} files`);
+    
+    return mappedFiles;
   } catch (e) {
-    console.error('Could not fetch files from Supabase:', e);
+    console.error('[getFiles] Could not fetch files from Supabase:', e);
     return [];
   }
 };

@@ -35,6 +35,22 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { question, files, instructions, model } = body;
     
+    // Debug logging for file content
+    console.log(`[API /analyze] Received request with ${files?.length || 0} files`);
+    if (files && files.length > 0) {
+      files.forEach((file: any, index: number) => {
+        const contentLength = file.content ? file.content.length : 0;
+        console.log(`[API /analyze] File ${index + 1}: ${file.name}, type: ${file.type}, content length: ${contentLength}`);
+        if (!file.content || contentLength === 0) {
+          console.warn(`[API /analyze] WARNING: File ${file.name} has no content!`);
+        } else {
+          console.log(`[API /analyze] File ${file.name} content preview (first 200 chars): ${file.content.substring(0, 200)}...`);
+        }
+      });
+    } else {
+      console.warn(`[API /analyze] WARNING: No files received in request!`);
+    }
+    
     requestLogger.processingStart('analyze', { question: question.substring(0, 100), fileCount: files?.length || 0 });
     
     if (!question) {
@@ -60,6 +76,13 @@ export async function POST(req: NextRequest) {
       type: file.type,
       content: file.content || ''
     }));
+    
+    // Debug logging after mapping
+    console.log(`[API /analyze] Mapped ${documentFiles.length} document files`);
+    documentFiles.forEach((file, index) => {
+      const contentLength = file.content ? file.content.length : 0;
+      console.log(`[API /analyze] Mapped file ${index + 1}: ${file.name}, content length: ${contentLength}`);
+    });
 
     // Use intelligent chunking for large documents
     const totalSize = documentFiles.reduce((sum, file) => sum + (file.content?.length || 0), 0);

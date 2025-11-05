@@ -84,9 +84,15 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
       try {
         // Load files
         const loadedFiles = await filesService.getFiles();
+        console.log(`[MainLayout] Loaded ${loadedFiles.length} files from database`);
+        loadedFiles.forEach((file, index) => {
+          const contentLength = file.content ? file.content.length : 0;
+          console.log(`[MainLayout] File ${index + 1}: ${file.name}, content length: ${contentLength}`);
+        });
         setFiles(loadedFiles);
+        console.log(`[MainLayout] Files set in state, total: ${loadedFiles.length}`);
       } catch (error) {
-        console.error('Error loading content:', error);
+        console.error('[MainLayout] Error loading content:', error);
         showToast('Failed to load content', 'error');
       }
     };
@@ -156,14 +162,20 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
         return null;
       });
 
-      const uploadedFiles = await Promise.all(uploadPromises);
-      const validFiles = uploadedFiles.filter(file => file && file.id);
+      await Promise.all(uploadPromises);
       
-      if (validFiles.length > 0) {
-        setFiles(prev => [...prev, ...validFiles]);
-      }
+      // Reload all files from database to ensure we have complete data including content
+      console.log('[MainLayout] Reloading files from database after upload');
+      const reloadedFiles = await filesService.getFiles();
+      console.log(`[MainLayout] Reloaded ${reloadedFiles.length} files from database after upload`);
+      reloadedFiles.forEach((file, index) => {
+        const contentLength = file.content ? file.content.length : 0;
+        console.log(`[MainLayout] Reloaded file ${index + 1}: ${file.name}, content length: ${contentLength}`);
+      });
+      setFiles(reloadedFiles);
+      console.log(`[MainLayout] Files updated in state after upload, total: ${reloadedFiles.length}`);
     } catch (error) {
-      console.error('Error uploading files:', error);
+      console.error('[MainLayout] Error uploading files:', error);
       alert('Failed to upload one or more files. Please try again.');
     }
   };
@@ -395,6 +407,12 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
             {/* Right Column - Investment Memo Content */}
             <div className={`transition-all duration-300 ease-in-out ${isCollapsed ? 'md:col-span-11' : 'md:col-span-8'}`}>
               <div className="border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-all duration-200 p-6">
+                {(() => {
+                  // Debug logging when passing files to InvestmentMemoMain
+                  const totalContentLength = files.reduce((sum, f) => sum + (f.content?.length || 0), 0);
+                  console.log(`[MainLayout] Passing ${files.length} files to InvestmentMemoMain, total content length: ${totalContentLength}`);
+                  return null;
+                })()}
                 <InvestmentMemoMain 
                   files={files} 
                   onComplete={handleAnalysisComplete} 

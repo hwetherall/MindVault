@@ -324,6 +324,16 @@ const processQuestionWithAI = async (question: string, files: any[], category: s
     const questionDetails = questionId ? getQuestionById(questionId) : null;
     
     // Get file content for each file
+    console.log(`[processQuestionWithAI] Processing question: "${question.substring(0, 50)}..."`);
+    console.log(`[processQuestionWithAI] Received ${files.length} files`);
+    files.forEach((file, index) => {
+      const contentLength = file.content ? file.content.length : 0;
+      console.log(`[processQuestionWithAI] File ${index + 1}: ${file.name}, type: ${file.type}, content length: ${contentLength}`);
+      if (!file.content || contentLength === 0) {
+        console.warn(`[processQuestionWithAI] WARNING: File ${file.name} has no content!`);
+      }
+    });
+    
     const fileContents = files.map(file => {
       return {
         name: file.name,
@@ -331,6 +341,9 @@ const processQuestionWithAI = async (question: string, files: any[], category: s
         content: file.content || 'Content not available'
       };
     });
+    
+    const totalContentLength = fileContents.reduce((sum, f) => sum + (f.content?.length || 0), 0);
+    console.log(`[processQuestionWithAI] Total content length being sent to API: ${totalContentLength} characters`);
     
     // Determine instructions based on question and category
     let instructions = '';
@@ -575,6 +588,17 @@ const InvestmentMemoMain: React.FC<InvestmentMemoProps> = ({
   onComplete,
   onAnswerUpdate
 }) => {
+  // Debug logging when component receives files
+  useEffect(() => {
+    console.log(`[InvestmentMemoMain] Component received ${files.length} files`);
+    files.forEach((file, index) => {
+      const contentLength = file.content ? file.content.length : 0;
+      console.log(`[InvestmentMemoMain] File ${index + 1}: ${file.name}, type: ${file.type}, content length: ${contentLength}`);
+      if (!file.content || contentLength === 0) {
+        console.warn(`[InvestmentMemoMain] WARNING: File ${file.name} has no content!`);
+      }
+    });
+  }, [files]);
   // State for question selection modal
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);

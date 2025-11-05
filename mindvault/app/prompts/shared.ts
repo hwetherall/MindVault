@@ -130,15 +130,25 @@ export function formatDocumentsForPrompt(
   files: DocumentFile[],
   maxLength: number = 10000
 ): string {
+  console.log(`[formatDocumentsForPrompt] Formatting ${files?.length || 0} files for prompt`);
+  
   if (!files || files.length === 0) {
+    console.warn(`[formatDocumentsForPrompt] WARNING: No files provided!`);
     return 'No documents provided.';
   }
 
   let documentContent = '';
   files.forEach((file, index) => {
-    const truncated = file.content.length > maxLength
+    const contentLength = file.content ? file.content.length : 0;
+    console.log(`[formatDocumentsForPrompt] File ${index + 1}: ${file.name}, type: ${file.type}, content length: ${contentLength}`);
+    
+    if (!file.content || contentLength === 0) {
+      console.warn(`[formatDocumentsForPrompt] WARNING: File ${file.name} has no content!`);
+    }
+    
+    const truncated = file.content && file.content.length > maxLength
       ? file.content.substring(0, maxLength) + '... (content truncated)'
-      : file.content;
+      : (file.content || 'No content available');
     
     documentContent += `
 Document ${index + 1}: ${file.name}
@@ -149,6 +159,9 @@ ${truncated}
 `;
   });
 
+  const finalLength = documentContent.length;
+  console.log(`[formatDocumentsForPrompt] Final formatted content length: ${finalLength} characters`);
+  
   return documentContent.trim();
 }
 
