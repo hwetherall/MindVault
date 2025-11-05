@@ -9,7 +9,7 @@ const REQUEST_TIMEOUT = 45000; // 45 seconds in milliseconds
 // Function to make OpenRouter API calls
 export async function callOpenRouterAPI(
   messages: any[],
-  model: string = 'x-ai/grok-3-beta',
+  model: string = 'google/gemini-2.5-pro',
   temperature: number = 0.3,
   maxTokens: number = 1500
 ) {

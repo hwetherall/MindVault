@@ -89,7 +89,7 @@ ${pitchDeckFile.content ? pitchDeckFile.content.substring(0, 3000) + '...' : 'Co
     });
     
     try {
-      requestLogger.apiCall('openrouter.ai', 'POST', { category, model: 'x-ai/grok-3-beta' });
+      requestLogger.apiCall('openrouter.ai', 'POST', { category, model: 'google/gemini-2.5-pro' });
       
       // Use the shared OpenRouter API client
       const analysis = await callOpenRouterAPI([
@@ -98,7 +98,7 @@ ${pitchDeckFile.content ? pitchDeckFile.content.substring(0, 3000) + '...' : 'Co
           content: getAssociateSystemMessage(category)
         },
         { role: 'user', content: prompt }
-      ], 'x-ai/grok-3-beta');
+      ], 'google/gemini-2.5-pro');
       
       const processingTime = Date.now() - startTime;
       requestLogger.processingComplete('associate-analysis', processingTime);

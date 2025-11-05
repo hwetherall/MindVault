@@ -82,6 +82,21 @@ function validateAnalysis(analysis: string | undefined): { isValid: boolean; err
     return { isValid: false, errors, warnings };
   }
   
+  // Check for document availability status (bad)
+  const availabilityPhrases = [
+    /analysis was performed/i,
+    /excel analysis:?\s*(available|unavailable)/i,
+    /pdf analysis:?\s*(available|unavailable)/i,
+    /documents? (were|was) analyzed/i,
+    /some document types? may have been/i
+  ];
+  
+  for (const pattern of availabilityPhrases) {
+    if (pattern.test(analysis)) {
+      errors.push('Analysis section contains document availability status instead of insights - focus on what the data shows');
+    }
+  }
+  
   // Split into bullet points
   const bulletPoints = analysis.split(/^[-•*]\s*/m).filter(point => point.trim().length > 0);
   
@@ -105,7 +120,14 @@ function validateAnalysis(analysis: string | undefined): { isValid: boolean; err
     warnings.push('Analysis section may not contain time references');
   }
   
-  return { isValid: true, errors, warnings };
+  // Check for insight-focused language (good)
+  const insightKeywords = ['grew', 'increased', 'decreased', 'accelerated', 'decelerated', 'exceeds', 'below', 'indicating', 'suggesting', 'demonstrating', 'trend', 'comparison', 'benchmark'];
+  const hasInsights = insightKeywords.some(keyword => analysis.toLowerCase().includes(keyword));
+  if (!hasInsights && bulletPoints.length > 0) {
+    warnings.push('Analysis section may lack insight-focused language - consider adding trends, comparisons, or implications');
+  }
+  
+  return { isValid: errors.length === 0, errors, warnings };
 }
 
 /**
@@ -186,6 +208,20 @@ export function validateAnswer(answer: string): ParsedAnswer {
     warnings.push('No citations found in source section');
   } else if (citationCheck.quality === 'low') {
     warnings.push('Citation quality is low - consider adding page/sheet references');
+  }
+
+  // Check for banned generic phrases in source section
+  const bannedPhrases = [
+    'combined results from available',
+    'analysis was performed on available',
+    'available document analyses'
+  ];
+  
+  const lowerSource = (sections.source || '').toLowerCase();
+  for (const phrase of bannedPhrases) {
+    if (lowerSource.includes(phrase)) {
+      errors.push(`Source section contains banned generic phrase: "${phrase}" - use specific citations instead`);
+    }
   }
   
   // Parse analysis into bullet points

@@ -18,57 +18,88 @@ export interface PromptContext {
 
 /**
  * Standard output format instructions for analyst responses
+ * Designed for VC investment analysis
  */
 export const STANDARD_OUTPUT_FORMAT = `
 Your answer MUST be structured in the following format:
 
 # Source
-CRITICAL: You MUST provide specific citations for every piece of information you use. Include:
-- Document name(s) - Use the exact filename (e.g., "Go1_Pitch_Deck.pdf")
-- Page numbers for PDFs - Always include page numbers (e.g., "Pitch Deck, page 5")
-- Sheet names for Excel files - Always include sheet name (e.g., "Financial Data, sheet 'Revenue'")
-- Cell references when specific data points are referenced - Include cell reference or column/row (e.g., "cell B10" or "Q2 2023 column")
-- Section names if applicable (e.g., "Financial Overview section, page 12")
+CRITICAL: You MUST provide SPECIFIC, ACTIONABLE citations. Never use generic phrases like "combined results" or "available documents". Instead:
 
-Example good citation: "Go1_Pitch_Deck.pdf, page 5, Revenue Metrics section; Financial_Data.xlsx, sheet 'Historical Metrics', cell B10"
+For EACH data point you cite, include:
+- Exact document filename (e.g., "Go1_Pitch_Deck.pdf")
+- Specific page number for PDFs (e.g., "page 12, Revenue Growth slide")
+- Exact sheet name for Excel files (e.g., "sheet 'Historical Metrics'")
+- Specific cell reference or column/row when possible (e.g., "cell B15" or "March 2021 column")
+- Section or slide title if applicable (e.g., "Financial Highlights section, page 8")
+
+BAD example: "Combined results from available document analyses"
+GOOD example: "Go1_Pitch_Deck.pdf, page 12, 'Revenue Growth' slide shows ARR growth metrics; Financial_Data.xlsx, sheet 'Historical Metrics', March 2021 column (cell range B10:B15) contains ARR figures for comparison period"
 
 # Analysis
-- Provide 3-5 bullet points with key findings from your analysis
-- Each bullet should be concise and focused on a specific insight
-- Include relevant figures, dates, or metrics when available
-- Format numbers with currency codes using million/billion suffixes (e.g., "40.49m AUD" not "40,485,584.91 AUD")
-- Always include the currency code (USD, AUD, EUR, etc.) with financial figures
+Provide 3-5 bullet points with ACTIONABLE INSIGHTS that a VC would care about. Each bullet should:
+
+- Focus on WHAT the data shows, not document availability
+- Include specific figures with proper formatting (e.g., "109% YoY growth" not "growth was high")
+- Provide context and trends (e.g., "Growth accelerated from 75% in 2020 to 109% in 2021")
+- Highlight implications or comparisons when relevant (e.g., "This exceeds typical SaaS benchmarks of 40-60%")
+- Note any important caveats or time periods
+
+BAD example: "Analysis was performed on available documents. Excel analysis: Available. PDF analysis: Available."
+GOOD example: 
+- "ARR grew 109% YoY from March 2020 to March 2021, accelerating from 75% growth in the prior period"
+- "Customer base expanded 47.88% YoY, indicating strong acquisition momentum alongside revenue growth"
+- "Growth rate significantly exceeds typical Series B SaaS benchmarks of 40-60% YoY"
+
+Format numbers with currency codes using million/billion suffixes (e.g., "40.49m AUD" not "40,485,584.91 AUD")
 
 # Conclusion
-Provide a 1-2 sentence direct answer to the question. Be specific and include exact figures when available. Always include currency codes with financial figures.
+Provide a direct, concise answer that a VC partner would want to see. Include:
+- The specific metric requested with exact figures
+- Time period (e.g., "as of March 2021" or "for FY2021")
+- Currency when applicable
+- One sentence of context if it adds value (e.g., comparison to benchmarks or trend direction)
 
-DO NOT include your thinking process or explain your approach. Focus only on providing the requested sections with relevant information found in the documents.
+BAD example: "The Year-over-Year (YoY) growth rate for ARR is 109% as of March 2021. The customer base also grew by 47.88% YoY."
+GOOD example: "The Year-over-Year (YoY) growth rate for ARR is 109% as of March 2021, up from 75% in the prior period. The customer base grew 47.88% YoY over the same period, indicating strong product-market fit and efficient scaling."
+
+DO NOT include your thinking process, document availability status, or explain your approach. Focus ONLY on delivering insights from the documents.
 `;
 
 /**
- * Example of good output format
+ * Example of good output format (VC-focused)
  */
 export const EXAMPLE_GOOD_OUTPUT = `
 # Source
-- Pitch Deck, page 5: Revenue metrics section
-- Financial Data Excel, sheet "Historical Metrics", cell B10: ARR figure for Q4 2023
+- Go1_Pitch_Deck.pdf, page 12, "Revenue Growth" slide: YoY growth metrics and historical ARR figures
+- Financial_Data.xlsx, sheet "Historical Metrics", March 2021 column (cells B10-B15): ARR figures for current and prior year periods
+- Go1_Pitch_Deck.pdf, page 15, "Customer Metrics" section: Customer count data for YoY comparison
 
 # Analysis
-- Current ARR is 40.49m AUD as of Q4 2023, representing a 120% year-over-year growth
-- The company has achieved consistent quarterly growth averaging 15% per quarter
-- Revenue breakdown shows 80% from subscriptions and 20% from professional services
-- The company projects ARR to reach 60m AUD by end of Q2 2024
+- ARR grew 109% YoY from March 2020 to March 2021, accelerating from 75% growth in the prior period, indicating strong momentum
+- Customer base expanded 47.88% YoY over the same period, demonstrating both acquisition efficiency and retention strength
+- Growth rate significantly exceeds typical Series B SaaS benchmarks of 40-60% YoY, positioning the company favorably for next funding round
+- The acceleration from 75% to 109% suggests the company is hitting an inflection point in market penetration
 
 # Conclusion
-The company's current ARR is 40.49m AUD as of Q4 2023, with strong growth trajectory indicating strong product-market fit.
+The Year-over-Year (YoY) growth rate for ARR is 109% as of March 2021, up from 75% in the prior period. The customer base grew 47.88% YoY over the same period, indicating strong product-market fit and efficient scaling.
 `;
 
 /**
  * Example of bad output format (to guide AI)
  */
 export const EXAMPLE_BAD_OUTPUT = `
-I found some information about revenue in the documents. The company seems to be doing well financially. 
-There's a number around 40 million but I'm not sure of the exact currency or timeframe.
+# Source
+Combined results from available document analyses.
+
+# Analysis
+- Analysis was performed on available documents
+- Excel analysis: Available
+- PDF analysis: Available
+- Some document types may have been unavailable for analysis
+
+# Conclusion
+The Year-over-Year (YoY) growth rate for ARR is 109% as of March 2021. The customer base also grew by 47.88% YoY.
 `;
 
 /**
@@ -126,11 +157,15 @@ ${truncated}
  */
 export const ANSWER_VALIDATION_CRITERIA = `
 Before finalizing your answer, verify:
-1. Source section includes specific document names and locations (page/sheet/cell)
-2. Analysis section contains 3-5 specific, data-driven bullet points
-3. Conclusion provides a direct, factual answer with specific figures
-4. All financial figures include currency codes
-5. Numbers are formatted using million/billion suffixes when appropriate (e.g., "40.49m" not "40,485,584")
-6. No assumptions are made - only information explicitly found in documents is used
+1. Source section includes SPECIFIC citations (document names, page numbers, sheet names, cell references) - NEVER use generic phrases like "combined results" or "available documents"
+2. Analysis section contains 3-5 ACTIONABLE INSIGHTS with specific figures - NOT document availability status
+3. Analysis bullets focus on WHAT the data shows (trends, comparisons, implications) not HOW you analyzed it
+4. Conclusion provides a direct, factual answer with specific figures and context
+5. All financial figures include currency codes
+6. Numbers are formatted using million/billion suffixes when appropriate (e.g., "40.49m" not "40,485,584")
+7. No generic phrases like "Analysis was performed" or "Documents were analyzed"
+8. Every data point in Analysis has a corresponding citation in Source
+9. If trends exist, note acceleration/deceleration patterns
+10. If benchmarks are available, include comparisons
 `;
 

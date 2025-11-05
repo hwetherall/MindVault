@@ -19,8 +19,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { financeAnalysis, marketAnalysis, files, model, benchmarkEnabled, benchmarkCompanyId } = body;
     
-    // Use the model specified in the request, or default to grok-3-beta if not provided
-    const modelToUse = model || "x-ai/grok-3-beta";
+    // Use the model specified in the request, or default to gemini-2.5-pro if not provided
+    const modelToUse = model || "google/gemini-2.5-pro";
     
     requestLogger.info(`Processing Pedram decision`, { model: modelToUse, benchmarkEnabled });
     

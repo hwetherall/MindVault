@@ -30,15 +30,15 @@ const modelInfo = {
     component: "Analyst (Fast Mode)"
   },
   associate: {
-    id: "x-ai/grok-3-beta",
+    id: "google/gemini-2.5-pro",
     description: "Advanced analysis of analyst findings",
-    displayName: "The Associate is reviewing the analysis with Grok-3.",
+    displayName: "The Associate is reviewing the analysis with Gemini 2.5 Pro.",
     component: "Associate"
   },
   pedram: {
-    id: "openai/o1",
+    id: "google/gemini-2.5-pro",
     description: "Final decision making",
-    displayName: "Pedram is making the final decision with OpenAI o1.",
+    displayName: "Pedram is making the final decision with Gemini 2.5 Pro.",
     component: "Pedram"
   }
 };
@@ -772,7 +772,7 @@ ${financeAnalysis}
 2. Market Research Analysis:
 ${marketAnalysis}
 
-TASK (Using OpenAI o1 model):
+TASK (Using Gemini 2.5 Pro model):
 Based on these analyses, provide a final investment decision on whether this company should progress to the next stage of investment consideration.
 
 Your response should follow this EXACT format:
@@ -1622,7 +1622,7 @@ Your response should read like a crisp, authoritative investment decision from a
           financeAnalysis,
           marketAnalysis,
           files,
-          model: "openai/o1",
+          model: "google/gemini-2.5-pro",
           benchmarkEnabled: actuallyUseBenchmark,
           benchmarkCompanyId: selectedBenchmarkId
         }),
