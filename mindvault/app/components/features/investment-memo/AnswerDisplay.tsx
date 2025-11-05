@@ -50,7 +50,8 @@ const AnswerDisplay: React.FC<AnswerDisplayProps> = ({
   onRegenerate, 
   showPlayground = false,
   onInstructionsChange,
-  currentInstructions
+  currentInstructions,
+  questionId
 }) => {
   // Add state to track if details are expanded
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(showPlayground);
