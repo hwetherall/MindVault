@@ -1,0 +1,13 @@
+{
+  "rootDirectory": "mindvault",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install && npm install react-syntax-highlighter @types/react-syntax-highlighter",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "functions": {
+    "app/api/**/*": {
+      "maxDuration": 60
+    }
+  }
+}
+
