@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { formatNumbersInText } from '../../../utils/textFormatting';
 import ChartComponent, { ChartData } from '../../ChartComponent';
 import PromptPlayground from './PromptPlayground';
+import { AnswerFeedback } from './AnswerFeedback';
 
 // Define the Answer interface locally 
 interface Answer {
@@ -28,6 +29,7 @@ interface AnswerDisplayProps {
   onRegenerate: () => void;
   showPlayground?: boolean;
   onInstructionsChange?: (value: string) => void;
+  questionId?: string;
   currentInstructions?: string;
 }
 
@@ -82,24 +84,52 @@ const AnswerDisplay: React.FC<AnswerDisplayProps> = ({
 
   // Show loading state
   if (answer.isLoading) {
+    const modelInfo = (answer as any).modelInfo || { displayName: 'Analyzing documents...', id: 'unknown' };
+    const progress = (answer as any).progress || 0;
+    
     return (
       <div className="space-y-6">
-        <div className="flex justify-end space-x-2">
-          <button
-            disabled
-            className="flex items-center text-sm px-3 py-1 rounded bg-gray-100 opacity-50 cursor-not-allowed"
-          >
-            <Edit2 className="h-3 w-3 mr-1" />
-            Edit
-          </button>
-          <button
-            disabled
-            className="flex items-center text-sm px-3 py-1 rounded bg-gray-100 opacity-50 cursor-not-allowed"
-          >
-            <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-            Regenerating
-          </button>
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+            <span>{modelInfo.displayName || 'Analyzing...'}</span>
+            {modelInfo.id && modelInfo.id !== 'unknown' && (
+              <span className="text-xs text-gray-500">({modelInfo.id})</span>
+            )}
+          </div>
+          <div className="flex space-x-2">
+            <button
+              disabled
+              className="flex items-center text-sm px-3 py-1 rounded bg-gray-100 opacity-50 cursor-not-allowed"
+            >
+              <Edit2 className="h-3 w-3 mr-1" />
+              Edit
+            </button>
+            <button
+              disabled
+              className="flex items-center text-sm px-3 py-1 rounded bg-gray-100 opacity-50 cursor-not-allowed"
+            >
+              <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+              Regenerating
+            </button>
+          </div>
         </div>
+
+        {/* Progress indicator */}
+        {progress > 0 && (
+          <div className="mb-4">
+            <div className="flex justify-between text-xs text-gray-600 mb-1">
+              <span>Processing...</span>
+              <span>{progress}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
 
         {/* Loading Summary Skeleton */}
         <div className="bg-blue-50 p-4 rounded-lg shadow-sm">
@@ -235,6 +265,29 @@ const AnswerDisplay: React.FC<AnswerDisplayProps> = ({
           Regenerate
         </button>
       </div>
+
+      {/* Feedback Component */}
+      {questionId && (
+        <AnswerFeedback
+          questionId={questionId}
+          onFeedback={async (feedback) => {
+            // Send feedback to API
+            try {
+              await fetch('/api/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  ...feedback,
+                  answerText: answer.details,
+                  questionText: questionId
+                })
+              });
+            } catch (error) {
+              console.error('Failed to submit feedback:', error);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

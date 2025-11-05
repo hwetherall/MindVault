@@ -197,6 +197,7 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
               onEdit={() => onEdit(question.id)}
               onRegenerate={handleRegenerate}
               showPlayground={showPlaygroundState}
+              questionId={question.id}
               onInstructionsChange={handleInstructionsChange}
               currentInstructions={editedInstructions || answer?.finalInstructions}
             />

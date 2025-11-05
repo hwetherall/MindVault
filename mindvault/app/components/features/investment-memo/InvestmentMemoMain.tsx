@@ -2438,9 +2438,21 @@ Your response should read like a crisp, authoritative investment decision from a
         </div>
         
         {loading > 0 && !pedramMode && (
-          <div className="flex items-center gap-2 text-blue-600 mb-4 mt-4">
-            <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full mr-1"></div>
-            <span>Analyzing {loading} question{loading > 1 ? 's' : ''}...</span>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 mt-4">
+            <div className="flex items-center gap-3">
+              <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-blue-700">
+                  Analyzing {loading} question{loading > 1 ? 's' : ''}...
+                </div>
+                <div className="text-xs text-blue-600 mt-1">
+                  {fastMode 
+                    ? `Using ${modelInfo.fast.displayName} (${modelInfo.fast.id})`
+                    : `Using ${modelInfo.normal.displayName} (${modelInfo.normal.id})`
+                  }
+                </div>
+              </div>
+            </div>
           </div>
         )}
         
@@ -2479,11 +2491,14 @@ Your response should read like a crisp, authoritative investment decision from a
                       : 'bg-purple-600 text-white hover:bg-purple-700'
                   }`}
                 >
-                  {pedramDecision.isLoading 
-                    ? 'Analyzing...' 
-                    : pedramDecision.decision 
-                      ? 'Update Decision' 
-                      : 'Ask Pedram'}
+                  {pedramDecision.isLoading ? (
+                    <span className="flex items-center">
+                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                      Analyzing with {modelInfo.pedram.id}...
+                    </span>
+                  ) : pedramDecision.decision 
+                    ? 'Update Decision' 
+                    : 'Ask Pedram'}
                 </button>
               </div>
             </div>
