@@ -28,8 +28,9 @@
     "**/*.ts",
     "**/*.tsx",
     "next-env.d.ts",
-    ".next/types/**/*.ts"
-, "app/services/customInstructionService.js"  ],
+    ".next/types/**/*.ts",
+    "app/services/customInstructionService.js"
+  ],
   "exclude": [
     "node_modules"
   ]
